@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.8",
+    "papaparse": "^5.5.4",
+    "simple-statistics": "^7.9.3",
+    "xlsx": "^0.18.5"
+  }
+}
