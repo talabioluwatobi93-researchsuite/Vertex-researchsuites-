@@ -19,6 +19,8 @@ export default function NewProposal() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [userId, setUserId] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [savedMsg, setSavedMsg] = useState('')
 
   useEffect(() => {
     const init = async () => {
@@ -92,6 +94,7 @@ export default function NewProposal() {
 
   const handleGenerate = async () => {
     setTopics('')
+    setSavedMsg('')
     setLoading(true)
 
     try {
@@ -107,6 +110,33 @@ export default function NewProposal() {
     }
 
     setLoading(false)
+  }
+
+  const handleSaveToBunker = async () => {
+    setSaving(true)
+    setSavedMsg('')
+
+    try {
+      const itemName = `${course} Research Topics — ${institution}`
+
+      const { error } = await supabase
+        .from('bunker_items')
+        .insert({
+          user_id: userId,
+          item_name: itemName,
+          content_reference: topics,
+        })
+
+      if (error) {
+        setSavedMsg('Could not save to Bunker. Please try again.')
+      } else {
+        setSavedMsg('Saved to My Bunker successfully!')
+      }
+    } catch {
+      setSavedMsg('Something went wrong. Please try again.')
+    }
+
+    setSaving(false)
   }
 
   const inputStyle = {
@@ -205,22 +235,54 @@ export default function NewProposal() {
             {topics}
           </pre>
 
-          <button
-            onClick={() => setTopics('')}
-            style={{
-              marginTop: '16px',
-              backgroundColor: '#333333',
-              color: '#D4AF37',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '12px 18px',
+          <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+            <button
+              onClick={() => { setTopics(''); setSavedMsg('') }}
+              style={{
+                flex: 1,
+                backgroundColor: '#333333',
+                color: '#D4AF37',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '12px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Generate Again
+            </button>
+
+            <button
+              onClick={handleSaveToBunker}
+              disabled={saving}
+              style={{
+                flex: 1,
+                backgroundColor: '#D4AF37',
+                color: '#333333',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '12px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {saving ? 'Saving...' : 'Save to My Bunker'}
+            </button>
+          </div>
+
+          {savedMsg && (
+            <p style={{
+              color: savedMsg.includes('successfully') ? '#1D8A4C' : '#C0392B',
               fontSize: '13px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            Generate Again
-          </button>
+              fontWeight: 600,
+              marginTop: '12px',
+              textAlign: 'center',
+            }}>
+              {savedMsg}
+            </p>
+          )}
         </div>
       )}
 
