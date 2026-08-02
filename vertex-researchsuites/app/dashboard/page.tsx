@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
-import { checkFeatureAccess } from '@/lib/checkFeatureAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,8 +10,7 @@ const supabase = createClient(
 )
 
 type BannerMessage = {
-  message: string
-  image_url: string | null
+  message_text: string
 }
 
 export default function Dashboard() {
@@ -23,9 +21,6 @@ export default function Dashboard() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [balance, setBalance] = useState<number | null>(null)
   const [serialId, setSerialId] = useState('')
-  const [userId, setUserId] = useState('')
-  const [checking, setChecking] = useState(false)
-  const [errorMsg, setErrorMsg] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -37,8 +32,6 @@ export default function Dashboard() {
     const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        setUserId(user.id)
-
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name')
@@ -66,19 +59,36 @@ export default function Dashboard() {
     const fetchMessages = async () => {
       const { data } = await supabase
         .from('banner_messages')
-        .select('message, image_url')
-        .order('created_at', { ascending: false })
+        .select('message_text')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })
 
       if (data && data.length > 0) {
         setMessages(data)
       } else {
-        setMessages([{ message: 'Welcome to Vertex ResearchSuite — your research journey starts here.', image_url: null }])
+        setMessages([{ message_text: 'Welcome to Vertex ResearchSuite — your research journey starts here.' }])
       }
     }
 
     fetchProfile()
     fetchMessages()
   }, [])
+
+  useEffect(() => {
+    if (messages.length <= 1) return
+
+    const interval = setInterval(() => {
+      if (!scrollRef.current) return
+      const el = scrollRef.current
+      const cardWidth = el.offsetWidth * 0.85 + 12
+      const nextIndex = (activeIndex + 1) % messages.length
+
+      el.scrollTo({ left: nextIndex * cardWidth, behavior: 'smooth' })
+      setActiveIndex(nextIndex)
+    }, 4000)
+
+    return () => clearInterval(interval)
+  }, [activeIndex, messages.length])
 
   const handleScroll = () => {
     if (!scrollRef.current) return
@@ -91,19 +101,6 @@ export default function Dashboard() {
   const formattedBalance = balance !== null
     ? balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : '0.00'
-
-  const handleFeatureClick = async () => {
-    setErrorMsg('')
-    setChecking(true)
-    const result = await checkFeatureAccess('research_topics', userId)
-    setChecking(false)
-
-    if (result.allowed) {
-      router.push('/proposals/new')
-    } else {
-      setErrorMsg(result.message)
-    }
-  }
 
   return (
     <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh' }}>
@@ -131,36 +128,19 @@ export default function Dashboard() {
             style={{
               flex: '0 0 85%',
               scrollSnapAlign: 'center',
-              position: 'relative',
               borderRadius: '16px',
               overflow: 'hidden',
               minHeight: '140px',
-              border: item.image_url ? 'none' : '1px solid #B8860B',
-              background: item.image_url
-                ? `url(${item.image_url}) center/cover no-repeat`
-                : 'linear-gradient(135deg, #F5D485 0%, #D4AF37 50%, #B8860B 100%)',
+              border: '1px solid #B8860B',
+              background: 'linear-gradient(135deg, #F5D485 0%, #D4AF37 50%, #B8860B 100%)',
+              padding: '18px 20px',
+              display: 'flex',
+              alignItems: 'center',
             }}
           >
-            {item.image_url ? (
-              <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                padding: '16px 18px',
-                background: 'linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0))',
-              }}>
-                <p style={{ color: '#ffffff', fontSize: '14px', fontWeight: 600, margin: 0 }}>
-                  {item.message}
-                </p>
-              </div>
-            ) : (
-              <div style={{ padding: '18px 20px' }}>
-                <p style={{ color: '#333333', fontSize: '14px', fontWeight: 600, margin: 0 }}>
-                  {item.message}
-                </p>
-              </div>
-            )}
+            <p style={{ color: '#333333', fontSize: '14px', fontWeight: 600, margin: 0 }}>
+              {item.message_text}
+            </p>
           </div>
         ))}
       </div>
@@ -244,8 +224,7 @@ export default function Dashboard() {
 
       <div style={{ padding: '0 20px 40px' }}>
         <button
-          onClick={handleFeatureClick}
-          disabled={checking}
+          onClick={() => router.push('/proposals/new')}
           style={{
             width: '100%',
             display: 'flex',
@@ -277,17 +256,11 @@ export default function Dashboard() {
               Get Research Topics & Proposals
             </p>
             <p style={{ color: '#888888', fontSize: '12px', margin: '2px 0 0' }}>
-              {checking ? 'Checking...' : 'Tailored to your course and institution'}
+              Tailored to your course and institution
             </p>
           </div>
           <span style={{ color: '#B8860B', fontSize: '18px' }}>›</span>
         </button>
-
-        {errorMsg && (
-          <p style={{ color: '#C0392B', fontSize: '13px', fontWeight: 600, marginTop: '10px', textAlign: 'center' }}>
-            {errorMsg}
-          </p>
-        )}
       </div>
     </div>
   )
