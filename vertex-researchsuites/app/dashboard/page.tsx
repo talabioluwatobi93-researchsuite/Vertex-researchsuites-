@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { useRouter } from 'next/navigation'
+import { checkFeatureAccess } from '@/lib/checkFeatureAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,12 +16,16 @@ type BannerMessage = {
 }
 
 export default function Dashboard() {
+  const router = useRouter()
   const [firstName, setFirstName] = useState('')
   const [greeting, setGreeting] = useState('')
   const [messages, setMessages] = useState<BannerMessage[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
   const [balance, setBalance] = useState<number | null>(null)
   const [serialId, setSerialId] = useState('')
+  const [userId, setUserId] = useState('')
+  const [checking, setChecking] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -31,6 +37,8 @@ export default function Dashboard() {
     const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
+        setUserId(user.id)
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name')
@@ -51,11 +59,7 @@ export default function Dashboard() {
           .eq('user_id', user.id)
           .single()
 
-        if (wallet?.balance !== undefined) {
-          setBalance(wallet.balance)
-        } else {
-          setBalance(0)
-        }
+        setBalance(wallet?.balance ?? 0)
       }
     }
 
@@ -87,6 +91,19 @@ export default function Dashboard() {
   const formattedBalance = balance !== null
     ? balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : '0.00'
+
+  const handleFeatureClick = async () => {
+    setErrorMsg('')
+    setChecking(true)
+    const result = await checkFeatureAccess('research_topics', userId)
+    setChecking(false)
+
+    if (result.allowed) {
+      router.push('/proposals/new')
+    } else {
+      setErrorMsg(result.message)
+    }
+  }
 
   return (
     <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh' }}>
@@ -223,6 +240,54 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div style={{ padding: '0 20px 40px' }}>
+        <button
+          onClick={handleFeatureClick}
+          disabled={checking}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            backgroundColor: '#ffffff',
+            border: '1px solid #EEEEEE',
+            borderRadius: '16px',
+            padding: '18px 20px',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          <div style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, #F5D485 0%, #D4AF37 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px',
+            flexShrink: 0,
+          }}>
+            📚
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ color: '#333333', fontSize: '15px', fontWeight: 700, margin: 0 }}>
+              Get Research Topics & Proposals
+            </p>
+            <p style={{ color: '#888888', fontSize: '12px', margin: '2px 0 0' }}>
+              {checking ? 'Checking...' : 'Tailored to your course and institution'}
+            </p>
+          </div>
+          <span style={{ color: '#B8860B', fontSize: '18px' }}>›</span>
+        </button>
+
+        {errorMsg && (
+          <p style={{ color: '#C0392B', fontSize: '13px', fontWeight: 600, marginTop: '10px', textAlign: 'center' }}>
+            {errorMsg}
+          </p>
+        )}
       </div>
     </div>
   )
