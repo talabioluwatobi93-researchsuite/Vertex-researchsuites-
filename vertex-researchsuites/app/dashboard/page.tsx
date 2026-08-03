@@ -82,7 +82,6 @@ export default function Dashboard() {
       const el = scrollRef.current
       const cardWidth = el.offsetWidth * 0.85 + 12
       const nextIndex = (activeIndex + 1) % messages.length
-
       el.scrollTo({ left: nextIndex * cardWidth, behavior: 'smooth' })
       setActiveIndex(nextIndex)
     }, 4000)
@@ -101,6 +100,46 @@ export default function Dashboard() {
   const formattedBalance = balance !== null
     ? balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : '0.00'
+
+  const featureCard = (icon: string, title: string, subtitle: string, onClick: () => void, dark?: boolean) => (
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '14px',
+        backgroundColor: '#ffffff',
+        border: '1px solid #EEEEEE',
+        borderRadius: '16px',
+        padding: '18px 20px',
+        cursor: 'pointer',
+        textAlign: 'left',
+        marginBottom: '12px',
+      }}
+    >
+      <div style={{
+        width: '44px',
+        height: '44px',
+        borderRadius: '12px',
+        background: dark
+          ? 'linear-gradient(135deg, #333333 0%, #555555 100%)'
+          : 'linear-gradient(135deg, #F5D485 0%, #D4AF37 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '20px',
+        flexShrink: 0,
+      }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1 }}>
+        <p style={{ color: '#333333', fontSize: '15px', fontWeight: 700, margin: 0 }}>{title}</p>
+        <p style={{ color: '#888888', fontSize: '12px', margin: '2px 0 0' }}>{subtitle}</p>
+      </div>
+      <span style={{ color: '#B8860B', fontSize: '18px' }}>›</span>
+    </button>
+  )
 
   return (
     <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh' }}>
@@ -166,20 +205,12 @@ export default function Dashboard() {
           padding: '24px',
           background: 'linear-gradient(135deg, #F5D485 0%, #D4AF37 45%, #9C7A16 100%)',
           boxShadow: '0 8px 20px rgba(184, 134, 11, 0.35)',
-          position: 'relative',
-          overflow: 'hidden',
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-          }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <span style={{ color: '#333333', fontSize: '12px', fontWeight: 700, letterSpacing: '1px' }}>
               VERTEX RESEARCHSUITE
             </span>
-            <span style={{ color: '#333333', fontSize: '11px', fontWeight: 600, opacity: 0.7 }}>
-              ● ● ●
-            </span>
+            <span style={{ color: '#333333', fontSize: '11px', fontWeight: 600, opacity: 0.7 }}>● ● ●</span>
           </div>
 
           <div style={{ marginTop: '28px' }}>
@@ -191,12 +222,7 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <div style={{
-            marginTop: '22px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-end',
-          }}>
+          <div style={{ marginTop: '22px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <div>
               <p style={{ color: '#333333', fontSize: '10px', fontWeight: 600, margin: 0, opacity: 0.6, letterSpacing: '0.5px' }}>
                 SERIAL ID
@@ -205,7 +231,6 @@ export default function Dashboard() {
                 {serialId || '•••• •••• ••••'}
               </p>
             </div>
-
             <button style={{
               backgroundColor: '#333333',
               color: '#D4AF37',
@@ -223,44 +248,8 @@ export default function Dashboard() {
       </div>
 
       <div style={{ padding: '0 20px 40px' }}>
-        <button
-          onClick={() => router.push('/proposals/new')}
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '14px',
-            backgroundColor: '#ffffff',
-            border: '1px solid #EEEEEE',
-            borderRadius: '16px',
-            padding: '18px 20px',
-            cursor: 'pointer',
-            textAlign: 'left',
-          }}
-        >
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #F5D485 0%, #D4AF37 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '20px',
-            flexShrink: 0,
-          }}>
-            📚
-          </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ color: '#333333', fontSize: '15px', fontWeight: 700, margin: 0 }}>
-              Get Research Topics & Proposals
-            </p>
-            <p style={{ color: '#888888', fontSize: '12px', margin: '2px 0 0' }}>
-              Tailored to your course and institution
-            </p>
-          </div>
-          <span style={{ color: '#B8860B', fontSize: '18px' }}>›</span>
-        </button>
+        {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/new'))}
+        {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true)}
       </div>
     </div>
   )
