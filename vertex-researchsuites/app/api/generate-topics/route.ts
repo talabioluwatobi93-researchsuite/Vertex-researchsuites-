@@ -33,7 +33,7 @@ Separate each of the 5 topics clearly with a line of dashes (----------) between
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-5',
         max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }],
       }),
