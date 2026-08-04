@@ -14,7 +14,6 @@ export async function POST(
     const body = await req.json()
     const status = params.status
 
-    // Store the exported result (flagged sections, matches, etc.)
     await supabase.from('writing_check_scans').update({
       status: `export_${status}`,
       raw_payload: body,
