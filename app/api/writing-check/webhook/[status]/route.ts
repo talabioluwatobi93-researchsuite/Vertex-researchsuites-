@@ -13,15 +13,56 @@ export async function POST(
   try {
     const body = await req.json()
     const status = params.status
+    const scanId = body.scanId || body.developerPayload
 
-    // Copyleaks sends different payloads depending on the status type
-    // We store the raw result for now, linked to the scanId
     await supabase.from('writing_check_scans').upsert({
-      scan_id: body.scanId || body.developerPayload || 'unknown',
+      scan_id: scanId || 'unknown',
       status: status,
       raw_payload: body,
       updated_at: new Date().toISOString(),
     })
+
+    // If the scan is fully completed, request the detailed export
+    if (status === 'completed' && body.results && scanId) {
+      const loginResponse = await fetch('https://id.copyleaks.com/v3/account/login/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: process.env.COPYLEAKS_EMAIL,
+          key: process.env.COPYLEAKS_API_KEY,
+        }),
+      })
+
+      if (loginResponse.ok) {
+        const loginData = await loginResponse.json()
+        const accessToken = loginData.access_token
+
+        const resultIds = Object.keys(body.results)
+        const exportId = `export-${scanId}-${Date.now()}`
+
+        const exportPayload = {
+          completionWebhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/writing-check/export/completed`,
+          results: resultIds.map((id) => ({
+            id,
+            endpoint: `${process.env.NEXT_PUBLIC_SITE_URL}/api/writing-check/export/result`,
+            verb: 'POST',
+          })),
+          crawledVersion: {
+            endpoint: `${process.env.NEXT_PUBLIC_SITE_URL}/api/writing-check/export/crawled`,
+            verb: 'POST',
+          },
+        }
+
+        await fetch(`https://api.copyleaks.com/v3/downloads/${scanId}/export/${exportId}`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(exportPayload),
+        })
+      }
+    }
 
     return NextResponse.json({ received: true })
   } catch (error) {
