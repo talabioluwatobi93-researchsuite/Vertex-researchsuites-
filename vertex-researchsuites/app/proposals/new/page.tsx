@@ -8,19 +8,43 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 )
 
+type TopicPreview = {
+  title: string
+  summary: string
+  raw: string
+}
+
+function parseTopics(text: string): TopicPreview[] {
+  const chunks = text.split(/-{5,}/).map((c) => c.trim()).filter(Boolean)
+  return chunks.map((chunk) => {
+    const titleMatch = chunk.match(/Topic\s*\d+:\s*(.+)/i)
+    const title = titleMatch ? titleMatch[1].trim() : chunk.split('\n')[0]
+    const summary = chunk.replace(/Topic\s*\d+:\s*.+/i, '').trim()
+    return { title, summary, raw: chunk }
+  })
+}
+
 export default function NewProposal() {
   const [institution, setInstitution] = useState('')
   const [course, setCourse] = useState('')
   const [department, setDepartment] = useState('')
+  const [interest, setInterest] = useState('')
   const [sequence, setSequence] = useState('')
+
   const [loading, setLoading] = useState(false)
-  const [topics, setTopics] = useState('')
-  const [price, setPrice] = useState<number>(0)
+  const [topics, setTopics] = useState<TopicPreview[]>([])
+  const [previewPrice, setPreviewPrice] = useState<number>(0)
+  const [fullPrice, setFullPrice] = useState<number>(0)
   const [showConfirm, setShowConfirm] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [userId, setUserId] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
+
+  const [selectedTopic, setSelectedTopic] = useState<TopicPreview | null>(null)
+  const [showFullConfirm, setShowFullConfirm] = useState(false)
+  const [generatingFull, setGeneratingFull] = useState(false)
+  const [fullProposal, setFullProposal] = useState('')
 
   useEffect(() => {
     const init = async () => {
@@ -28,26 +52,31 @@ export default function NewProposal() {
       if (user) setUserId(user.id)
 
       try {
-        const { data } = await supabase
+        const { data: previewData } = await supabase
           .from('feature_pricing')
           .select('price')
           .eq('feature_name', 'research_topics')
           .single()
+        setPreviewPrice(previewData?.price ?? 0)
 
-        setPrice(data?.price ?? 0)
+        const { data: fullData } = await supabase
+          .from('feature_pricing')
+          .select('price')
+          .eq('feature_name', 'research_proposal_full')
+          .single()
+        setFullPrice(fullData?.price ?? 0)
       } catch {
-        setPrice(0)
+        setPreviewPrice(0)
+        setFullPrice(0)
       }
     }
-
     init()
   }, [])
 
   const handleButtonClick = () => {
     if (!institution || !course || !department) return
     setErrorMsg('')
-
-    if (price === 0) {
+    if (previewPrice === 0) {
       handleGenerate()
     } else {
       setShowConfirm(true)
@@ -68,7 +97,7 @@ export default function NewProposal() {
 
       const balance = wallet?.balance ?? 0
 
-      if (balance < price) {
+      if (balance < previewPrice) {
         setErrorMsg('Your balance is not enough, kindly top up.')
         setLoading(false)
         return
@@ -76,7 +105,7 @@ export default function NewProposal() {
 
       const { error: deductError } = await supabase
         .from('wallets')
-        .update({ balance: balance - price })
+        .update({ balance: balance - previewPrice })
         .eq('user_id', userId)
 
       if (deductError) {
@@ -93,7 +122,9 @@ export default function NewProposal() {
   }
 
   const handleGenerate = async () => {
-    setTopics('')
+    setTopics([])
+    setSelectedTopic(null)
+    setFullProposal('')
     setSavedMsg('')
     setLoading(true)
 
@@ -101,15 +132,86 @@ export default function NewProposal() {
       const res = await fetch('/api/generate-topics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ institution, course, department, sequence }),
+        body: JSON.stringify({ institution, course, department, interest, sequence }),
       })
       const data = await res.json()
-      setTopics(data.topics)
+      setTopics(parseTopics(data.topics))
     } catch {
-      setTopics('Something went wrong. Please try again.')
+      setErrorMsg('Something went wrong. Please try again.')
     }
 
     setLoading(false)
+  }
+
+  const handleChooseTopic = (topic: TopicPreview) => {
+    setSelectedTopic(topic)
+    setErrorMsg('')
+    if (fullPrice === 0) {
+      handleGenerateFullProposal(topic)
+    } else {
+      setShowFullConfirm(true)
+    }
+  }
+
+  const handleAcceptFull = async () => {
+    if (!selectedTopic) return
+    setShowFullConfirm(false)
+    setErrorMsg('')
+    setGeneratingFull(true)
+
+    try {
+      const { data: wallet } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', userId)
+        .single()
+
+      const balance = wallet?.balance ?? 0
+
+      if (balance < fullPrice) {
+        setErrorMsg('Your balance is not enough, kindly top up.')
+        setGeneratingFull(false)
+        return
+      }
+
+      const { error: deductError } = await supabase
+        .from('wallets')
+        .update({ balance: balance - fullPrice })
+        .eq('user_id', userId)
+
+      if (deductError) {
+        setErrorMsg('Could not process payment. Please try again.')
+        setGeneratingFull(false)
+        return
+      }
+
+      await handleGenerateFullProposal(selectedTopic)
+    } catch {
+      setErrorMsg('Something went wrong. Please try again.')
+      setGeneratingFull(false)
+    }
+  }
+
+  const handleGenerateFullProposal = async (topic: TopicPreview) => {
+    setGeneratingFull(true)
+    setSavedMsg('')
+
+    try {
+      const res = await fetch('/api/generate-proposal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          institution, course, department, interest, sequence,
+          chosenTopic: topic.raw,
+        }),
+      })
+      const data = await res.json()
+      setFullProposal(data.proposal)
+    } catch {
+      setErrorMsg('Something went wrong generating the full proposal. Please try again.')
+    }
+
+    setGeneratingFull(false)
   }
 
   const handleSaveToBunker = async () => {
@@ -117,14 +219,18 @@ export default function NewProposal() {
     setSavedMsg('')
 
     try {
-      const itemName = `${course} Research Topics — ${institution}`
+      const itemName = selectedTopic
+        ? `${course} Proposal — ${selectedTopic.title}`
+        : `${course} Research Topics — ${institution}`
+
+      const content = fullProposal || topics.map((t) => t.raw).join('\n\n----------\n\n')
 
       const { error } = await supabase
         .from('bunker_items')
         .insert({
           user_id: userId,
           item_name: itemName,
-          content_reference: topics,
+          content_reference: content,
         })
 
       if (error) {
@@ -155,33 +261,16 @@ export default function NewProposal() {
     fontWeight: 600,
     color: '#333333',
     marginBottom: '6px',
-    display: 'block',
+    display: 'block' as const,
   }
-
-  const formattedPrice = price.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
     <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '24px 20px' }}>
-      <h1 style={{ color: '#333333', fontSize: '20px', fontWeight: 700, marginBottom: '8px' }}>
+      <h1 style={{ color: '#333333', fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>
         Get Research Topics & Proposals
       </h1>
 
-      <div style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '6px',
-        backgroundColor: price === 0 ? '#E7F6EC' : '#FFF6E0',
-        color: price === 0 ? '#1D8A4C' : '#B8860B',
-        fontSize: '13px',
-        fontWeight: 700,
-        padding: '6px 14px',
-        borderRadius: '20px',
-        marginBottom: '20px',
-      }}>
-        {price === 0 ? 'Free' : `₦${formattedPrice} will be deducted from your wallet`}
-      </div>
-
-      {!topics && (
+      {!topics.length && !fullProposal && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE' }}>
           <label style={labelStyle}>Institution</label>
           <input style={inputStyle} value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder="e.g. University of Lagos" />
@@ -192,161 +281,112 @@ export default function NewProposal() {
           <label style={labelStyle}>Department</label>
           <input style={inputStyle} value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Physical Sciences" />
 
+          <label style={labelStyle}>Research Interest (optional)</label>
+          <input style={inputStyle} value={interest} onChange={(e) => setInterest(e.target.value)} placeholder="e.g. Renewable energy, maternal health" />
+
           <label style={labelStyle}>Specific Focus (optional)</label>
           <input style={inputStyle} value={sequence} onChange={(e) => setSequence(e.target.value)} placeholder="e.g. Artificial Intelligence, Renewable Energy" />
+
+          {errorMsg && <p style={{ color: '#C0392B', fontSize: '13px', marginBottom: '12px' }}>{errorMsg}</p>}
 
           <button
             onClick={handleButtonClick}
             disabled={loading || !institution || !course || !department}
             style={{
-              width: '100%',
-              backgroundColor: '#D4AF37',
-              color: '#333333',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '14px',
-              fontSize: '14px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              marginTop: '8px',
+              width: '100%', backgroundColor: '#D4AF37', color: '#333333', border: 'none',
+              borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', marginTop: '8px',
             }}
           >
-            {loading ? 'Processing...' : price === 0 ? 'Generate 5 Topics (Free)' : `Generate 5 Topics — ₦${formattedPrice}`}
+            {loading ? 'Generating your topics...' : 'Generate 5 Topics'}
           </button>
-
-          {errorMsg && (
-            <p style={{ color: '#C0392B', fontSize: '13px', fontWeight: 600, marginTop: '12px', textAlign: 'center' }}>
-              {errorMsg}
-            </p>
-          )}
         </div>
       )}
 
-      {topics && (
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE' }}>
-          <pre style={{
-            whiteSpace: 'pre-wrap',
-            fontFamily: 'inherit',
-            fontSize: '14px',
-            color: '#333333',
-            lineHeight: '1.6',
-            margin: 0,
-          }}>
-            {topics}
-          </pre>
+      {topics.length > 0 && !fullProposal && (
+        <div style={{ marginTop: '16px' }}>
+          {topics.map((topic, i) => (
+            <div key={i} style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '12px' }}>
+              <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>{topic.title}</p>
+              <p style={{ fontSize: '13px', color: '#555555', lineHeight: '1.6', marginBottom: '14px' }}>{topic.summary}</p>
+              <button
+                onClick={() => handleChooseTopic(topic)}
+                disabled={generatingFull}
+                style={{
+                  backgroundColor: '#333333', color: '#ffffff', border: 'none',
+                  borderRadius: '10px', padding: '10px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                {generatingFull && selectedTopic?.title === topic.title ? 'Generating full proposal...' : 'Get Full Proposal'}
+              </button>
+            </div>
+          ))}
 
-          <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-            <button
-              onClick={() => { setTopics(''); setSavedMsg('') }}
-              style={{
-                flex: 1,
-                backgroundColor: '#333333',
-                color: '#D4AF37',
-                border: 'none',
-                borderRadius: '10px',
-                padding: '12px 18px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              Generate Again
-            </button>
+          {errorMsg && <p style={{ color: '#C0392B', fontSize: '13px', marginTop: '8px' }}>{errorMsg}</p>}
+
+          <button
+            onClick={() => { setTopics([]); setErrorMsg('') }}
+            style={{
+              marginTop: '8px', backgroundColor: 'transparent', color: '#333333', border: '1px solid #DDDDDD',
+              borderRadius: '10px', padding: '12px 18px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            Generate Again
+          </button>
+        </div>
+      )}
+
+      {fullProposal && (
+        <div style={{ marginTop: '16px' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE' }}>
+            <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: '#333333', lineHeight: '1.6', margin: 0 }}>
+              {fullProposal}
+            </pre>
 
             <button
               onClick={handleSaveToBunker}
               disabled={saving}
               style={{
-                flex: 1,
-                backgroundColor: '#D4AF37',
-                color: '#333333',
-                border: 'none',
-                borderRadius: '10px',
-                padding: '12px 18px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
+                width: '100%', backgroundColor: '#D4AF37', color: '#333333', border: 'none',
+                borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', marginTop: '16px',
               }}
             >
               {saving ? 'Saving...' : 'Save to My Bunker'}
             </button>
-          </div>
 
-          {savedMsg && (
-            <p style={{
-              color: savedMsg.includes('successfully') ? '#1D8A4C' : '#C0392B',
-              fontSize: '13px',
-              fontWeight: 600,
-              marginTop: '12px',
-              textAlign: 'center',
-            }}>
-              {savedMsg}
-            </p>
-          )}
+            {savedMsg && (
+              <p style={{ color: savedMsg.includes('successfully') ? '#1D8A4C' : '#C0392B', fontSize: '13px', fontWeight: 600, marginTop: '12px', textAlign: 'center' }}>
+                {savedMsg}
+              </p>
+            )}
+          </div>
         </div>
       )}
 
       {showConfirm && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          zIndex: 100,
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '18px',
-            padding: '24px',
-            maxWidth: '340px',
-            width: '100%',
-            textAlign: 'center',
-          }}>
-            <p style={{ color: '#333333', fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>
-              Confirm Payment
-            </p>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 100 }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '18px', padding: '24px', maxWidth: '340px', width: '100%', textAlign: 'center' }}>
+            <p style={{ color: '#333333', fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>Confirm Payment</p>
             <p style={{ color: '#555555', fontSize: '14px', marginBottom: '20px' }}>
-              ₦{formattedPrice} will be deducted from your wallet to generate these topics. Do you want to proceed?
+              ₦{previewPrice} will be deducted from your wallet to generate these topics. Do you want to proceed?
             </p>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                onClick={() => setShowConfirm(false)}
-                style={{
-                  flex: 1,
-                  backgroundColor: '#EEEEEE',
-                  color: '#333333',
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '12px',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                Reject
-              </button>
-              <button
-                onClick={handleAccept}
-                style={{
-                  flex: 1,
-                  backgroundColor: '#D4AF37',
-                  color: '#333333',
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '12px',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                Accept
-              </button>
+              <button onClick={() => setShowConfirm(false)} style={{ flex: 1, backgroundColor: '#EEEEEE', color: '#333333', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Reject</button>
+              <button onClick={handleAccept} style={{ flex: 1, backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Accept</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFullConfirm && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 100 }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '18px', padding: '24px', maxWidth: '340px', width: '100%', textAlign: 'center' }}>
+            <p style={{ color: '#333333', fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>Confirm Payment</p>
+            <p style={{ color: '#555555', fontSize: '14px', marginBottom: '20px' }}>
+              ₦{fullPrice} will be deducted from your wallet to generate the full proposal. Do you want to proceed?
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setShowFullConfirm(false)} style={{ flex: 1, backgroundColor: '#EEEEEE', color: '#333333', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Reject</button>
+              <button onClick={handleAcceptFull} style={{ flex: 1, backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Accept</button>
             </div>
           </div>
         </div>
