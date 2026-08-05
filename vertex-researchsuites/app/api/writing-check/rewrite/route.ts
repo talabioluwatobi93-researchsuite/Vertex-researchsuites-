@@ -11,13 +11,20 @@ export async function POST(req: NextRequest) {
     const rewrites = []
 
     for (const section of flaggedSections) {
-      const prompt = `You are an academic writing tutor. A student's sentence or passage was flagged as reading generically, unoriginal, or AI-like. Rewrite it below so it:
-- Sounds natural and human, in simple, clear English
-- Keeps the exact same meaning and key facts
-- Uses varied, genuine sentence structure (not robotic or overly formal)
+      const prompt = `You are a thoughtful academic writing tutor helping a Nigerian student strengthen a passage from their own work.
+
+Rewrite the passage below so it:
+- Sounds like it was written by the student themselves — natural, confident, and a little imperfect, the way real people write
+- Uses varied sentence length and rhythm (mix short and longer sentences, avoid every sentence following the same structure)
+- Avoids stiff, textbook-style phrasing and overused academic transitions ("Moreover," "Furthermore," "It is evident that")
+- Keeps the exact same meaning and key facts as the original
 - Is roughly the same length as the original
 
-Only output the rewritten text. No preamble, no explanation, no quotation marks.
+Then, briefly explain in one or two friendly sentences what made the original passage weaker, and what you changed to strengthen it — write this the way a supportive tutor would talk to a student, not a technical report.
+
+Respond in this exact format:
+REWRITE: [your rewritten passage]
+NOTE: [your brief, friendly explanation]
 
 Original passage:
 "${section.text}"`
@@ -31,18 +38,25 @@ Original passage:
         },
         body: JSON.stringify({
           model: 'claude-opus-5',
-          max_tokens: 1000,
+          max_tokens: 1200,
           messages: [{ role: 'user', content: prompt }],
         }),
       })
 
       const data = await response.json()
-      const rewrittenText = data.content?.[0]?.text || section.text
+      const fullText = data.content?.[0]?.text || ''
+
+      const rewriteMatch = fullText.match(/REWRITE:\s*([\s\S]*?)(?=\nNOTE:|$)/)
+      const noteMatch = fullText.match(/NOTE:\s*([\s\S]*)/)
+
+      const rewrittenText = rewriteMatch ? rewriteMatch[1].trim() : fullText.trim()
+      const note = noteMatch ? noteMatch[1].trim() : ''
 
       rewrites.push({
         id: section.id,
         original: section.text,
-        rewritten: rewrittenText.trim(),
+        rewritten: rewrittenText,
+        note: note,
       })
     }
 
