@@ -9,6 +9,16 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 )
 
+const spinStyle: React.CSSProperties = {
+  width: '40px',
+  height: '40px',
+  border: '4px solid rgba(212,175,55,0.3)',
+  borderTopColor: '#D4AF37',
+  borderRadius: '50%',
+  animation: 'spin 0.9s linear infinite',
+  margin: '0 auto 16px',
+}
+
 type ScanRow = {
   scan_id: string
   status: string
@@ -69,19 +79,27 @@ function ResultsContent() {
 
   return (
     <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '24px 20px' }}>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
       <h1 style={{ color: '#333333', fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>
         Writing Check Results
       </h1>
 
       {polling && (
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', textAlign: 'center' }}>
-          <p style={{ color: '#333333', fontSize: '14px' }}>Checking your writing... this may take a moment.</p>
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '40px 20px', border: '1px solid #EEEEEE', textAlign: 'center' }}>
+          <div style={spinStyle} />
+          <p style={{ color: '#333333', fontSize: '15px', fontWeight: 600, margin: '0 0 8px' }}>
+            Analysing your writing...
+          </p>
+          <p style={{ color: '#777777', fontSize: '13px', margin: 0 }}>
+            This may take a minute. Please don't close this page.
+          </p>
         </div>
       )}
 
       {errorMsg && (
         <div style={{ backgroundColor: '#FDEDEC', borderRadius: '16px', padding: '20px', marginTop: '12px' }}>
-          <p style={{ color: '#C0392B', fontSize: '14px' }}>{errorMsg}</p>
+          <p style={{ color: '#C0392B', fontSize: '14px', margin: 0 }}>{errorMsg}</p>
         </div>
       )}
 
@@ -105,7 +123,13 @@ function ResultsContent() {
 
 export default function WritingCheckResultsPage() {
   return (
-    <Suspense fallback={<div style={{ padding: '24px 20px' }}>Loading...</div>}>
+    <Suspense fallback={
+      <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '24px 20px', textAlign: 'center' }}>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        <div style={{ width: '40px', height: '40px', border: '4px solid rgba(212,175,55,0.3)', borderTopColor: '#D4AF37', borderRadius: '50%', animation: 'spin 0.9s linear infinite', margin: '80px auto 16px' }} />
+        <p style={{ color: '#333333', fontSize: '15px', fontWeight: 600 }}>Loading...</p>
+      </div>
+    }>
       <ResultsContent />
     </Suspense>
   )
