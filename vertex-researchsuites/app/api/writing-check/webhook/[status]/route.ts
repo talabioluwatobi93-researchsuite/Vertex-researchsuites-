@@ -8,11 +8,11 @@ const supabase = createClient(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { status: string } }
+  { params }: { params: Promise<{ status: string }> }
 ) {
   try {
     const body = await req.json()
-    const status = params.status
+    const { status } = await params
     const scanId = body.scanId || body.developerPayload
 
     await supabase.from('writing_check_scans').upsert({
