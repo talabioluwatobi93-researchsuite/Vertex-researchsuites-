@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 
@@ -16,7 +16,7 @@ type ScanRow = {
   updated_at: string
 }
 
-export default function WritingCheckResultsPage() {
+function ResultsContent() {
   const searchParams = useSearchParams()
   const scanIdsParam = searchParams.get('scans') || ''
   const scanIds = scanIdsParam.split(',').filter(Boolean)
@@ -33,7 +33,7 @@ export default function WritingCheckResultsPage() {
     }
 
     let attempts = 0
-    const maxAttempts = 40 // ~ up to a few minutes of polling
+    const maxAttempts = 40
 
     const interval = setInterval(async () => {
       attempts += 1
@@ -100,5 +100,13 @@ export default function WritingCheckResultsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function WritingCheckResultsPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '24px 20px' }}>Loading...</div>}>
+      <ResultsContent />
+    </Suspense>
   )
 }
