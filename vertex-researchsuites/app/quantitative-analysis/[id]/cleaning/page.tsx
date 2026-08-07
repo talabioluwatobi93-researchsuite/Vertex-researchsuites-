@@ -23,6 +23,7 @@ export default function CleaningPage() {
     row_indexes: [],
     action: 'excluded'
   })
+  const [scaleRange, setScaleRange] = useState<any>({ scaleMin: 1, scaleMax: 5 })
 
   useEffect(() => {
     loadSession()
@@ -43,6 +44,12 @@ export default function CleaningPage() {
     }
 
     setSession(data)
+
+    const existingConfig = data.cleaning_config || {}
+    setScaleRange({
+      scaleMin: existingConfig.scaleMin ?? 1,
+      scaleMax: existingConfig.scaleMax ?? 5
+    })
 
     const rawData: any[] = data.raw_data || []
     const constructs: any[] = data.constructs || []
@@ -97,6 +104,8 @@ export default function CleaningPage() {
     setErrorMsg('')
 
     const cleaning_config = {
+      scaleMin: scaleRange.scaleMin,
+      scaleMax: scaleRange.scaleMax,
       missing_values: missingConfig,
       duplicates: duplicateInfo
     }
