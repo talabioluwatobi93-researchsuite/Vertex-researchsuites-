@@ -24,6 +24,25 @@ export default function Dashboard() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    let channel: any = null
+    const setupRealtimeBalance = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      channel = supabase
+        .channel('wallet-balance-changes')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` },
+          (payload) => { setBalance(payload.new.balance ?? 0) }
+        )
+        .subscribe()
+    }
+    setupRealtimeBalance()
+    return () => { if (channel) supabase.removeChannel(channel) }
+  }, [])
+
+
+  useEffect(() => {
     const hour = new Date().getHours()
     if (hour < 12) setGreeting('Good morning')
     else if (hour < 17) setGreeting('Good afternoon')
