@@ -269,6 +269,7 @@ export default function Dashboard() {
       <div style={{ padding: '0 20px 40px' }}>
         {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/new'))}
         {featureCard('✍️', 'Writing Check & Polish', 'Check your writing for originality and clarity', () => router.push('/writing-check'))}
+            {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study'))}
         {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true)}
       </div>
     </div>
