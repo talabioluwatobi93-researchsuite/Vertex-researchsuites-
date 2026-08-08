@@ -1,5 +1,4 @@
 'use client'
-
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
@@ -8,6 +7,14 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 )
+
+const AUTO_PATTERNS: { label: string; regex: RegExp }[] = [
+  { label: 'Timestamp', regex: /\btimestamp\b/i },
+  { label: 'Email', regex: /\be-?mail\b/i },
+  { label: 'Submission ID', regex: /\bsubmission\s*id\b/i },
+  { label: 'Respondent ID', regex: /\brespondent\s*id\b/i },
+  { label: 'ID', regex: /^\s*id\s*$/i },
+]
 
 export default function CrossChecksPage() {
   const params = useParams()
@@ -18,6 +25,9 @@ export default function CrossChecksPage() {
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
+  const [columnHeaders, setColumnHeaders] = useState<string[]>([])
+  const [rawData, setRawData] = useState<any[][]>([])
+
   const [detectedQuestions, setDetectedQuestions] = useState(0)
   const [detectedRespondents, setDetectedRespondents] = useState(0)
 
@@ -25,6 +35,8 @@ export default function CrossChecksPage() {
   const [expectedSections, setExpectedSections] = useState('')
   const [expectedRespondents, setExpectedRespondents] = useState('')
   const [confirmed, setConfirmed] = useState(false)
+
+  const [autoColumns, setAutoColumns] = useState<{ index: number; header: string; label: string; decision: 'keep' | 'remove' }[]>([])
 
   useEffect(() => {
     const load = async () => {
@@ -40,14 +52,34 @@ export default function CrossChecksPage() {
         return
       }
 
-      setDetectedQuestions((data.column_headers || []).length)
-      setDetectedRespondents((data.raw_data || []).length)
-      setExpectedQuestions(String((data.column_headers || []).length))
-      setExpectedRespondents(String((data.raw_data || []).length))
+      const headers: string[] = data.column_headers || []
+      const rows: any[][] = data.raw_data || []
+
+      setColumnHeaders(headers)
+      setRawData(rows)
+      setDetectedQuestions(headers.length)
+      setDetectedRespondents(rows.length)
+      setExpectedQuestions(String(headers.length))
+      setExpectedRespondents(String(rows.length))
+
+      const found: any[] = []
+      headers.forEach((h, idx) => {
+        for (const p of AUTO_PATTERNS) {
+          if (p.regex.test(h)) {
+            found.push({ index: idx, header: h, label: p.label, decision: 'keep' })
+            break
+          }
+        }
+      })
+      setAutoColumns(found)
       setLoading(false)
     }
     load()
   }, [sessionId])
+
+  function updateDecision(index: number, decision: 'keep' | 'remove') {
+    setAutoColumns((prev) => prev.map((c) => (c.index === index ? { ...c, decision } : c)))
+  }
 
   const handleContinue = async () => {
     if (!expectedSections.trim()) {
@@ -62,6 +94,19 @@ export default function CrossChecksPage() {
     setSaving(true)
     setErrorMsg('')
 
+    let finalHeaders = [...columnHeaders]
+    let finalRows = rawData.map((r) => [...r])
+
+    const toRemove = autoColumns.filter((c) => c.decision === 'remove').map((c) => c.index).sort((a, b) => b - a)
+    toRemove.forEach((idx) => {
+      finalHeaders.splice(idx, 1)
+      finalRows.forEach((row) => row.splice(idx, 1))
+    })
+
+    const keptReferenceColumns = autoColumns
+      .filter((c) => c.decision === 'keep')
+      .map((c) => finalHeaders.indexOf(c.header))
+
     const crossChecks = {
       detectedQuestions,
       detectedRespondents,
@@ -72,7 +117,14 @@ export default function CrossChecksPage() {
 
     const { error } = await supabase
       .from('quantitative_analysis_sessions')
-      .update({ cross_checks: crossChecks, status: 'checked', updated_at: new Date().toISOString() })
+      .update({
+        cross_checks: crossChecks,
+        column_headers: finalHeaders,
+        raw_data: finalRows,
+        reference_only_columns: keptReferenceColumns,
+        status: 'checked',
+        updated_at: new Date().toISOString()
+      })
       .eq('id', sessionId)
 
     if (error) {
@@ -120,6 +172,48 @@ export default function CrossChecksPage() {
         Step 2 of 10 &mdash; Let's make sure your file matches your questionnaire before we continue.
       </p>
 
+      {autoColumns.length > 0 && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>
+            We found some auto-generated columns
+          </p>
+          <p style={{ color: '#777777', fontSize: '12px', marginBottom: '14px' }}>
+            These are never included in your statistics either way &mdash; choose whether to keep them for reference or remove them.
+          </p>
+          {autoColumns.map((c) => (
+            <div key={c.index} style={{ padding: '10px 0', borderBottom: '1px solid #F0F0F0' }}>
+              <p style={{ color: '#333333', fontSize: '13px', marginBottom: '8px' }}>
+                We found a '{c.header}' column ({c.label}). Do you want to keep it or remove it?
+              </p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => updateDecision(c.index, 'keep')}
+                  style={{
+                    flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                    border: c.decision === 'keep' ? '1px solid #D4AF37' : '1px solid #EEEEEE',
+                    backgroundColor: c.decision === 'keep' ? '#FFF8E7' : '#ffffff',
+                    color: '#333333', cursor: 'pointer'
+                  }}
+                >
+                  Keep
+                </button>
+                <button
+                  onClick={() => updateDecision(c.index, 'remove')}
+                  style={{
+                    flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                    border: c.decision === 'remove' ? '1px solid #D4AF37' : '1px solid #EEEEEE',
+                    backgroundColor: c.decision === 'remove' ? '#FFF8E7' : '#ffffff',
+                    color: '#333333', cursor: 'pointer'
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '14px' }}>What we found in your file</p>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -132,7 +226,7 @@ export default function CrossChecksPage() {
         </div>
       </div>
 
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '14px' }}>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '14px' }}>Confirm against your questionnaire</p>
 
         <label style={labelStyle}>Total questions in your questionnaire</label>
