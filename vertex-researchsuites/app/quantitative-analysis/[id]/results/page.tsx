@@ -34,6 +34,7 @@ export default function ResultsPage() {
   const [status, setStatus] = useState('Calculating results...')
   const [results, setResults] = useState<any>(null)
   const [interpretation, setInterpretation] = useState('')
+  const [discussion, setDiscussion] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -69,6 +70,7 @@ export default function ResultsPage() {
         return
       }
       setInterpretation(interpData.interpretation)
+      setDiscussion(interpData.discussion || '')
       setStatus('done')
     } catch (e: any) {
       setErrorMsg(e.message || 'Something went wrong.')
@@ -78,12 +80,20 @@ export default function ResultsPage() {
   async function saveToBunker() {
     setSaving(true)
     const { data: userData } = await supabase.auth.getUser()
+
     await supabase.from('bunker_items').insert({
       user_id: userData?.user?.id,
-      item_name: 'Quantitative Analysis Results',
-      item_type: 'quantitative_analysis',
+      item_name: 'Quantitative Analysis — Cleaned Dataset',
+      item_type: 'quantitative_analysis_dataset',
       content_reference: id
     })
+    await supabase.from('bunker_items').insert({
+      user_id: userData?.user?.id,
+      item_name: 'Quantitative Analysis — Full Report',
+      item_type: 'quantitative_analysis_report',
+      content_reference: id
+    })
+
     setSaving(false)
     setSaved(true)
   }
@@ -352,12 +362,21 @@ export default function ResultsPage() {
         </>
       )}
 
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Interpretation</h2>
+      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Results Interpretation</h2>
         {interpretation.split('\n').filter(Boolean).map((para, i) => (
           <p key={i} style={{ fontSize: '13px', color: '#333333', lineHeight: '1.7', marginBottom: '12px' }}>{para}</p>
         ))}
       </div>
+
+      {discussion && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>General Findings &amp; Discussion</h2>
+          {discussion.split('\n').filter(Boolean).map((para, i) => (
+            <p key={i} style={{ fontSize: '13px', color: '#333333', lineHeight: '1.7', marginBottom: '12px' }}>{para}</p>
+          ))}
+        </div>
+      )}
 
       <button
         onClick={saveToBunker}
