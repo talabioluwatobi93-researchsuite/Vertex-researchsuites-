@@ -1,5 +1,4 @@
 'use client'
-
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
@@ -9,20 +8,13 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 )
 
-type Construct = {
-  id: string
-  name: string
-  role: 'IV' | 'DV' | 'Demographic'
-  columnIndexes: number[]
-  reverseIndexes: number[]
-}
-
 type AnalysisType = 'descriptive' | 'correlation' | 'regression'
+type Construct = { id: string; name: string; role: string; columnIndexes: number[] }
 
 const ANALYSIS_INFO: Record<AnalysisType, { label: string; description: string }> = {
   descriptive: {
     label: 'Descriptive Statistics',
-    description: 'Frequencies, means, standard deviations, and demographic breakdowns for each construct.'
+    description: 'Summarizes each construct with Mean, SD, Min, and Max — the foundation for every study.'
   },
   correlation: {
     label: 'Correlation Analysis',
@@ -45,6 +37,7 @@ export default function AnalysisTypePage() {
 
   const [constructs, setConstructs] = useState<Construct[]>([])
   const [selected, setSelected] = useState<AnalysisType[]>([])
+  const [modelConfirmed, setModelConfirmed] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -69,8 +62,10 @@ export default function AnalysisTypePage() {
     load()
   }, [sessionId])
 
-  const ivCount = constructs.filter((c) => c.role === 'IV').length
-  const dvCount = constructs.filter((c) => c.role === 'DV').length
+  const ivConstructs = constructs.filter((c) => c.role === 'IV')
+  const dvConstructs = constructs.filter((c) => c.role === 'DV')
+  const ivCount = ivConstructs.length
+  const dvCount = dvConstructs.length
   const hasDemographic = constructs.some((c) => c.role === 'Demographic')
 
   const availability: Record<AnalysisType, { available: boolean; reason: string }> = {
@@ -93,11 +88,19 @@ export default function AnalysisTypePage() {
     setSelected((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     )
+    if (type === 'regression') setModelConfirmed(false)
   }
+
+  const regressionSelected = selected.includes('regression')
+  const correlationSelected = selected.includes('correlation')
 
   const handleContinue = async () => {
     if (selected.length === 0) {
       setErrorMsg('Please select at least one type of analysis to continue.')
+      return
+    }
+    if (regressionSelected && !modelConfirmed) {
+      setErrorMsg('Please confirm your research model before continuing.')
       return
     }
 
@@ -109,12 +112,12 @@ export default function AnalysisTypePage() {
       .update({
         analysis_type: selected,
         status: 'analysis_selected',
-        updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       .eq('id', sessionId)
 
     if (error) {
-      setErrorMsg('Something went wrong saving your selection. Please try again.')
+      setErrorMsg('Something went wrong saving this step. Please try again.')
       setSaving(false)
       return
     }
@@ -137,26 +140,26 @@ export default function AnalysisTypePage() {
           Choose Your Analysis
         </h1>
         <p style={{ color: '#777777', fontSize: '13px', marginBottom: '20px' }}>
-          Based on your constructs, select the type(s) of analysis you need. You can choose more than one.
+          Step 8 of 10 &mdash; Based on your constructs, select the type(s) of analysis you need. You can choose more than one.
         </p>
 
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
           <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Your Constructs</p>
           <p style={{ color: '#777777', fontSize: '12px', margin: 0 }}>
-            {ivCount} Independent Variable{ivCount !== 1 ? 's' : ''} · {dvCount} Dependent Variable{dvCount !== 1 ? 's' : ''}
+            {ivCount} Independent Variable{ivCount !== 1 ? 's' : ''} &middot; {dvCount} Dependent Variable{dvCount !== 1 ? 's' : ''}
             {hasDemographic ? ' · Demographics included' : ''}
           </p>
         </div>
 
-        {(Object.keys(ANALYSIS_INFO) as AnalysisType[]).map((type) => {
-          const info = ANALYSIS_INFO[type]
-          const avail = availability[type]
-          const isSelected = selected.includes(type)
+        {Object.keys(ANALYSIS_INFO).map((type) => {
+          const info = ANALYSIS_INFO[type as AnalysisType]
+          const avail = availability[type as AnalysisType]
+          const isSelected = selected.includes(type as AnalysisType)
 
           return (
             <div
               key={type}
-              onClick={() => toggleType(type)}
+              onClick={() => toggleType(type as AnalysisType)}
               style={{
                 backgroundColor: '#ffffff',
                 borderRadius: '16px',
@@ -173,13 +176,33 @@ export default function AnalysisTypePage() {
                   type="checkbox"
                   checked={isSelected}
                   disabled={!avail.available}
-                  onChange={() => toggleType(type)}
+                  onChange={() => toggleType(type as AnalysisType)}
                   onClick={(e) => e.stopPropagation()}
                 />
               </div>
               <p style={{ color: '#777777', fontSize: '12px', margin: 0 }}>
                 {avail.available ? info.description : avail.reason}
               </p>
+
+              {type === 'correlation' && isSelected && avail.available && (
+                <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '10px 12px', marginTop: '10px' }}>
+                  <p style={{ color: '#333333', fontSize: '12px', margin: 0 }}>
+                    We'll correlate: {[...ivConstructs, ...dvConstructs].map((c) => c.name).join(', ')}
+                  </p>
+                </div>
+              )}
+
+              {type === 'regression' && isSelected && avail.available && (
+                <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+                  <p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '8px' }}>
+                    We'll test whether {ivConstructs.map((c) => c.name).join(' and ')} predict{ivConstructs.length === 1 ? 's' : ''} {dvConstructs[0]?.name}.
+                  </p>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <input type="checkbox" checked={modelConfirmed} onChange={(e) => setModelConfirmed(e.target.checked)} style={{ marginTop: '2px' }} />
+                    <span style={{ color: '#555555', fontSize: '12px' }}>Yes, this is correct.</span>
+                  </label>
+                </div>
+              )}
             </div>
           )
         })}
@@ -193,7 +216,10 @@ export default function AnalysisTypePage() {
         <button
           onClick={handleContinue}
           disabled={saving}
-          style={{ width: '100%', backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+          style={{
+            width: '100%', backgroundColor: '#D4AF37', color: '#333333', border: 'none',
+            borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer'
+          }}
         >
           {saving ? 'Saving...' : 'Continue to Section Mapping'}
         </button>
