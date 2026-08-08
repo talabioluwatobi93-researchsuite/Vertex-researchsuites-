@@ -14,9 +14,23 @@ type Construct = {
   role: 'IV' | 'DV' | 'Demographic' | 'Unassigned'
   columnIndexes: number[]
   reverseIndexes: number[]
+  scaleMin: number
+  scaleMax: number
+  scaleReversed: boolean
+  presetLabel: string
 }
 
 type RangeSel = { from: number | ''; to: number | '' }
+
+const PRESETS: { label: string; min: number; max: number }[] = [
+  { label: '5-point: Strongly Disagree → Strongly Agree', min: 1, max: 5 },
+  { label: '5-point: Never → Always', min: 1, max: 5 },
+  { label: '5-point: Very Dissatisfied → Very Satisfied', min: 1, max: 5 },
+  { label: '4-point: Strongly Disagree → Strongly Agree (no neutral)', min: 1, max: 4 },
+  { label: '7-point: Strongly Disagree → Strongly Agree', min: 1, max: 7 },
+  { label: 'Yes / No (binary)', min: 1, max: 2 },
+  { label: 'Custom', min: 1, max: 5 },
+]
 
 export default function ColumnsPage() {
   const params = useParams()
@@ -32,8 +46,6 @@ export default function ColumnsPage() {
   const [ranges, setRanges] = useState<Record<string, RangeSel>>({})
   const [newConstructName, setNewConstructName] = useState('')
   const [newConstructIsDemo, setNewConstructIsDemo] = useState(false)
-  const [scaleMin, setScaleMin] = useState(1)
-  const [scaleMax, setScaleMax] = useState(5)
 
   useEffect(() => {
     const load = async () => {
@@ -60,7 +72,12 @@ export default function ColumnsPage() {
     const id = `c_${Date.now()}`
     setConstructs([
       ...constructs,
-      { id, name, role: newConstructIsDemo ? 'Demographic' : 'Unassigned', columnIndexes: [], reverseIndexes: [] }
+      {
+        id, name,
+        role: newConstructIsDemo ? 'Demographic' : 'Unassigned',
+        columnIndexes: [], reverseIndexes: [],
+        scaleMin: 1, scaleMax: 5, scaleReversed: false, presetLabel: PRESETS[0].label
+      }
     ])
     setRanges((prev) => ({ ...prev, [id]: { from: '', to: '' } }))
     setNewConstructName('')
@@ -94,6 +111,23 @@ export default function ColumnsPage() {
         }
       })
     )
+  }
+
+  const updatePreset = (constructId: string, presetLabel: string) => {
+    const preset = PRESETS.find((p) => p.label === presetLabel)
+    if (!preset) return
+    setConstructs((prev) =>
+      prev.map((c) => (c.id === constructId ? { ...c, presetLabel, scaleMin: preset.min, scaleMax: preset.max } : c))
+    )
+  }
+
+  const updateCustomScale = (constructId: string, part: 'scaleMin' | 'scaleMax', value: string) => {
+    const num = Number(value)
+    setConstructs((prev) => prev.map((c) => (c.id === constructId ? { ...c, [part]: num } : c)))
+  }
+
+  const toggleScaleReversed = (constructId: string) => {
+    setConstructs((prev) => prev.map((c) => (c.id === constructId ? { ...c, scaleReversed: !c.scaleReversed } : c)))
   }
 
   const scaleConstructs = constructs.filter((c) => c.role !== 'Demographic')
@@ -134,6 +168,12 @@ export default function ColumnsPage() {
       return
     }
 
+    const badScale = usedConstructs.find((c) => c.role !== 'Demographic' && (c.scaleMin === undefined || c.scaleMax === undefined || c.scaleMin >= c.scaleMax))
+    if (badScale) {
+      setErrorMsg(`Please check the scale range for "${badScale.name}" — minimum must be less than maximum.`)
+      return
+    }
+
     setSaving(true)
     setErrorMsg('')
 
@@ -141,7 +181,6 @@ export default function ColumnsPage() {
       .from('quantitative_analysis_sessions')
       .update({
         constructs: usedConstructs,
-        cleaning_config: { scaleMin, scaleMax },
         status: 'mapped',
         updated_at: new Date().toISOString()
       })
@@ -172,17 +211,8 @@ export default function ColumnsPage() {
         Group Your Items
       </h1>
       <p style={{ color: '#777777', fontSize: '13px', marginBottom: '20px' }}>
-        Step 4 &amp; 5 of 10 &mdash; Name your constructs, then set the From/To range of questions for each.
+        Step 4, 5 &amp; 6 of 10 &mdash; Name your constructs, set their ranges, and choose each one's scale.
       </p>
-
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
-        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '10px' }}>Scale used</p>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <input type="number" value={scaleMin} onChange={(e) => setScaleMin(Number(e.target.value))} style={{ width: '60px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE' }} />
-          <span style={{ color: '#777777', fontSize: '13px' }}>to</span>
-          <input type="number" value={scaleMax} onChange={(e) => setScaleMax(Number(e.target.value))} style={{ width: '60px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE' }} />
-        </div>
-      </div>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '10px' }}>Your constructs &amp; demographic sections</p>
@@ -209,9 +239,9 @@ export default function ColumnsPage() {
 
       {constructs.length > 0 && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
-          <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '4px' }}>Set each section's range</p>
+          <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '4px' }}>Set each section's range &amp; scale</p>
           <p style={{ color: '#777777', fontSize: '12px', marginBottom: '14px' }}>
-            Pick the first and last question for each section &mdash; every column in between is included automatically.
+            Pick the first and last question, then (for constructs, not demographics) choose the scale used.
           </p>
           {constructs.map((c) => {
             const r = ranges[c.id] || { from: '', to: '' }
@@ -247,10 +277,40 @@ export default function ColumnsPage() {
                     {c.columnIndexes.length} question{c.columnIndexes.length !== 1 ? 's' : ''} included
                   </p>
                 )}
+
+                {c.role !== 'Demographic' && (
+                  <div style={{ backgroundColor: '#F9F9F9', borderRadius: '8px', padding: '10px', marginBottom: '8px' }}>
+                    <label style={{ color: '#333333', fontSize: '11px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Scale used</label>
+                    <select
+                      value={c.presetLabel}
+                      onChange={(e) => updatePreset(c.id, e.target.value)}
+                      style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '8px' }}
+                    >
+                      {PRESETS.map((p) => (
+                        <option key={p.label} value={p.label}>{p.label}</option>
+                      ))}
+                    </select>
+                    {c.presetLabel === 'Custom' && (
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                        <input type="number" value={c.scaleMin} onChange={(e) => updateCustomScale(c.id, 'scaleMin', e.target.value)} style={{ width: '60px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE' }} />
+                        <span style={{ color: '#777777', fontSize: '12px' }}>to</span>
+                        <input type="number" value={c.scaleMax} onChange={(e) => updateCustomScale(c.id, 'scaleMax', e.target.value)} style={{ width: '60px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE' }} />
+                      </div>
+                    )}
+                    <p style={{ color: '#777777', fontSize: '11px', marginBottom: '6px' }}>
+                      Numbers used: {c.scaleMin} to {c.scaleMax}
+                    </p>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <input type="checkbox" checked={c.scaleReversed} onChange={() => toggleScaleReversed(c.id)} />
+                      <span style={{ color: '#777777', fontSize: '11px' }}>Reverse this scale (e.g. my questionnaire uses 1 = Agree, not 1 = Disagree)</span>
+                    </label>
+                  </div>
+                )}
+
                 {c.role !== 'Demographic' && c.columnIndexes.map((idx) => (
                   <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', paddingLeft: '4px' }}>
                     <input type="checkbox" checked={c.reverseIndexes.includes(idx)} onChange={() => toggleReverse(idx, c.id)} />
-                    <span style={{ color: '#777777', fontSize: '11px' }}>{columnHeaders[idx]} &mdash; reverse-worded?</span>
+                    <span style={{ color: '#777777', fontSize: '11px' }}>{columnHeaders[idx]} &mdash; reverse-worded item?</span>
                   </label>
                 ))}
               </div>

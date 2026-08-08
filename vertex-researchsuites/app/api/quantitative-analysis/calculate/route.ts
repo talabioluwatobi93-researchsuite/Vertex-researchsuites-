@@ -31,8 +31,6 @@ export async function POST(req: NextRequest) {
     const constructs: any[] = session.constructs || []
     const cleaningConfig: any = session.cleaning_config || {}
     const analysisTypes: string[] = session.analysis_type || []
-    const scaleMin = cleaningConfig.scaleMin ?? 1
-    const scaleMax = cleaningConfig.scaleMax ?? 5
     const missingConfig = cleaningConfig.missing_values || {}
     const duplicateInfo = cleaningConfig.duplicates || { row_indexes: [], action: 'excluded' }
 
@@ -62,15 +60,24 @@ export async function POST(req: NextRequest) {
       cleanedRows.push(row)
     })
 
+    // each construct now carries its OWN scaleMin/scaleMax/scaleReversed (Step 6 design)
     function getConstructScore(row: any[], construct: any): number | null {
       const cols: number[] = construct.columnIndexes || []
       const reverseIdx: number[] = construct.reverseIndexes || []
+      const scaleMin = construct.scaleMin ?? 1
+      const scaleMax = construct.scaleMax ?? 5
+      const scaleReversed = !!construct.scaleReversed
+
       const values: number[] = []
       for (const ci of cols) {
         const raw = row[ci]
         if (raw === null || raw === undefined || String(raw).trim() === '') continue
-        const num = Number(raw)
+        let num = Number(raw)
         if (isNaN(num)) continue
+
+        // whole-scale reversal (e.g. student's questionnaire numbers 1=Agree instead of 1=Disagree)
+        if (scaleReversed) num = (scaleMin + scaleMax) - num
+        // per-item reverse-worded flip
         const scored = reverseIdx.includes(ci) ? (scaleMin + scaleMax) - num : num
         values.push(scored)
       }
@@ -81,19 +88,19 @@ export async function POST(req: NextRequest) {
     const ivConstructs = constructs.filter((c) => c.role === 'IV')
     const dvConstructs = constructs.filter((c) => c.role === 'DV')
     const demoConstructs = constructs.filter((c) => c.role === 'Demographic')
-    const scaleConstructs = constructs.filter((c) => c.role === 'IV' || c.role === 'DV')
+    const scaleConstructsList = constructs.filter((c) => c.role === 'IV' || c.role === 'DV')
 
     const constructScores: Record<string, number[]> = {}
-    scaleConstructs.forEach((c) => { constructScores[c.id] = [] })
+    scaleConstructsList.forEach((c) => { constructScores[c.id] = [] })
 
     cleanedRows.forEach((row) => {
-      scaleConstructs.forEach((c) => {
+      scaleConstructsList.forEach((c) => {
         const score = getConstructScore(row, c)
         if (score !== null) constructScores[c.id].push(score)
       })
     })
 
-    const descriptives = scaleConstructs.map((c) => {
+    const descriptives = scaleConstructsList.map((c) => {
       const scores = constructScores[c.id]
       return {
         name: c.name,
@@ -106,31 +113,52 @@ export async function POST(req: NextRequest) {
       }
     })
 
+    // full APA frequency structure: Frequency, Percent (of all), Valid Percent (of answered), Cumulative Percent
     const frequencyTables = demoConstructs.map((c) => {
       const col = (c.columnIndexes || [])[0]
       const counts: Record<string, number> = {}
-      let total = 0
+      let validTotal = 0
+      let missingCount = 0
+
       cleanedRows.forEach((row) => {
         const val = row[col]
-        if (val === null || val === undefined || String(val).trim() === '') return
+        if (val === null || val === undefined || String(val).trim() === '') {
+          missingCount++
+          return
+        }
         const key = String(val).trim()
         counts[key] = (counts[key] || 0) + 1
-        total++
+        validTotal++
       })
-      const rows = Object.entries(counts).map(([label, count]) => ({
-        label,
-        count,
-        percent: r2(total > 0 ? (count / total) * 100 : 0)
-      }))
-      return { name: c.name, total, rows }
+
+      const allTotal = validTotal + missingCount
+      let cumulative = 0
+      const rows = Object.entries(counts).map(([label, count]) => {
+        const validPercent = validTotal > 0 ? (count / validTotal) * 100 : 0
+        cumulative += validPercent
+        return {
+          label,
+          frequency: count,
+          percent: r2(allTotal > 0 ? (count / allTotal) * 100 : 0),
+          validPercent: r2(validPercent),
+          cumulativePercent: r2(cumulative)
+        }
+      })
+
+      return {
+        name: c.name,
+        nValid: validTotal,
+        nMissing: missingCount,
+        rows
+      }
     })
 
     let correlation: any = null
-    if (analysisTypes.includes('correlation') && scaleConstructs.length >= 2) {
+    if (analysisTypes.includes('correlation') && scaleConstructsList.length >= 2) {
       const matrix: any[] = []
-      for (const rowC of scaleConstructs) {
+      for (const rowC of scaleConstructsList) {
         const rowResult: any = { name: rowC.name, cells: [] }
-        for (const colC of scaleConstructs) {
+        for (const colC of scaleConstructsList) {
           if (rowC.id === colC.id) {
             rowResult.cells.push({ r: 1, p: null, n: constructScores[rowC.id].length })
             continue
@@ -143,7 +171,7 @@ export async function POST(req: NextRequest) {
         }
         matrix.push(rowResult)
       }
-      correlation = { labels: scaleConstructs.map((c) => c.name), matrix }
+      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix }
     }
 
     let regression: any = null
