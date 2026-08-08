@@ -177,7 +177,7 @@ export default function ColumnsPage() {
       </div>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
-        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '10px' }}>Your constructs</p>
+        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '10px' }}>Your constructs & demographic sections</p>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
           <input
             type="text"
