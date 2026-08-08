@@ -388,6 +388,16 @@ export default function ResultsPage() {
       >
         {saved ? 'Saved to Bunker ✓' : saving ? 'Saving...' : 'Save to Bunker'}
       </button>
+
+      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
+        <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Want a complete Chapter 5?</p>
+        <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
+          Summary, Conclusion, Limitations & Recommendations — built from these results. Optional, paid add-on.
+        </p>
+        <a href={`/quantitative-analysis/${id}/chapter5`} style={{ display: 'inline-block', backgroundColor: '#F9F9F9', color: '#333333', border: '1px solid #D4AF37', borderRadius: '10px', padding: '12px 20px', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}>
+          Add Chapter 5
+        </a>
+      </div>
     </div>
   )
 }
