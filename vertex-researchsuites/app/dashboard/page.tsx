@@ -271,6 +271,7 @@ export default function Dashboard() {
         {featureCard('✍️', 'Writing Check & Polish', 'Check your writing for originality and clarity', () => router.push('/writing-check'))}
             {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study'))}
                 {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis'))}
+                {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis'))}
         {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true)}
       </div>
     </div>

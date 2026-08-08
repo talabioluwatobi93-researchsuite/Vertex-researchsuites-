@@ -144,6 +144,18 @@ export default function QualResultsPage() {
       >
         {saved ? 'Saved to Bunker \u2713' : saving ? 'Saving...' : 'Save to Bunker'}
       </button>
+
+      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
+        <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Want a complete Chapter 5?</p>
+        <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>Summary, Conclusion, Limitations & Recommendations — built from your findings. Optional, paid add-on.</p>
+        <a href={`/qualitative-analysis/${id}/chapter5`} style={{ display: 'inline-block', backgroundColor: '#F9F9F9', color: '#333333', border: '1px solid #D4AF37', borderRadius: '10px', padding: '12px 20px', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}>Add Chapter 5</a>
+      </div>
+
+      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
+        <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Prepare for your defense</p>
+        <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>Likely questions about your coding and theme choices, built from your actual data. Optional, paid add-on.</p>
+        <a href={`/qualitative-analysis/${id}/defense-prep`} style={{ display: 'inline-block', backgroundColor: '#F9F9F9', color: '#333333', border: '1px solid #D4AF37', borderRadius: '10px', padding: '12px 20px', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}>Prepare for Defense</a>
+      </div>
     </div>
   )
 }
