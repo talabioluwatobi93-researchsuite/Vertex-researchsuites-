@@ -270,6 +270,7 @@ export default function Dashboard() {
         {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/new'))}
         {featureCard('✍️', 'Writing Check & Polish', 'Check your writing for originality and clarity', () => router.push('/writing-check'))}
             {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study'))}
+                {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis'))}
         {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true)}
       </div>
     </div>
