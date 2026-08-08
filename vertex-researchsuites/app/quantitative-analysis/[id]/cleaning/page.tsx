@@ -23,6 +23,11 @@ export default function CleaningPage() {
     row_indexes: [],
     action: 'excluded'
   })
+  const [textMappings, setTextMappings] = useState<any>({})
+  const [straightLining, setStraightLining] = useState<any>({
+    detected_row_indexes: [],
+    action: 'excluded'
+  })
 
   useEffect(() => {
     loadSession()
@@ -46,7 +51,9 @@ export default function CleaningPage() {
 
     const rawData: any[] = data.raw_data || []
     const constructs: any[] = data.constructs || []
+    const scaleConstructs = constructs.filter((c: any) => c.role !== 'Demographic')
 
+    // 1. Missing values
     const missing: any = {}
     constructs.forEach((c: any) => {
       const cols: number[] = c.columnIndexes || []
@@ -62,6 +69,7 @@ export default function CleaningPage() {
     })
     setMissingConfig(missing)
 
+    // 2. Duplicates
     const seen = new Map<string, number>()
     const dupIndexes: number[] = []
     rawData.forEach((row: any[], idx: number) => {
@@ -72,33 +80,97 @@ export default function CleaningPage() {
         seen.set(key, idx)
       }
     })
-    setDuplicateInfo({
-      detected_count: dupIndexes.length,
-      row_indexes: dupIndexes,
-      action: 'excluded'
+    setDuplicateInfo({ detected_count: dupIndexes.length, row_indexes: dupIndexes, action: 'excluded' })
+
+    // 3. Text-to-value mapping detection (any non-numeric value inside a scale construct's columns)
+    const mappingsNeeded: any = {}
+    scaleConstructs.forEach((c: any) => {
+      const cols: number[] = c.columnIndexes || []
+      const uniqueTexts = new Set<string>()
+      rawData.forEach((row: any[]) => {
+        cols.forEach((ci) => {
+          const val = row[ci]
+          if (val === null || val === undefined || String(val).trim() === '') return
+          if (isNaN(Number(val))) uniqueTexts.add(String(val).trim())
+        })
+      })
+      if (uniqueTexts.size > 0) {
+        mappingsNeeded[c.id] = {
+          constructName: c.name,
+          values: Array.from(uniqueTexts).reduce((acc: any, v: string) => {
+            acc[v] = ''
+            return acc
+          }, {})
+        }
+      }
     })
+    setTextMappings(mappingsNeeded)
+
+    // 4. Straight-lining detection (same value across every item in a construct with 3+ items)
+    const straightRows = new Set<number>()
+    rawData.forEach((row: any[], idx: number) => {
+      scaleConstructs.forEach((c: any) => {
+        const cols: number[] = c.columnIndexes || []
+        if (cols.length < 3) return
+        const values = cols.map((ci) => row[ci]).filter((v) => v !== null && v !== undefined && String(v).trim() !== '')
+        if (values.length !== cols.length) return
+        const allSame = values.every((v) => String(v).trim() === String(values[0]).trim())
+        if (allSame) straightRows.add(idx)
+      })
+    })
+    setStraightLining({ detected_row_indexes: Array.from(straightRows), action: 'excluded' })
 
     setLoading(false)
   }
 
   function updateStrategy(constructId: string, strategy: string) {
-    setMissingConfig((prev: any) => ({
-      ...prev,
-      [constructId]: { ...prev[constructId], strategy }
-    }))
+    setMissingConfig((prev: any) => ({ ...prev, [constructId]: { ...prev[constructId], strategy } }))
   }
 
   function updateDuplicateAction(action: string) {
     setDuplicateInfo((prev: any) => ({ ...prev, action }))
   }
 
+  function updateStraightLiningAction(action: string) {
+    setStraightLining((prev: any) => ({ ...prev, action }))
+  }
+
+  function updateTextMapping(constructId: string, textValue: string, numValue: string) {
+    setTextMappings((prev: any) => ({
+      ...prev,
+      [constructId]: {
+        ...prev[constructId],
+        values: { ...prev[constructId].values, [textValue]: numValue }
+      }
+    }))
+  }
+
+  const textMappingIncomplete = Object.values(textMappings).some((m: any) =>
+    Object.values(m.values).some((v: any) => v === '' || v === null)
+  )
+
   async function handleContinue() {
+    if (textMappingIncomplete) {
+      setErrorMsg('Please assign a number to every text value listed below before continuing.')
+      return
+    }
+
     setSaving(true)
     setErrorMsg('')
 
+    const cleanTextMappings: any = {}
+    Object.entries(textMappings).forEach(([constructId, m]: any) => {
+      cleanTextMappings[constructId] = {}
+      Object.entries(m.values).forEach(([text, num]: any) => {
+        cleanTextMappings[constructId][text] = Number(num)
+      })
+    })
+
     const cleaning_config = {
       missing_values: missingConfig,
-      duplicates: duplicateInfo
+      duplicates: duplicateInfo,
+      text_mappings: cleanTextMappings,
+      straight_lining: straightLining
     }
 
     const { error } = await supabase
@@ -125,56 +197,58 @@ export default function CleaningPage() {
   }
 
   const constructs: any[] = session?.constructs || []
+  const hasTextMappings = Object.keys(textMappings).length > 0
 
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto', padding: '24px 16px' }}>
       <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#333333', marginBottom: '4px' }}>
-        Step 6: Data Cleaning
+        Data Cleaning
       </h1>
       <p style={{ fontSize: '13px', color: '#777777', marginBottom: '24px' }}>
-        Review missing values and duplicate rows before analysis.
+        Review these before your analysis runs. You're always in control &mdash; nothing is auto-corrected.
       </p>
 
+      {hasTextMappings && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '6px' }}>Text-to-Value Mapping</h2>
+          <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
+            Some of your answers are written as text instead of numbers. Tell us what number each one means.
+          </p>
+          {Object.entries(textMappings).map(([constructId, m]: any) => (
+            <div key={constructId} style={{ marginBottom: '14px' }}>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: '#333333', marginBottom: '8px' }}>{m.constructName}</p>
+              {Object.keys(m.values).map((textVal) => (
+                <div key={textVal} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                  <span style={{ flex: 1, fontSize: '13px', color: '#333333' }}>"{textVal}" =</span>
+                  <input
+                    type="number"
+                    value={m.values[textVal]}
+                    onChange={(e) => updateTextMapping(constructId, textVal, e.target.value)}
+                    style={{ width: '70px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>
-          Missing Values
-        </h2>
-
-        {constructs.length === 0 && (
-          <p style={{ fontSize: '13px', color: '#777777' }}>No constructs found for this session.</p>
-        )}
-
+        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Missing Values</h2>
+        {constructs.length === 0 && <p style={{ fontSize: '13px', color: '#777777' }}>No constructs found for this session.</p>}
         {constructs.map((c: any) => {
           const info = missingConfig[c.id] || { strategy: 'exclude_row', missing_count: 0 }
           return (
             <div key={c.id} style={{ padding: '10px 0', borderBottom: '1px solid #F0F0F0' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <span style={{ color: '#333333', fontSize: '13px', fontWeight: 600 }}>{c.name}</span>
-                <span style={{ color: '#777777', fontSize: '12px' }}>
-                  {info.missing_count} row{info.missing_count !== 1 ? 's' : ''} affected
-                </span>
+                <span style={{ color: '#777777', fontSize: '12px' }}>{info.missing_count} row{info.missing_count !== 1 ? 's' : ''} affected</span>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => updateStrategy(c.id, 'exclude_row')}
-                  style={{
-                    flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-                    border: info.strategy === 'exclude_row' ? '1px solid #D4AF37' : '1px solid #EEEEEE',
-                    backgroundColor: info.strategy === 'exclude_row' ? '#FFF8E7' : '#ffffff',
-                    color: '#333333', cursor: 'pointer'
-                  }}
-                >
+                <button onClick={() => updateStrategy(c.id, 'exclude_row')} style={{ flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: info.strategy === 'exclude_row' ? '1px solid #D4AF37' : '1px solid #EEEEEE', backgroundColor: info.strategy === 'exclude_row' ? '#FFF8E7' : '#ffffff', color: '#333333', cursor: 'pointer' }}>
                   Exclude Row
                 </button>
-                <button
-                  onClick={() => updateStrategy(c.id, 'exclude_item')}
-                  style={{
-                    flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-                    border: info.strategy === 'exclude_item' ? '1px solid #D4AF37' : '1px solid #EEEEEE',
-                    backgroundColor: info.strategy === 'exclude_item' ? '#FFF8E7' : '#ffffff',
-                    color: '#333333', cursor: 'pointer'
-                  }}
-                >
+                <button onClick={() => updateStrategy(c.id, 'exclude_item')} style={{ flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: info.strategy === 'exclude_item' ? '1px solid #D4AF37' : '1px solid #EEEEEE', backgroundColor: info.strategy === 'exclude_item' ? '#FFF8E7' : '#ffffff', color: '#333333', cursor: 'pointer' }}>
                   Exclude Item Only
                 </button>
               </div>
@@ -184,35 +258,37 @@ export default function CleaningPage() {
       </div>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>
-          Duplicate Rows
-        </h2>
+        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Duplicate Rows</h2>
         <p style={{ fontSize: '13px', color: '#333333', marginBottom: '12px' }}>
           {duplicateInfo.detected_count} duplicate row{duplicateInfo.detected_count !== 1 ? 's' : ''} detected.
         </p>
         {duplicateInfo.detected_count > 0 && (
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => updateDuplicateAction('excluded')}
-              style={{
-                flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-                border: duplicateInfo.action === 'excluded' ? '1px solid #D4AF37' : '1px solid #EEEEEE',
-                backgroundColor: duplicateInfo.action === 'excluded' ? '#FFF8E7' : '#ffffff',
-                color: '#333333', cursor: 'pointer'
-              }}
-            >
+            <button onClick={() => updateDuplicateAction('excluded')} style={{ flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: duplicateInfo.action === 'excluded' ? '1px solid #D4AF37' : '1px solid #EEEEEE', backgroundColor: duplicateInfo.action === 'excluded' ? '#FFF8E7' : '#ffffff', color: '#333333', cursor: 'pointer' }}>
               Exclude Duplicates
             </button>
-            <button
-              onClick={() => updateDuplicateAction('kept')}
-              style={{
-                flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-                border: duplicateInfo.action === 'kept' ? '1px solid #D4AF37' : '1px solid #EEEEEE',
-                backgroundColor: duplicateInfo.action === 'kept' ? '#FFF8E7' : '#ffffff',
-                color: '#333333', cursor: 'pointer'
-              }}
-            >
+            <button onClick={() => updateDuplicateAction('kept')} style={{ flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: duplicateInfo.action === 'kept' ? '1px solid #D4AF37' : '1px solid #EEEEEE', backgroundColor: duplicateInfo.action === 'kept' ? '#FFF8E7' : '#ffffff', color: '#333333', cursor: 'pointer' }}>
               Keep Duplicates
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Straight-Lining / Low-Effort Responses</h2>
+        <p style={{ fontSize: '12px', color: '#777777', marginBottom: '12px' }}>
+          Respondents who answered every question in a section with the exact same value &mdash; often a sign of low-effort responding.
+        </p>
+        <p style={{ fontSize: '13px', color: '#333333', marginBottom: '12px' }}>
+          {straightLining.detected_row_indexes.length} respondent{straightLining.detected_row_indexes.length !== 1 ? 's' : ''} detected.
+        </p>
+        {straightLining.detected_row_indexes.length > 0 && (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => updateStraightLiningAction('excluded')} style={{ flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: straightLining.action === 'excluded' ? '1px solid #D4AF37' : '1px solid #EEEEEE', backgroundColor: straightLining.action === 'excluded' ? '#FFF8E7' : '#ffffff', color: '#333333', cursor: 'pointer' }}>
+              Exclude These
+            </button>
+            <button onClick={() => updateStraightLiningAction('kept')} style={{ flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: straightLining.action === 'kept' ? '1px solid #D4AF37' : '1px solid #EEEEEE', backgroundColor: straightLining.action === 'kept' ? '#FFF8E7' : '#ffffff', color: '#333333', cursor: 'pointer' }}>
+              Keep Anyway
             </button>
           </div>
         )}
@@ -227,10 +303,7 @@ export default function CleaningPage() {
       <button
         onClick={handleContinue}
         disabled={saving}
-        style={{
-          width: '100%', backgroundColor: '#D4AF37', color: '#333333', border: 'none',
-          borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer'
-        }}
+        style={{ width: '100%', backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
       >
         {saving ? 'Saving...' : 'Continue to Analysis Engine'}
       </button>

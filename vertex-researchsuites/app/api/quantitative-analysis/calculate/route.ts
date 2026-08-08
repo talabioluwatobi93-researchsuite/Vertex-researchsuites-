@@ -33,10 +33,15 @@ export async function POST(req: NextRequest) {
     const analysisTypes: string[] = session.analysis_type || []
     const missingConfig = cleaningConfig.missing_values || {}
     const duplicateInfo = cleaningConfig.duplicates || { row_indexes: [], action: 'excluded' }
+    const textMappings = cleaningConfig.text_mappings || {}
+    const straightLining = cleaningConfig.straight_lining || { detected_row_indexes: [], action: 'excluded' }
 
     const excludedRowIndexes = new Set<number>()
     if (duplicateInfo.action === 'excluded') {
       (duplicateInfo.row_indexes || []).forEach((idx: number) => excludedRowIndexes.add(idx))
+    }
+    if (straightLining.action === 'excluded') {
+      (straightLining.detected_row_indexes || []).forEach((idx: number) => excludedRowIndexes.add(idx))
     }
 
     const rowIsMissingForExcludeRow = (row: any[]): boolean => {
@@ -60,7 +65,17 @@ export async function POST(req: NextRequest) {
       cleanedRows.push(row)
     })
 
-    // each construct now carries its OWN scaleMin/scaleMax/scaleReversed (Step 6 design)
+    // resolve a raw cell to a number, applying the construct's text-to-value mapping first if needed
+    function resolveNumeric(raw: any, constructId: string): number | null {
+      if (raw === null || raw === undefined || String(raw).trim() === '') return null
+      const str = String(raw).trim()
+      const direct = Number(str)
+      if (!isNaN(direct)) return direct
+      const mapping = textMappings[constructId]
+      if (mapping && mapping[str] !== undefined) return Number(mapping[str])
+      return null
+    }
+
     function getConstructScore(row: any[], construct: any): number | null {
       const cols: number[] = construct.columnIndexes || []
       const reverseIdx: number[] = construct.reverseIndexes || []
@@ -70,14 +85,9 @@ export async function POST(req: NextRequest) {
 
       const values: number[] = []
       for (const ci of cols) {
-        const raw = row[ci]
-        if (raw === null || raw === undefined || String(raw).trim() === '') continue
-        let num = Number(raw)
-        if (isNaN(num)) continue
-
-        // whole-scale reversal (e.g. student's questionnaire numbers 1=Agree instead of 1=Disagree)
+        let num = resolveNumeric(row[ci], construct.id)
+        if (num === null) continue
         if (scaleReversed) num = (scaleMin + scaleMax) - num
-        // per-item reverse-worded flip
         const scored = reverseIdx.includes(ci) ? (scaleMin + scaleMax) - num : num
         values.push(scored)
       }
@@ -113,7 +123,6 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    // full APA frequency structure: Frequency, Percent (of all), Valid Percent (of answered), Cumulative Percent
     const frequencyTables = demoConstructs.map((c) => {
       const col = (c.columnIndexes || [])[0]
       const counts: Record<string, number> = {}
@@ -145,12 +154,7 @@ export async function POST(req: NextRequest) {
         }
       })
 
-      return {
-        name: c.name,
-        nValid: validTotal,
-        nMissing: missingCount,
-        rows
-      }
+      return { name: c.name, nValid: validTotal, nMissing: missingCount, rows }
     })
 
     let correlation: any = null
@@ -191,11 +195,7 @@ export async function POST(req: NextRequest) {
         regression = {
           dvName: dv.name,
           ivNames,
-          variablesEntered: {
-            entered: ivNames,
-            removed: [],
-            method: 'Enter'
-          },
+          variablesEntered: { entered: ivNames, removed: [], method: 'Enter' },
           modelSummary: {
             r: r3(reg.multipleR),
             rSquared: r3(reg.rSquared),
@@ -210,14 +210,7 @@ export async function POST(req: NextRequest) {
             p: r3(reg.fP)
           },
           coefficients: [
-            {
-              name: '(Constant)',
-              B: r3(reg.coefficients[0]),
-              SE: r3(reg.standardErrors[0]),
-              beta: null,
-              t: r3(reg.tStats[0]),
-              p: r3(reg.pValues[0])
-            },
+            { name: '(Constant)', B: r3(reg.coefficients[0]), SE: r3(reg.standardErrors[0]), beta: null, t: r3(reg.tStats[0]), p: r3(reg.pValues[0]) },
             ...ivNames.map((name, i) => ({
               name,
               B: r3(reg.coefficients[i + 1]),
