@@ -398,6 +398,16 @@ export default function ResultsPage() {
           Add Chapter 5
         </a>
       </div>
+
+      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
+        <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Prepare for your defense</p>
+        <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
+          Likely questions and answers based on your actual results — not generic textbook Q&A. Optional, paid add-on.
+        </p>
+        <a href={`/quantitative-analysis/${id}/defense-prep`} style={{ display: 'inline-block', backgroundColor: '#F9F9F9', color: '#333333', border: '1px solid #D4AF37', borderRadius: '10px', padding: '12px 20px', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}>
+          Prepare for Defense
+        </a>
+      </div>
     </div>
   )
 }
