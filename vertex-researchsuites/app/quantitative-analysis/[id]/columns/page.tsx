@@ -16,6 +16,8 @@ type Construct = {
   reverseIndexes: number[]
 }
 
+type RangeSel = { from: number | ''; to: number | '' }
+
 export default function ColumnsPage() {
   const params = useParams()
   const router = useRouter()
@@ -27,7 +29,7 @@ export default function ColumnsPage() {
   const [errorMsg, setErrorMsg] = useState('')
 
   const [constructs, setConstructs] = useState<Construct[]>([])
-  const [assignments, setAssignments] = useState<Record<number, string>>({})
+  const [ranges, setRanges] = useState<Record<string, RangeSel>>({})
   const [newConstructName, setNewConstructName] = useState('')
   const [newConstructIsDemo, setNewConstructIsDemo] = useState(false)
   const [scaleMin, setScaleMin] = useState(1)
@@ -60,19 +62,25 @@ export default function ColumnsPage() {
       ...constructs,
       { id, name, role: newConstructIsDemo ? 'Demographic' : 'Unassigned', columnIndexes: [], reverseIndexes: [] }
     ])
+    setRanges((prev) => ({ ...prev, [id]: { from: '', to: '' } }))
     setNewConstructName('')
     setNewConstructIsDemo(false)
   }
 
-  const assignColumn = (colIndex: number, constructId: string) => {
-    setAssignments((prev) => ({ ...prev, [colIndex]: constructId }))
-    setConstructs((prev) =>
-      prev.map((c) => {
-        const withoutCol = c.columnIndexes.filter((i) => i !== colIndex)
-        if (c.id === constructId) return { ...c, columnIndexes: [...withoutCol, colIndex] }
-        return { ...c, columnIndexes: withoutCol }
-      })
-    )
+  const updateRange = (constructId: string, part: 'from' | 'to', value: string) => {
+    const numVal = value === '' ? '' : Number(value)
+    const nextRange = { ...(ranges[constructId] || { from: '', to: '' }), [part]: numVal }
+    setRanges((prev) => ({ ...prev, [constructId]: nextRange }))
+
+    if (nextRange.from !== '' && nextRange.to !== '') {
+      const from = Math.min(nextRange.from as number, nextRange.to as number)
+      const to = Math.max(nextRange.from as number, nextRange.to as number)
+      const indexes: number[] = []
+      for (let i = from; i <= to; i++) indexes.push(i)
+      setConstructs((prev) =>
+        prev.map((c) => (c.id === constructId ? { ...c, columnIndexes: indexes, reverseIndexes: c.reverseIndexes.filter((r) => indexes.includes(r)) } : c))
+      )
+    }
   }
 
   const toggleReverse = (colIndex: number, constructId: string) => {
@@ -115,7 +123,7 @@ export default function ColumnsPage() {
     const usedConstructs = constructs.filter((c) => c.columnIndexes.length > 0)
 
     if (usedConstructs.length === 0) {
-      setErrorMsg('Please create at least one construct and assign columns to it.')
+      setErrorMsg('Please create at least one construct and set its column range.')
       return
     }
 
@@ -164,7 +172,7 @@ export default function ColumnsPage() {
         Group Your Items
       </h1>
       <p style={{ color: '#777777', fontSize: '13px', marginBottom: '20px' }}>
-        Step 4 of 10 &mdash; Name your constructs, then declare your Independent and Dependent Variables.
+        Step 4 &amp; 5 of 10 &mdash; Name your constructs, then set the From/To range of questions for each.
       </p>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
@@ -177,7 +185,7 @@ export default function ColumnsPage() {
       </div>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
-        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '10px' }}>Your constructs & demographic sections</p>
+        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '10px' }}>Your constructs &amp; demographic sections</p>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
           <input
             type="text"
@@ -190,25 +198,72 @@ export default function ColumnsPage() {
             Add
           </button>
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '14px' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
           <input type="checkbox" checked={newConstructIsDemo} onChange={(e) => setNewConstructIsDemo(e.target.checked)} />
-          <span style={{ color: '#777777', fontSize: '12px' }}>This is a Demographic variable (not part of IV/DV analysis)</span>
+          <span style={{ color: '#777777', fontSize: '12px' }}>This is a Demographic section (not part of IV/DV analysis)</span>
         </label>
-        {constructs.map((c) => (
-          <span key={c.id} style={{ display: 'inline-block', backgroundColor: '#F9F9F9', border: `1px solid ${roleColor(c.role)}`, borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: '#333333', marginRight: '6px', marginBottom: '6px' }}>
-            {c.name} <span style={{ color: roleColor(c.role), fontWeight: 700 }}>({c.role})</span> ({c.columnIndexes.length})
-          </span>
-        ))}
         <p style={{ color: '#777777', fontSize: '12px', marginTop: '10px' }}>
           Total constructs: {constructs.length} &nbsp;|&nbsp; Demographic sections: {demoConstructs.length}
         </p>
       </div>
 
+      {constructs.length > 0 && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '4px' }}>Set each section's range</p>
+          <p style={{ color: '#777777', fontSize: '12px', marginBottom: '14px' }}>
+            Pick the first and last question for each section &mdash; every column in between is included automatically.
+          </p>
+          {constructs.map((c) => {
+            const r = ranges[c.id] || { from: '', to: '' }
+            return (
+              <div key={c.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F0F0' }}>
+                <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>
+                  {c.name} <span style={{ color: roleColor(c.role), fontWeight: 700, fontSize: '11px' }}>({c.role})</span>
+                </p>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <select
+                    value={r.from}
+                    onChange={(e) => updateRange(c.id, 'from', e.target.value)}
+                    style={{ flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}
+                  >
+                    <option value="">From...</option>
+                    {columnHeaders.map((h, idx) => (
+                      <option key={idx} value={idx}>{h}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={r.to}
+                    onChange={(e) => updateRange(c.id, 'to', e.target.value)}
+                    style={{ flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}
+                  >
+                    <option value="">To...</option>
+                    {columnHeaders.map((h, idx) => (
+                      <option key={idx} value={idx}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+                {c.columnIndexes.length > 0 && (
+                  <p style={{ color: '#777777', fontSize: '11px', marginBottom: '8px' }}>
+                    {c.columnIndexes.length} question{c.columnIndexes.length !== 1 ? 's' : ''} included
+                  </p>
+                )}
+                {c.role !== 'Demographic' && c.columnIndexes.map((idx) => (
+                  <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', paddingLeft: '4px' }}>
+                    <input type="checkbox" checked={c.reverseIndexes.includes(idx)} onChange={() => toggleReverse(idx, c.id)} />
+                    <span style={{ color: '#777777', fontSize: '11px' }}>{columnHeaders[idx]} &mdash; reverse-worded?</span>
+                  </label>
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {scaleConstructs.length > 0 && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
           <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '4px' }}>Declare your research model</p>
           <p style={{ color: '#777777', fontSize: '12px', marginBottom: '14px' }}>
-            Based on what you told us earlier, choose which constructs are your Independent Variable(s) and which is your Dependent Variable.
+            Choose which constructs are your Independent Variable(s) and which is your Dependent Variable.
           </p>
 
           <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '8px', display: 'block' }}>
@@ -236,36 +291,6 @@ export default function ColumnsPage() {
           </div>
         </div>
       )}
-
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
-        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '10px' }}>Assign each column</p>
-        {columnHeaders.map((header, idx) => {
-          const assignedId = assignments[idx] || ''
-          const assignedConstruct = constructs.find((c) => c.id === assignedId)
-          return (
-            <div key={idx} style={{ padding: '10px 0', borderBottom: idx < columnHeaders.length - 1 ? '1px solid #F0F0F0' : 'none' }}>
-              <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>{header}</p>
-              <select
-                value={assignedId}
-                onChange={(e) => assignColumn(idx, e.target.value)}
-                style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}
-                disabled={constructs.length === 0}
-              >
-                <option value="">Exclude (not used)</option>
-                {constructs.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name} ({c.role})</option>
-                ))}
-              </select>
-              {assignedConstruct && assignedConstruct.role !== 'Demographic' && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
-                  <input type="checkbox" checked={assignedConstruct.reverseIndexes.includes(idx)} onChange={() => toggleReverse(idx, assignedConstruct.id)} />
-                  <span style={{ color: '#777777', fontSize: '11px' }}>This item is reverse-worded</span>
-                </label>
-              )}
-            </div>
-          )
-        })}
-      </div>
 
       {errorMsg && (
         <div style={{ backgroundColor: '#FDEDEC', borderRadius: '16px', padding: '14px', marginBottom: '16px' }}>
