@@ -27,7 +27,7 @@ export default function QualDefensePrepPage() {
 
     const { data: userData } = await supabase.auth.getUser()
     if (userData?.user?.id) {
-      const { data: wallet } = await supabase.from('wallets').select('balance').eq('user_id', userData.user.id).single()
+      const { data: wallet } = await supabase.from('wallets').select('balance').eq('id', userData.user.id).single()
       setBalance(wallet?.balance ?? 0)
     }
 
@@ -43,7 +43,7 @@ export default function QualDefensePrepPage() {
     setProcessing(true); setErrorMsg('')
     if (price > 0) {
       const { data: userData } = await supabase.auth.getUser()
-      const { error: deductError } = await supabase.from('wallets').update({ balance: balance - price }).eq('user_id', userData?.user?.id)
+      const { error: deductError } = await supabase.from('wallets').update({ balance: balance - price }).eq('id', userData?.user?.id)
       if (deductError) { setErrorMsg('Something went wrong deducting from your wallet.'); setProcessing(false); return }
     }
     setStage('generating')

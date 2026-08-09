@@ -44,7 +44,7 @@ export default function Chapter5Page() {
       const { data: wallet } = await supabase
         .from('wallets')
         .select('balance')
-        .eq('user_id', userData.user.id)
+        .eq('id', userData.user.id)
         .single()
       setBalance(wallet?.balance ?? 0)
     }
@@ -107,7 +107,7 @@ export default function Chapter5Page() {
       const { error: deductError } = await supabase
         .from('wallets')
         .update({ balance: balance - price })
-        .eq('user_id', userData?.user?.id)
+        .eq('id', userData?.user?.id)
 
       if (deductError) {
         setErrorMsg('Something went wrong deducting from your wallet. Please try again.')
