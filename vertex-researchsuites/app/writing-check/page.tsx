@@ -93,7 +93,7 @@ export default function WritingCheckPage() {
       const { data: wallet } = await supabase
         .from('wallets')
         .select('balance')
-        .eq('user_id', userId)
+        .eq('id', userId)
         .single()
       const balance = wallet?.balance ?? 0
       if (balance < totalPrice) {
@@ -104,12 +104,13 @@ export default function WritingCheckPage() {
       const { error: deductError } = await supabase
         .from('wallets')
         .update({ balance: balance - totalPrice })
-        .eq('user_id', userId)
+        .eq('id', userId)
       if (deductError) {
         setErrorMsg('Could not process payment. Please try again.')
         setLoading(false)
         return
       }
+      await supabase.from('transactions').insert({ user_id: userId, type: 'debit', amount: totalPrice, status: 'success', description: 'Writing Check & Polish' });
       await handleSubmit()
     } catch {
       setErrorMsg('Something went wrong. Please try again.')
