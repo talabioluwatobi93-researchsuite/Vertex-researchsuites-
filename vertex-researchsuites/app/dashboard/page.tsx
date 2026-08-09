@@ -33,7 +33,7 @@ export default function Dashboard() {
         .channel('wallet-balance-changes')
         .on(
           'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` },
+          { event: 'UPDATE', schema: 'public', table: 'wallets', filter: `id=eq.${user.id}` },
           (payload) => { setBalance(payload.new.balance ?? 0) }
         )
         .subscribe()
@@ -69,7 +69,7 @@ export default function Dashboard() {
         const { data: wallet } = await supabase
           .from('wallets')
           .select('balance')
-          .eq('user_id', user.id)
+          .eq('id', user.id)
           .single()
 
         setBalance(wallet?.balance ?? 0)
