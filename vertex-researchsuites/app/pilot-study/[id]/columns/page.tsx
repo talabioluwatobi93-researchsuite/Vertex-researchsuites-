@@ -106,6 +106,19 @@ export default function PilotStudyColumnsPage() {
     setSaving(true)
     setErrorMsg('')
 
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) { setErrorMsg('Please log in again.'); setSaving(false); return; }
+    const { data: priceRow } = await supabase.from('feature_pricing').select('price').eq('feature_name', 'pilot_study').single();
+    const price = priceRow?.price ?? 0;
+    if (price > 0) {
+      const { data: wallet } = await supabase.from('wallets').select('balance').eq('id', userData.user.id).single();
+      const balance = wallet?.balance ?? 0;
+      if (balance < price) { setErrorMsg('Your balance is not enough, kindly top up.'); setSaving(false); return; }
+      const { error: deductError } = await supabase.from('wallets').update({ balance: balance - price }).eq('id', userData.user.id);
+      if (deductError) { setErrorMsg('Could not process payment. Please try again.'); setSaving(false); return; }
+      await supabase.from('transactions').insert({ user_id: userData.user.id, type: 'debit', amount: price, status: 'success', description: 'Pilot Study & Reliability Test' });
+    }
+
     const { error } = await supabase
       .from('pilot_study_sessions')
       .update({
