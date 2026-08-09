@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     const { data: wallet, error: fetchError } = await supabase
       .from("wallets")
       .select("balance")
-      .eq("user_id", userId)
+      .eq("id", userId)
       .single();
 
     if (fetchError || !wallet) {
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     const { error: updateError } = await supabase
       .from("wallets")
       .update({ balance: newBalance })
-      .eq("user_id", userId);
+      .eq("id", userId);
 
     if (updateError) {
       return NextResponse.json({ error: "Failed to update balance" }, { status: 500 });

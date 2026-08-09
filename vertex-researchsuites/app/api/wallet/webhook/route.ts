@@ -38,14 +38,14 @@ export async function POST(req: NextRequest) {
         const { data: wallet } = await supabase
           .from("wallets")
           .select("balance")
-          .eq("user_id", userId)
+          .eq("id", userId)
           .single();
 
         if (wallet) {
           await supabase
             .from("wallets")
             .update({ balance: Number(wallet.balance) + amountInNaira })
-            .eq("user_id", userId);
+            .eq("id", userId);
 
           await supabase.from("wallet_transactions").insert({
             user_id: userId,
