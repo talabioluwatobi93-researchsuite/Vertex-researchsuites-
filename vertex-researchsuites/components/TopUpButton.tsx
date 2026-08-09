@@ -58,6 +58,7 @@ export default function TopUpButton() {
       });
     } catch (err) {
       console.error(err);
+      alert("DEBUG ERROR: " + (err instanceof Error ? err.message : String(err)));
       setLoading(false);
     }
   };
