@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
+import TopUpButton from '../../components/TopUpButton'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -250,18 +251,7 @@ export default function Dashboard() {
                 {serialId || '•••• •••• ••••'}
               </p>
             </div>
-            <button style={{
-              backgroundColor: '#333333',
-              color: '#D4AF37',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '10px 18px',
-              fontSize: '13px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}>
-              Top Up
-            </button>
+            <TopUpButton />
           </div>
         </div>
       </div>
