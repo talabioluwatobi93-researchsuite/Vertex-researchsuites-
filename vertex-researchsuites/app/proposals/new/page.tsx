@@ -92,7 +92,7 @@ export default function NewProposal() {
       const { data: wallet } = await supabase
         .from('wallets')
         .select('balance')
-        .eq('user_id', userId)
+        .eq('id', userId)
         .single()
 
       const balance = wallet?.balance ?? 0
@@ -106,7 +106,7 @@ export default function NewProposal() {
       const { error: deductError } = await supabase
         .from('wallets')
         .update({ balance: balance - previewPrice })
-        .eq('user_id', userId)
+        .eq('id', userId)
 
       if (deductError) {
         setErrorMsg('Could not process payment. Please try again.')
@@ -163,7 +163,7 @@ export default function NewProposal() {
       const { data: wallet } = await supabase
         .from('wallets')
         .select('balance')
-        .eq('user_id', userId)
+        .eq('id', userId)
         .single()
 
       const balance = wallet?.balance ?? 0
@@ -177,7 +177,7 @@ export default function NewProposal() {
       const { error: deductError } = await supabase
         .from('wallets')
         .update({ balance: balance - fullPrice })
-        .eq('user_id', userId)
+        .eq('id', userId)
 
       if (deductError) {
         setErrorMsg('Could not process payment. Please try again.')
