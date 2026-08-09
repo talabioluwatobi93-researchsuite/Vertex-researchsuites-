@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 import TopUpButton from '../../components/TopUpButton'
+import TransactionHistory from '../../components/TransactionHistory';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -252,6 +253,7 @@ export default function Dashboard() {
               </p>
             </div>
             <TopUpButton />
+              <TransactionHistory />
           </div>
         </div>
       </div>
