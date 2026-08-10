@@ -112,6 +112,25 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [activeIndex, messages.length])
 
+  useEffect(() => {
+    let heartbeatInterval: any = null;
+
+    const sendHeartbeat = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase
+        .from("user_presence")
+        .upsert({ user_id: user.id, last_seen: new Date().toISOString() });
+    };
+
+    sendHeartbeat();
+    heartbeatInterval = setInterval(sendHeartbeat, 30000);
+
+    return () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+    };
+  }, []);
+
   const handleScroll = () => {
     if (!scrollRef.current) return
     const el = scrollRef.current
