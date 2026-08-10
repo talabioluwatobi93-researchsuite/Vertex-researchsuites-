@@ -63,54 +63,67 @@ export default function Billboard() {
             transition: "transform 0.6s ease",
           }}
         >
-          {SLIDES.map((slide) => (
-            <div
-              key={slide.id}
-              style={{
-                minWidth: "100%",
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                padding: "20px",
-              }}
-            >
+          {SLIDES.map((slide) =>
+            slide.imageUrl ? (
               <div
+                key={slide.id}
                 style={{
-                  width: 64,
-                  height: 64,
-                  minWidth: 64,
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  background:
-                    "linear-gradient(135deg, #F5D485 0%, #D4AF37 45%, #9C7A16 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 28,
+                  minWidth: "100%",
+                  aspectRatio: "16 / 7",
                 }}
               >
-                {slide.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={slide.imageUrl}
-                    alt={slide.title}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  />
-                ) : (
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={slide.imageUrl}
+                  alt={slide.title}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+              </div>
+            ) : (
+              <div
+                key={slide.id}
+                style={{
+                  minWidth: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  padding: "20px",
+                }}
+              >
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    minWidth: 64,
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    background:
+                      "linear-gradient(135deg, #F5D485 0%, #D4AF37 45%, #9C7A16 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 28,
+                  }}
+                >
                   <span>{slide.emoji}</span>
-                )}
-              </div>
+                </div>
 
-              <div>
-                <div style={{ color: DARK, fontSize: 15, fontWeight: 700 }}>
-                  {slide.title}
-                </div>
-                <div style={{ color: MUTED, fontSize: 13, marginTop: 4, lineHeight: 1.4 }}>
-                  {slide.text}
+                <div>
+                  <div style={{ color: DARK, fontSize: 15, fontWeight: 700 }}>
+                    {slide.title}
+                  </div>
+                  <div style={{ color: MUTED, fontSize: 13, marginTop: 4, lineHeight: 1.4 }}>
+                    {slide.text}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
       </div>
 
