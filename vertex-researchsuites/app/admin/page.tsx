@@ -35,6 +35,14 @@ type ActivityEvent = {
   created_at: string;
 };
 
+type ActiveUser = {
+  user_id: string;
+  email: string;
+  last_seen: string;
+};
+
+const ACTIVE_WINDOW_MS = 3 * 60 * 1000;
+
 function startOfToday() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -84,6 +92,8 @@ export default function AdminPage() {
   const [statsError, setStatsError] = useState<string | null>(null);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [activityError, setActivityError] = useState<string | null>(null);
+  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const [activeUsersError, setActiveUsersError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -112,7 +122,39 @@ export default function AdminPage() {
       }
 
       setStatus("granted");
-      await Promise.all([loadStats(), loadActivity()]);
+      await Promise.all([loadStats(), loadActivity(), loadActiveUsers()]);
+    }
+
+    async function loadActiveUsers() {
+      const sinceIso = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString();
+
+      const [presenceRes, dirRes] = await Promise.all([
+        supabase
+          .from("user_presence")
+          .select("user_id, last_seen")
+          .gte("last_seen", sinceIso)
+          .order("last_seen", { ascending: false }),
+        supabase.from("admin_user_directory").select("user_id, email"),
+      ]);
+
+      if (!active) return;
+
+      const err = presenceRes.error || dirRes.error;
+      if (err) {
+        setActiveUsersError(err.message);
+        return;
+      }
+
+      const emailMap = new Map<string, string>();
+      (dirRes.data || []).forEach((u: any) => emailMap.set(u.user_id, u.email));
+
+      const users: ActiveUser[] = (presenceRes.data || []).map((p: any) => ({
+        user_id: p.user_id,
+        email: emailMap.get(p.user_id) || "Unknown user",
+        last_seen: p.last_seen,
+      }));
+
+      setActiveUsers(users);
     }
 
     async function loadStats() {
@@ -262,8 +304,13 @@ export default function AdminPage() {
 
     checkAdminThenLoad();
 
+    const refreshInterval = setInterval(() => {
+      if (active) loadActiveUsers();
+    }, 30000);
+
     return () => {
       active = false;
+      clearInterval(refreshInterval);
     };
   }, []);
 
@@ -317,6 +364,61 @@ export default function AdminPage() {
       <p style={{ color: MUTED, fontSize: 14, marginTop: 8 }}>
         Revenue snapshot and live activity below.
       </p>
+
+      <div
+        style={{
+          marginTop: 16,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          background: "#FFFFFF",
+          border: `1px solid ${BORDER}`,
+          borderRadius: 999,
+          padding: "8px 14px",
+        }}
+      >
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 999,
+            background: activeUsers.length > 0 ? "#3CB371" : MUTED,
+            display: "inline-block",
+          }}
+        />
+        <span style={{ color: DARK, fontSize: 13, fontWeight: 600 }}>
+          {activeUsers.length} active now
+        </span>
+      </div>
+
+      {activeUsersError && <ErrorBox message={`Couldn't load active users: ${activeUsersError}`} />}
+
+      {activeUsers.length > 0 && (
+        <div
+          style={{
+            marginTop: 10,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
+          {activeUsers.map((u) => (
+            <div
+              key={u.user_id}
+              style={{
+                background: "#FFFFFF",
+                border: `1px solid ${BORDER}`,
+                borderRadius: 999,
+                padding: "6px 12px",
+                fontSize: 12,
+                color: DARK,
+              }}
+            >
+              {u.email}
+            </div>
+          ))}
+        </div>
+      )}
 
       {statsError && (
         <ErrorBox message={`Couldn't load revenue data: ${statsError}`} />
