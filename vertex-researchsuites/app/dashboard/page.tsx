@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import TopUpButton from '../../components/TopUpButton'
 import TransactionHistory from '../../components/TransactionHistory';
 import PurchaseHistory from '../../components/PurchaseHistory';
+import Billboard from '../../components/Billboard';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -268,6 +269,7 @@ export default function Dashboard() {
                 {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis'))}
         {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true)}
       </div>
+    <Billboard />
     </div>
   )
 }
