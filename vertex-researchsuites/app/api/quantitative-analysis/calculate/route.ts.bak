@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, pearson, olsRegression, independentTTest } from '@/lib/stats'
+import { mean, sd, pearson, olsRegression } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -224,40 +224,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-
-    let ttest: any = null
-    if (analysisTypes.includes('ttest') && session.ttest_config) {
-      const { groupConstructId, outcomeConstructId } = session.ttest_config
-      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
-      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
-
-      if (groupConstruct && outcomeConstruct) {
-        const groupCol = groupConstruct.columnIndexes[0]
-        const group1Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[0]
-        const group2Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[1]
-
-        const group1Scores: number[] = []
-        const group2Scores: number[] = []
-
-        cleanedRows.forEach((row: any[]) => {
-          const label = String(row[groupCol]).trim()
-          const score = getConstructScore(row, outcomeConstruct)
-          if (score === null) return
-          if (label === group1Label) group1Scores.push(score)
-          else if (label === group2Label) group2Scores.push(score)
-        })
-
-        if (group1Scores.length >= 2 && group2Scores.length >= 2) {
-          const ttestResult = independentTTest(group1Scores, group2Scores)
-          ttest = {
-            groupVariableName: groupConstruct.name,
-            outcomeVariableName: outcomeConstruct.name,
-            group1Label, group2Label,
-            ...ttestResult,
-          }
-        }
-      }
-    }
     const results = {
       sampleSize: cleanedRows.length,
       excludedRows: rawData.length - cleanedRows.length,
@@ -265,7 +231,6 @@ export async function POST(req: NextRequest) {
       frequencyTables,
       correlation,
       regression,
-      ttest,
       computedAt: new Date().toISOString()
     }
 

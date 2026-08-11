@@ -464,6 +464,89 @@ export default function ResultsPage() {
         </>
       )}
 
+
+      {results.ttest && (
+        <>
+          <div style={tableWrap}>
+            <p style={tableTitle}>Table {nextTable()}. Group Statistics</p>
+            <table style={table}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>{results.ttest.groupVariableName}</th>
+                  <th style={thStyle}>N</th>
+                  <th style={thStyle}>Mean</th>
+                  <th style={thStyle}>Std. Deviation</th>
+                  <th style={thStyle}>Std. Error Mean</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={tdStyle}>{results.ttest.group1Label}</td>
+                  <td style={tdStyle}>{results.ttest.group1.n}</td>
+                  <td style={tdStyle}>{results.ttest.group1.mean.toFixed(2)}</td>
+                  <td style={tdStyle}>{results.ttest.group1.sd.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.group1.sem.toFixed(3)}</td>
+                </tr>
+                <tr>
+                  <td style={tdStyle}>{results.ttest.group2Label}</td>
+                  <td style={tdStyle}>{results.ttest.group2.n}</td>
+                  <td style={tdStyle}>{results.ttest.group2.mean.toFixed(2)}</td>
+                  <td style={tdStyle}>{results.ttest.group2.sd.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.group2.sem.toFixed(3)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p style={noteStyle}>Note. Dependent Variable: {results.ttest.outcomeVariableName}.</p>
+          </div>
+
+          <div style={tableWrap}>
+            <p style={tableTitle}>Table {nextTable()}. Independent Samples Test</p>
+            <table style={table}>
+              <thead>
+                <tr>
+                  <th style={thStyle}></th>
+                  <th style={thStyle}>Levene's F</th>
+                  <th style={thStyle}>Levene's Sig.</th>
+                  <th style={thStyle}>t</th>
+                  <th style={thStyle}>df</th>
+                  <th style={thStyle}>Sig. (2-tailed)</th>
+                  <th style={thStyle}>Mean Diff.</th>
+                  <th style={thStyle}>Std. Error Diff.</th>
+                  <th style={thStyle}>95% CI Lower</th>
+                  <th style={thStyle}>95% CI Upper</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={tdStyle}>Equal variances assumed</td>
+                  <td style={tdStyle}>{results.ttest.levene.f.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.levene.p.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.equalVariances.t.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.equalVariances.df.toFixed(0)}</td>
+                  <td style={tdStyle}>{results.ttest.equalVariances.p.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.equalVariances.meanDiff.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.equalVariances.seDiff.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.equalVariances.ciLower.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.equalVariances.ciUpper.toFixed(3)}</td>
+                </tr>
+                <tr>
+                  <td style={tdStyle}>Equal variances not assumed</td>
+                  <td style={tdStyle}></td>
+                  <td style={tdStyle}></td>
+                  <td style={tdStyle}>{results.ttest.unequalVariances.t.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.unequalVariances.df.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.unequalVariances.p.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.unequalVariances.meanDiff.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.unequalVariances.seDiff.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.unequalVariances.ciLower.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.ttest.unequalVariances.ciUpper.toFixed(3)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p style={noteStyle}>Note. If Levene's Sig. &lt; .05, use the "Equal variances not assumed" row.</p>
+          </div>
+        </>
+      )}
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Results Interpretation</h2>
         {interpretation.split('\n').filter(Boolean).map((para, i) => (
