@@ -25,6 +25,21 @@ export default function Dashboard() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [balance, setBalance] = useState<number | null>(null)
   const [serialId, setSerialId] = useState('')
+  const [bunkerUnreadCount, setBunkerUnreadCount] = useState(0)
+
+  useEffect(() => {
+    const fetchUnreadBunkerCount = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { count } = await supabase
+        .from('bunker_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+      setBunkerUnreadCount(count ?? 0)
+    }
+    fetchUnreadBunkerCount()
+  }, [])
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -143,7 +158,7 @@ export default function Dashboard() {
     ? balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : '0.00'
 
-  const featureCard = (icon: string, title: string, subtitle: string, onClick: () => void, dark?: boolean) => (
+  const featureCard = (icon: string, title: string, subtitle: string, onClick: () => void, dark?: boolean, badgeCount?: number) => (
     <button
       onClick={onClick}
       style={{
@@ -176,7 +191,7 @@ export default function Dashboard() {
         {icon}
       </div>
       <div style={{ flex: 1 }}>
-        <p style={{ color: '#333333', fontSize: '15px', fontWeight: 700, margin: 0 }}>{title}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><p style={{ color: '#333333', fontSize: '15px', fontWeight: 700, margin: 0 }}>{title}</p>{!!badgeCount && badgeCount > 0 && (<span style={{ backgroundColor: '#D4AF37', color: '#ffffff', fontSize: '11px', fontWeight: 700, borderRadius: '10px', padding: '1px 7px', minWidth: '18px', textAlign: 'center' }}>{badgeCount}</span>)}</div>
         <p style={{ color: '#888888', fontSize: '12px', margin: '2px 0 0' }}>{subtitle}</p>
       </div>
       <span style={{ color: '#B8860B', fontSize: '18px' }}>›</span>
@@ -286,7 +301,7 @@ export default function Dashboard() {
             {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study'))}
                 {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis'))}
                 {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis'))}
-        {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true)}
+        {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true, bunkerUnreadCount)}
       </div>
     <Billboard />
     </div>

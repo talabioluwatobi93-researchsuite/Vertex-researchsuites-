@@ -8,8 +8,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 )
 
-const HOLD_MS = 3 * 60 * 1000 // 3 minutes
-
 const thStyle: React.CSSProperties = {
   textAlign: 'left', padding: '6px 10px', fontSize: '13px', fontWeight: 400,
   borderBottom: '1px solid #333333', color: '#333333'
@@ -38,179 +36,79 @@ export default function ResultsPage() {
   const [interpretation, setInterpretation] = useState('')
   const [discussion, setDiscussion] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
-  const [revealed, setRevealed] = useState(false)
-  const [secondsLeft, setSecondsLeft] = useState(0)
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    init()
+    run()
   }, [id])
 
-  async function init() {
+  async function run() {
     try {
-      // 1. Check if this session already has computed results stored
-      const { data: session, error: sessionErr } = await supabase
-        .from('quantitative_analysis_sessions')
-        .select('results_json, interpretation, discussion, results_ready_at, results_revealed')
-        .eq('id', id)
-        .single()
-
-      if (sessionErr) {
-        setErrorMsg(sessionErr.message)
+      setStatus('Calculating results...')
+      const calcRes = await fetch('/api/quantitative-analysis/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: id })
+      })
+      const calcData = await calcRes.json()
+      if (!calcRes.ok) {
+        setErrorMsg(calcData.error || 'Calculation failed.')
         return
       }
+      setResults(calcData.results)
 
-      let finalResults = session?.results_json
-      let finalInterpretation = session?.interpretation
-      let finalDiscussion = session?.discussion
-      let readyAt = session?.results_ready_at
-
-      // 2. If not computed yet, compute now and persist to the session row
-      if (!finalResults) {
-        setStatus('Calculating results...')
-        const calcRes = await fetch('/api/quantitative-analysis/calculate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: id })
-        })
-        const calcData = await calcRes.json()
-        if (!calcRes.ok) {
-          setErrorMsg(calcData.error || 'Calculation failed.')
-          return
-        }
-        finalResults = calcData.results
-
-        setStatus('Analyzing results...')
-        const interpRes = await fetch('/api/quantitative-analysis/interpret', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: id })
-        })
-        const interpData = await interpRes.json()
-        if (!interpRes.ok) {
-          setErrorMsg(interpData.error || 'Interpretation failed.')
-          return
-        }
-        finalInterpretation = interpData.interpretation
-        finalDiscussion = interpData.discussion || ''
-        readyAt = new Date().toISOString()
-
-        await supabase
-          .from('quantitative_analysis_sessions')
-          .update({
-            results_json: finalResults,
-            interpretation: finalInterpretation,
-            discussion: finalDiscussion,
-            results_ready_at: readyAt
-          })
-          .eq('id', id)
+      setStatus('Writing interpretation...')
+      const interpRes = await fetch('/api/quantitative-analysis/interpret', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: id })
+      })
+      const interpData = await interpRes.json()
+      if (!interpRes.ok) {
+        setErrorMsg(interpData.error || 'Interpretation failed.')
+        return
       }
-
-      setResults(finalResults)
-      setInterpretation(finalInterpretation || '')
-      setDiscussion(finalDiscussion || '')
-
-      // 3. Work out whether the 3-minute hold has passed
-      const readyTime = new Date(readyAt).getTime()
-      const revealTime = readyTime + HOLD_MS
-      const now = Date.now()
-
-      if (session?.results_revealed || now >= revealTime) {
-        await revealNow(finalResults)
-      } else {
-        setStatus('holding')
-        const msLeft = revealTime - now
-        setSecondsLeft(Math.ceil(msLeft / 1000))
-        const interval = setInterval(() => {
-          setSecondsLeft((s) => {
-            if (s <= 1) {
-              clearInterval(interval)
-              revealNow(finalResults)
-              return 0
-            }
-            return s - 1
-          })
-        }, 1000)
-      }
+      setInterpretation(interpData.interpretation)
+      setDiscussion(interpData.discussion || '')
+      setStatus('done')
     } catch (e: any) {
       setErrorMsg(e.message || 'Something went wrong.')
     }
   }
 
-  async function revealNow(resultsForBunker: any) {
+  async function saveToBunker() {
+    setSaving(true)
     const { data: userData } = await supabase.auth.getUser()
 
-    // Only insert bunker items once — guarded by results_revealed flag
-    const { data: sessionCheck } = await supabase
-      .from('quantitative_analysis_sessions')
-      .select('results_revealed')
-      .eq('id', id)
-      .single()
+    await supabase.from('bunker_items').insert({
+      user_id: userData?.user?.id,
+      item_name: 'Quantitative Analysis — Cleaned Dataset',
+      item_type: 'quantitative_analysis_dataset',
+      content_reference: id
+    })
+    await supabase.from('bunker_items').insert({
+      user_id: userData?.user?.id,
+      item_name: 'Quantitative Analysis — Full Report',
+      item_type: 'quantitative_analysis_report',
+      content_reference: id
+    })
 
-    if (!sessionCheck?.results_revealed) {
-      await supabase.from('bunker_items').insert({
-        user_id: userData?.user?.id,
-        item_name: 'Quantitative Analysis – Cleaned Dataset',
-        item_type: 'quantitative_analysis_dataset',
-        content_reference: id,
-        is_read: false
-      })
-      await supabase.from('bunker_items').insert({
-        user_id: userData?.user?.id,
-        item_name: 'Quantitative Analysis – Full Report',
-        item_type: 'quantitative_analysis_report',
-        content_reference: id,
-        is_read: false
-      })
-      await supabase
-        .from('quantitative_analysis_sessions')
-        .update({ results_revealed: true })
-        .eq('id', id)
-    }
-
-    setStatus('done')
-    setRevealed(true)
+    setSaving(false)
+    setSaved(true)
   }
 
   if (errorMsg) {
     return (
       <div style={{ maxWidth: '700px', margin: '0 auto', padding: '40px 16px' }}>
-        <div style={{ backgroundColor: '#FDECEC', borderRadius: '12px', padding: '16px' }}>
+        <div style={{ backgroundColor: '#FDEDEC', borderRadius: '12px', padding: '16px' }}>
           <p style={{ color: '#C0392B', fontSize: '14px', margin: 0 }}>{errorMsg}</p>
         </div>
       </div>
     )
   }
 
-  if (status === 'holding') {
-    const mins = Math.floor(secondsLeft / 60)
-    const secs = secondsLeft % 60
-    return (
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '80px 20px', textAlign: 'center' }}>
-        <div
-          style={{
-            width: 56, height: 56, margin: '0 auto 24px', borderRadius: '50%',
-            border: '4px solid #EEEEEE', borderTopColor: '#D4AF37',
-            animation: 'spin 1s linear infinite'
-          }}
-        />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '10px' }}>
-          Analyzing your data...
-        </h2>
-        <p style={{ fontSize: '14px', color: '#777777', lineHeight: 1.6, marginBottom: '6px' }}>
-          Please kindly be patient — we are analyzing your data to give you the most appropriate result.
-        </p>
-        <p style={{ fontSize: '14px', color: '#777777', lineHeight: 1.6 }}>
-          Feel free to leave this page. As soon as it's ready, it will be saved to your Bunker and you'll be notified.
-        </p>
-        <p style={{ fontSize: '13px', color: '#D4AF37', fontWeight: 600, marginTop: '20px' }}>
-          {mins > 0 ? `${mins}m ${secs}s` : `${secs}s`} remaining
-        </p>
-      </div>
-    )
-  }
-
-  if (status !== 'done' || !results) {
+  if (status !== 'done') {
     return (
       <div style={{ padding: '60px 20px', textAlign: 'center' }}>
         <p style={{ color: '#777777', fontSize: '14px' }}>{status}</p>
@@ -473,16 +371,23 @@ export default function ResultsPage() {
 
       {discussion && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>General Findings & Discussion</h2>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>General Findings &amp; Discussion</h2>
           {discussion.split('\n').filter(Boolean).map((para, i) => (
             <p key={i} style={{ fontSize: '13px', color: '#333333', lineHeight: '1.7', marginBottom: '12px' }}>{para}</p>
           ))}
         </div>
       )}
 
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '14px 16px', border: '1px solid #D4AF37', marginBottom: '16px', textAlign: 'center' }}>
-        <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, margin: 0 }}>✓ Saved to your Bunker</p>
-      </div>
+      <button
+        onClick={saveToBunker}
+        disabled={saving || saved}
+        style={{
+          width: '100%', backgroundColor: saved ? '#777777' : '#D4AF37', color: '#333333', border: 'none',
+          borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer'
+        }}
+      >
+        {saved ? 'Saved to Bunker ✓' : saving ? 'Saving...' : 'Save to Bunker'}
+      </button>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
         <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Want a complete Chapter 5?</p>

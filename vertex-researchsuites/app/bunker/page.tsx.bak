@@ -1,4 +1,5 @@
 'use client'
+
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
@@ -13,7 +14,6 @@ type BunkerItem = {
   item_name: string
   content_reference: string
   created_at: string
-  is_read: boolean
 }
 
 export default function Bunker() {
@@ -29,24 +29,16 @@ export default function Bunker() {
 
       const { data } = await supabase
         .from('bunker_items')
-        .select('id, item_name, content_reference, created_at, is_read')
+        .select('id, item_name, content_reference, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      if (data) setItems(data as BunkerItem[])
+      if (data) setItems(data)
       setLoading(false)
     }
 
     fetchItems()
   }, [])
-
-  async function openItem(item: BunkerItem) {
-    setSelected(item)
-    if (!item.is_read) {
-      await supabase.from('bunker_items').update({ is_read: true }).eq('id', item.id)
-      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, is_read: true } : i)))
-    }
-  }
 
   if (selected) {
     return (
@@ -72,7 +64,7 @@ export default function Bunker() {
   return (
     <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '24px 20px' }}>
       <h1 style={{ color: '#333333', fontSize: '22px', fontWeight: 700, marginBottom: '20px' }}>
-        🗄️ My Bunker
+        📦 My Bunker
       </h1>
 
       {loading ? (
@@ -86,36 +78,23 @@ export default function Bunker() {
           {items.map((item) => (
             <button
               key={item.id}
-              onClick={() => openItem(item)}
+              onClick={() => setSelected(item)}
               style={{
                 backgroundColor: '#ffffff',
-                border: item.is_read ? '1px solid #EEEEEE' : '1px solid #D4AF37',
+                border: '1px solid #EEEEEE',
                 borderRadius: '14px',
                 padding: '16px 18px',
                 textAlign: 'left',
                 cursor: 'pointer',
                 width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
               }}
             >
-              {!item.is_read && (
-                <span
-                  style={{
-                    width: 8, height: 8, minWidth: 8, borderRadius: '50%',
-                    backgroundColor: '#D4AF37', display: 'inline-block',
-                  }}
-                />
-              )}
-              <div style={{ flex: 1 }}>
-                <p style={{ color: '#333333', fontSize: '14px', fontWeight: item.is_read ? 400 : 700, margin: 0 }}>
-                  {item.item_name}
-                </p>
-                <p style={{ color: '#888888', fontSize: '12px', margin: '4px 0 0' }}>
-                  {new Date(item.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
-              </div>
+              <p style={{ color: '#333333', fontSize: '14px', fontWeight: 700, margin: 0 }}>
+                {item.item_name}
+              </p>
+              <p style={{ color: '#888888', fontSize: '12px', margin: '4px 0 0' }}>
+                {new Date(item.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
             </button>
           ))}
         </div>
