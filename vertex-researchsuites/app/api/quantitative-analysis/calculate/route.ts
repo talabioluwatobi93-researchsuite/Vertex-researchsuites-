@@ -261,8 +261,8 @@ export async function POST(req: NextRequest) {
     const results = {
       sampleSize: cleanedRows.length,
       excludedRows: rawData.length - cleanedRows.length,
-      descriptives,
-      frequencyTables,
+      descriptives: analysisTypes.includes('descriptive') ? descriptives : undefined,
+      frequencyTables: analysisTypes.includes('descriptive') ? frequencyTables : undefined,
       correlation,
       regression,
       ttest,
