@@ -47,6 +47,22 @@ type FeatureUsage = {
   totalAmount: number;
 };
 
+type AdminUserRow = {
+  user_id: string;
+  email: string;
+  created_at: string;
+  balance: number;
+};
+
+type UserDetailEvent = {
+  id: string;
+  type: "topup" | "purchase";
+  label: string;
+  amount: number;
+  status: string;
+  created_at: string;
+};
+
 const ACTIVE_WINDOW_MS = 3 * 60 * 1000;
 
 function startOfToday() {
@@ -102,6 +118,13 @@ export default function AdminPage() {
   const [activeUsersError, setActiveUsersError] = useState<string | null>(null);
   const [featureUsage, setFeatureUsage] = useState<FeatureUsage[]>([]);
   const [featureUsageError, setFeatureUsageError] = useState<string | null>(null);
+  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserEvents, setSelectedUserEvents] = useState<UserDetailEvent[]>([]);
+  const [selectedUserLoading, setSelectedUserLoading] = useState(false);
+  const [selectedUserError, setSelectedUserError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -130,7 +153,37 @@ export default function AdminPage() {
       }
 
       setStatus("granted");
-      await Promise.all([loadStats(), loadActivity(), loadActiveUsers(), loadFeatureUsage()]);
+      await Promise.all([loadStats(), loadActivity(), loadActiveUsers(), loadFeatureUsage(), loadUsers()]);
+    }
+
+    async function loadUsers() {
+      const [dirRes, walletsRes] = await Promise.all([
+        supabase
+          .from("admin_user_directory")
+          .select("user_id, email, created_at")
+          .order("created_at", { ascending: false }),
+        supabase.from("wallets").select("id, balance"),
+      ]);
+
+      if (!active) return;
+
+      const err = dirRes.error || walletsRes.error;
+      if (err) {
+        setUsersError(err.message);
+        return;
+      }
+
+      const balanceMap = new Map<string, number>();
+      (walletsRes.data || []).forEach((w: any) => balanceMap.set(w.id, Number(w.balance || 0)));
+
+      const rows: AdminUserRow[] = (dirRes.data || []).map((u: any) => ({
+        user_id: u.user_id,
+        email: u.email,
+        created_at: u.created_at,
+        balance: balanceMap.get(u.user_id) || 0,
+      }));
+
+      setUsers(rows);
     }
 
     async function loadFeatureUsage() {
@@ -351,6 +404,71 @@ export default function AdminPage() {
     };
   }, []);
 
+  async function selectUser(userId: string) {
+    if (selectedUserId === userId) {
+      setSelectedUserId(null);
+      setSelectedUserEvents([]);
+      return;
+    }
+
+    setSelectedUserId(userId);
+    setSelectedUserLoading(true);
+    setSelectedUserError(null);
+
+    const [txRes, wtRes] = await Promise.all([
+      supabase
+        .from("transactions")
+        .select("id, description, amount, status, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("wallet_transactions")
+        .select("id, amount, status, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    const err = txRes.error || wtRes.error;
+    if (err) {
+      setSelectedUserError(err.message);
+      setSelectedUserLoading(false);
+      return;
+    }
+
+    const events: UserDetailEvent[] = [];
+
+    (txRes.data || []).forEach((t: any) => {
+      events.push({
+        id: `tx-${t.id}`,
+        type: "purchase",
+        label: t.description || "Feature purchase",
+        amount: t.amount,
+        status: t.status,
+        created_at: t.created_at,
+      });
+    });
+
+    (wtRes.data || []).forEach((w: any) => {
+      events.push({
+        id: `wt-${w.id}`,
+        type: "topup",
+        label: "Wallet top-up",
+        amount: w.amount,
+        status: w.status,
+        created_at: w.created_at,
+      });
+    });
+
+    events.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    setSelectedUserEvents(events);
+    setSelectedUserLoading(false);
+  }
+
+  const filteredUsers = users.filter((u) =>
+    u.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (status === "loading") {
     return (
       <div
@@ -546,6 +664,112 @@ export default function AdminPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      <h2 style={{ color: DARK, fontSize: 17, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>
+        User Lookup
+      </h2>
+
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder="Search by email…"
+        style={{
+          width: "100%",
+          boxSizing: "border-box",
+          padding: "10px 14px",
+          borderRadius: 10,
+          border: `1px solid ${BORDER}`,
+          fontSize: 14,
+          color: DARK,
+          background: "#FFFFFF",
+          marginBottom: 12,
+        }}
+      />
+
+      {usersError && <ErrorBox message={`Couldn't load users: ${usersError}`} />}
+
+      {!usersError && filteredUsers.length === 0 && (
+        <div style={{ color: MUTED, fontSize: 14 }}>No users found.</div>
+      )}
+
+      {filteredUsers.length > 0 && (
+        <div
+          style={{
+            background: "#FFFFFF",
+            border: `1px solid ${BORDER}`,
+            borderRadius: 14,
+            overflow: "hidden",
+          }}
+        >
+          {filteredUsers.map((u, i) => (
+            <div key={u.user_id}>
+              <div
+                onClick={() => selectUser(u.user_id)}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "12px 16px",
+                  borderBottom:
+                    i === filteredUsers.length - 1 && selectedUserId !== u.user_id
+                      ? "none"
+                      : `1px solid ${BORDER}`,
+                  cursor: "pointer",
+                }}
+              >
+                <div>
+                  <div style={{ color: DARK, fontSize: 13, fontWeight: 600 }}>{u.email}</div>
+                  <div style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>
+                    Joined {timeAgo(u.created_at)}
+                  </div>
+                </div>
+                <div style={{ color: GOLD, fontSize: 13, fontWeight: 700 }}>
+                  {formatNaira(u.balance)}
+                </div>
+              </div>
+
+              {selectedUserId === u.user_id && (
+                <div
+                  style={{
+                    padding: "12px 16px 16px",
+                    background: BG,
+                    borderBottom: i === filteredUsers.length - 1 ? "none" : `1px solid ${BORDER}`,
+                  }}
+                >
+                  {selectedUserLoading && (
+                    <div style={{ color: MUTED, fontSize: 13 }}>Loading activity…</div>
+                  )}
+                  {selectedUserError && (
+                    <div style={{ color: "#A33", fontSize: 13 }}>
+                      Couldn't load activity: {selectedUserError}
+                    </div>
+                  )}
+                  {!selectedUserLoading && !selectedUserError && selectedUserEvents.length === 0 && (
+                    <div style={{ color: MUTED, fontSize: 13 }}>No activity for this user yet.</div>
+                  )}
+                  {selectedUserEvents.map((ev) => (
+                    <div
+                      key={ev.id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        padding: "6px 0",
+                        fontSize: 12,
+                      }}
+                    >
+                      <span style={{ color: DARK }}>
+                        {iconFor(ev.type === "topup" ? "topup" : "purchase")} {ev.label} · {timeAgo(ev.created_at)}
+                      </span>
+                      <span style={{ color: GOLD, fontWeight: 600 }}>{formatNaira(ev.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
