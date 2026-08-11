@@ -41,6 +41,12 @@ type ActiveUser = {
   last_seen: string;
 };
 
+type FeatureUsage = {
+  label: string;
+  count: number;
+  totalAmount: number;
+};
+
 const ACTIVE_WINDOW_MS = 3 * 60 * 1000;
 
 function startOfToday() {
@@ -94,6 +100,8 @@ export default function AdminPage() {
   const [activityError, setActivityError] = useState<string | null>(null);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [activeUsersError, setActiveUsersError] = useState<string | null>(null);
+  const [featureUsage, setFeatureUsage] = useState<FeatureUsage[]>([]);
+  const [featureUsageError, setFeatureUsageError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -122,7 +130,36 @@ export default function AdminPage() {
       }
 
       setStatus("granted");
-      await Promise.all([loadStats(), loadActivity(), loadActiveUsers()]);
+      await Promise.all([loadStats(), loadActivity(), loadActiveUsers(), loadFeatureUsage()]);
+    }
+
+    async function loadFeatureUsage() {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("description, amount")
+        .eq("status", "success");
+
+      if (!active) return;
+
+      if (error) {
+        setFeatureUsageError(error.message);
+        return;
+      }
+
+      const grouped = new Map<string, { count: number; totalAmount: number }>();
+      (data || []).forEach((t: any) => {
+        const label = t.description || "Unlabeled feature";
+        const existing = grouped.get(label) || { count: 0, totalAmount: 0 };
+        existing.count += 1;
+        existing.totalAmount += Number(t.amount || 0);
+        grouped.set(label, existing);
+      });
+
+      const usage: FeatureUsage[] = Array.from(grouped.entries())
+        .map(([label, v]) => ({ label, count: v.count, totalAmount: v.totalAmount }))
+        .sort((a, b) => b.count - a.count);
+
+      setFeatureUsage(usage);
     }
 
     async function loadActiveUsers() {
@@ -444,6 +481,71 @@ export default function AdminPage() {
           <StatCard label="Total Feature Revenue" value={formatNaira(stats.totalFeatureRevenue)} />
           <StatCard label="Total Top-Ups" value={formatNaira(stats.totalTopUps)} />
           <StatCard label="Wallet Liability (all balances)" value={formatNaira(stats.walletLiability)} />
+        </div>
+      )}
+
+      <h2 style={{ color: DARK, fontSize: 17, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>
+        Feature Usage
+      </h2>
+
+      {featureUsageError && <ErrorBox message={`Couldn't load feature usage: ${featureUsageError}`} />}
+
+      {!featureUsageError && featureUsage.length === 0 && (
+        <div style={{ color: MUTED, fontSize: 14 }}>No feature purchases yet.</div>
+      )}
+
+      {featureUsage.length > 0 && (
+        <div
+          style={{
+            background: "#FFFFFF",
+            border: `1px solid ${BORDER}`,
+            borderRadius: 14,
+            overflow: "hidden",
+          }}
+        >
+          {featureUsage.map((f, i) => {
+            const maxCount = featureUsage[0].count || 1;
+            const widthPct = Math.max(6, Math.round((f.count / maxCount) * 100));
+            return (
+              <div
+                key={f.label}
+                style={{
+                  padding: "12px 16px",
+                  borderBottom: i === featureUsage.length - 1 ? "none" : `1px solid ${BORDER}`,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: 6,
+                  }}
+                >
+                  <span style={{ color: DARK, fontSize: 13, fontWeight: 600 }}>{f.label}</span>
+                  <span style={{ color: MUTED, fontSize: 12 }}>
+                    {f.count} use{f.count === 1 ? "" : "s"} · {formatNaira(f.totalAmount)}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    height: 6,
+                    borderRadius: 999,
+                    background: "#F1E7C8",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${widthPct}%`,
+                      borderRadius: 999,
+                      background: GOLD,
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
