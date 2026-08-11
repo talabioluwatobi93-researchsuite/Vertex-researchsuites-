@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ApiCredits from '../../components/ApiCredits';
+import BillboardManager from "../../components/admin/BillboardManager";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -674,6 +675,7 @@ export default function AdminPage() {
       </h2>
 
       <ApiCredits />
+      <BillboardManager />
 
         User Lookup
       </h2>
