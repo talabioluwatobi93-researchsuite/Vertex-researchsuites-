@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ApiCredits from '../../components/ApiCredits';
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -668,6 +669,12 @@ export default function AdminPage() {
       )}
 
       <h2 style={{ color: DARK, fontSize: 17, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>
+      <h2 style={{ color: DARK, fontSize: 17, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>
+        API Credits
+      </h2>
+
+      <ApiCredits />
+
         User Lookup
       </h2>
 
