@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 const GOLD = "#D4AF37";
 const DARK = "#333333";
 const MUTED = "#777777";
 const BORDER = "#EEEEEE";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+);
 
 type BillboardSlide = {
   id: string;
@@ -15,11 +21,12 @@ type BillboardSlide = {
   text: string;
 };
 
-// TODO: later this array will be replaced by rows fetched from your Supabase billboard table
-const SLIDES: BillboardSlide[] = [
+// Hardcoded fallback — used only if the billboard_slides table fetch
+// fails or returns no active rows, so the billboard never goes blank.
+const FALLBACK_SLIDES: BillboardSlide[] = [
   {
     id: "welcome",
-    emoji: "🎓",
+    emoji: "🚀",
     title: "Welcome to Vertex ResearchSuite",
     text: "Your all-in-one companion for research, writing, and analysis — built to make your academic journey easier.",
   },
@@ -34,15 +41,53 @@ const SLIDES: BillboardSlide[] = [
 const SLIDE_INTERVAL_MS = 4500;
 
 export default function Billboard() {
+  const [slides, setSlides] = useState<BillboardSlide[]>(FALLBACK_SLIDES);
   const [activeIndex, setActiveIndex] = useState(0);
 
+  // Fetch active slides from Supabase, ordered by sort_order.
+  // Falls back to FALLBACK_SLIDES on error or empty result.
   useEffect(() => {
-    if (SLIDES.length <= 1) return;
+    let isMounted = true;
+
+    async function loadSlides() {
+      const { data, error } = await supabase
+        .from("billboard_slides")
+        .select("id, title, text, icon, image_url, sort_order")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+      if (!isMounted) return;
+
+      if (error || !data || data.length === 0) {
+        setSlides(FALLBACK_SLIDES);
+        return;
+      }
+
+      const mapped: BillboardSlide[] = data.map((row) => ({
+        id: row.id,
+        title: row.title,
+        text: row.text ?? "",
+        emoji: row.icon ?? undefined,
+        imageUrl: row.image_url ?? undefined,
+      }));
+
+      setSlides(mapped);
+    }
+
+    loadSlides();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (slides.length <= 1) return;
     const timer = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % SLIDES.length);
+      setActiveIndex((prev) => (prev + 1) % slides.length);
     }, SLIDE_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides]);
 
   return (
     <div style={{ padding: "0 20px 24px", marginTop: 8 }}>
@@ -63,7 +108,7 @@ export default function Billboard() {
             transition: "transform 0.6s ease",
           }}
         >
-          {SLIDES.map((slide) =>
+          {slides.map((slide) =>
             slide.imageUrl ? (
               <div
                 key={slide.id}
@@ -125,31 +170,31 @@ export default function Billboard() {
             )
           )}
         </div>
-      </div>
 
-      {SLIDES.length > 1 && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: "6px",
-            paddingTop: "12px",
-          }}
-        >
-          {SLIDES.map((slide, i) => (
-            <div
-              key={slide.id}
-              style={{
-                width: activeIndex === i ? "18px" : "6px",
-                height: "6px",
-                borderRadius: "3px",
-                backgroundColor: activeIndex === i ? GOLD : "#E5D9B0",
-                transition: "all 0.2s ease",
-              }}
-            />
-          ))}
-        </div>
-      )}
+        {slides.length > 1 && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: "6px",
+              paddingTop: "12px",
+            }}
+          >
+            {slides.map((slide, i) => (
+              <div
+                key={slide.id}
+                style={{
+                  width: activeIndex === i ? "18px" : "6px",
+                  height: "6px",
+                  borderRadius: "3px",
+                  backgroundColor: activeIndex === i ? GOLD : "#E5D9B0",
+                  transition: "all 0.2s ease",
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
