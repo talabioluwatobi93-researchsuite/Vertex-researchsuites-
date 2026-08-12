@@ -49,8 +49,9 @@ Rules: Do not invent quotes or themes not present in the Results above. Output p
     if (!response.ok) return NextResponse.json({ error: data.error?.message || 'Chapter 5 generation failed' }, { status: 500 })
 
     const chapter5_content = data.content.map((b: any) => (b.type === 'text' ? b.text : '')).filter(Boolean).join('\n')
-    await supabase.from('qualitative_analysis_sessions').update({ chapter5_content, chapter5_paid: true }).eq('id', sessionId)
-    return NextResponse.json({ chapter5_content })
+    const chapter5ReadyAt = new Date().toISOString()
+      await supabase.from('qualitative_analysis_sessions').update({ chapter5_content, chapter5_paid: true, chapter5_ready_at: chapter5ReadyAt, chapter5_revealed: false }).eq('id', sessionId)
+    return NextResponse.json({ chapter5_content, chapter5_ready_at: chapter5ReadyAt })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Chapter 5 generation failed' }, { status: 500 })
   }
