@@ -547,6 +547,122 @@ export default function ResultsPage() {
           </div>
         </>
       )}
+{results.anova && (
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+            <p style={tableTitle}>Table {nextTable()}. Descriptive Statistics for {results.anova.outcomeVariableName} by {results.anova.groupVariableName}</p>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>{results.anova.groupVariableName}</th>
+                  <th style={thStyle}>N</th>
+                  <th style={thStyle}>Mean</th>
+                  <th style={thStyle}>SD</th>
+                  <th style={thStyle}>SEM</th>
+                  <th style={thStyle}>95% CI Lower</th>
+                  <th style={thStyle}>95% CI Upper</th>
+                  <th style={thStyle}>Min</th>
+                  <th style={thStyle}>Max</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.anova.groupStats.map((g: any, i: number) => (
+                  <tr key={i}>
+                    <td style={tdStyle}>{g.label}</td>
+                    <td style={tdStyle}>{g.n}</td>
+                    <td style={tdStyle}>{g.mean.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.sd.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.sem.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.ciLower.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.ciUpper.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.min.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.max.toFixed(2)}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={tdStyle}>Total</td>
+                  <td style={tdStyle}>{results.anova.n}</td>
+                  <td style={tdStyle}>{results.anova.grandMean.toFixed(2)}</td>
+                  <td style={tdStyle}>—</td>
+                  <td style={tdStyle}>—</td>
+                  <td style={tdStyle}>—</td>
+                  <td style={tdStyle}>—</td>
+                  <td style={tdStyle}>—</td>
+                  <td style={tdStyle}>—</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p style={tableTitle}>Table {nextTable()}. One-Way ANOVA: {results.anova.outcomeVariableName} by {results.anova.groupVariableName}</p>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}></th>
+                  <th style={thStyle}>Sum of Squares</th>
+                  <th style={thStyle}>df</th>
+                  <th style={thStyle}>Mean Square</th>
+                  <th style={thStyle}>F</th>
+                  <th style={thStyle}>Sig.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={tdStyle}>Between Groups</td>
+                  <td style={tdStyle}>{results.anova.ssBetween.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.anova.dfBetween}</td>
+                  <td style={tdStyle}>{results.anova.msBetween.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.anova.F.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.anova.p.toFixed(3)}</td>
+                </tr>
+                <tr>
+                  <td style={tdStyle}>Within Groups</td>
+                  <td style={tdStyle}>{results.anova.ssWithin.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.anova.dfWithin}</td>
+                  <td style={tdStyle}>{results.anova.msWithin.toFixed(3)}</td>
+                  <td style={tdStyle}></td>
+                  <td style={tdStyle}></td>
+                </tr>
+                <tr>
+                  <td style={tdStyle}>Total</td>
+                  <td style={tdStyle}>{results.anova.ssTotal.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.anova.dfBetween + results.anova.dfWithin}</td>
+                  <td style={tdStyle}></td>
+                  <td style={tdStyle}></td>
+                  <td style={tdStyle}></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p style={tableTitle}>Table {nextTable()}. Post Hoc Tests — Tukey HSD Multiple Comparisons</p>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>(I) Group</th>
+                  <th style={thStyle}>(J) Group</th>
+                  <th style={thStyle}>Mean Diff. (I-J)</th>
+                  <th style={thStyle}>Std. Error</th>
+                  <th style={thStyle}>Sig.</th>
+                  <th style={thStyle}>95% CI Lower</th>
+                  <th style={thStyle}>95% CI Upper</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.anova.tukey.map((t: any, i: number) => (
+                  <tr key={i}>
+                    <td style={tdStyle}>{t.groupA}</td>
+                    <td style={tdStyle}>{t.groupB}</td>
+                    <td style={tdStyle}>{t.meanDiff.toFixed(3)}</td>
+                    <td style={tdStyle}>{t.seDiff.toFixed(3)}</td>
+                    <td style={tdStyle}>{t.p.toFixed(3)}</td>
+                    <td style={tdStyle}>{t.ciLower.toFixed(3)}</td>
+                    <td style={tdStyle}>{t.ciUpper.toFixed(3)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p style={noteStyle}>Note. Post hoc comparisons use the Tukey HSD test. The mean difference is significant at the .05 level when Sig. is less than .05.</p>
+          </div>
+        )}
+        
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Results Interpretation</h2>
         {interpretation.split('\n').filter(Boolean).map((para, i) => (
