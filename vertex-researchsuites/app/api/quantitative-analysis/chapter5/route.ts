@@ -99,12 +99,14 @@ Rules: Do not invent any numbers not present in the Chapter 4 results above. Do 
       .filter(Boolean)
       .join('\n')
 
-    await supabase
-      .from('quantitative_analysis_sessions')
-      .update({ chapter5_content, chapter5_paid: true })
+    const chapter5ReadyAt = new Date().toISOString()
+
+      await supabase
+        .from('quantitative_analysis_sessions')
+        .update({ chapter5_content, chapter5_paid: true, chapter5_ready_at: chapter5ReadyAt, chapter5_revealed: false })
       .eq('id', sessionId)
 
-    return NextResponse.json({ chapter5_content })
+    return NextResponse.json({ chapter5_content, chapter5_ready_at: chapter5ReadyAt })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Chapter 5 generation failed' }, { status: 500 })
   }
