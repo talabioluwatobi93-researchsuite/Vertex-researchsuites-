@@ -47,8 +47,9 @@ Each answer 2-4 sentences, confident academic tone. Generate at least 8 question
       return NextResponse.json({ error: 'Could not parse defense prep response. Please try again.' }, { status: 500 })
     }
 
-    await supabase.from('qualitative_analysis_sessions').update({ defense_prep_content, defense_prep_paid: true }).eq('id', sessionId)
-    return NextResponse.json({ defense_prep_content })
+    const defensePrepReadyAt = new Date().toISOString()
+      await supabase.from('qualitative_analysis_sessions').update({ defense_prep_content, defense_prep_paid: true, defense_prep_ready_at: defensePrepReadyAt, defense_prep_revealed: false }).eq('id', sessionId)
+    return NextResponse.json({ defense_prep_content, defense_prep_ready_at: defensePrepReadyAt })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Defense prep generation failed' }, { status: 500 })
   }
