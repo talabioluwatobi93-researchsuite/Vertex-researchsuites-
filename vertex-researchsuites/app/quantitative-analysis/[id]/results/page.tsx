@@ -663,6 +663,84 @@ export default function ResultsPage() {
           </div>
         )}
         
+{results.chisquare && (
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+            <p style={tableTitle}>Table {nextTable()}. {results.chisquare.rowVariableName} * {results.chisquare.colVariableName} Crosstabulation</p>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>{results.chisquare.rowVariableName}</th>
+                  {results.chisquare.colLabels.map((label: string, j: number) => (
+                    <th key={j} style={thStyle}>{label}</th>
+                  ))}
+                  <th style={thStyle}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.chisquare.crosstab.map((row: any, i: number) => (
+                  <tr key={i}>
+                    <td style={tdStyle}>{row.label}</td>
+                    {row.observed.map((o: number, j: number) => (
+                      <td key={j} style={tdStyle}>{o} <span style={{ color: '#777777' }}>({row.expected[j].toFixed(1)})</span></td>
+                    ))}
+                    <td style={tdStyle}>{row.rowTotal}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={tdStyle}>Total</td>
+                  {results.chisquare.colTotals.map((t: number, j: number) => (
+                    <td key={j} style={tdStyle}>{t}</td>
+                  ))}
+                  <td style={tdStyle}>{results.chisquare.grandTotal}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p style={noteStyle}>Note. Values shown are Count, with Expected Count in parentheses.</p>
+
+            <p style={tableTitle}>Table {nextTable()}. Chi-Square Tests</p>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}></th>
+                  <th style={thStyle}>Value</th>
+                  <th style={thStyle}>df</th>
+                  <th style={thStyle}>Asymp. Sig. (2-sided)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={tdStyle}>Pearson Chi-Square</td>
+                  <td style={tdStyle}>{results.chisquare.pearsonChiSq.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.chisquare.df}</td>
+                  <td style={tdStyle}>{results.chisquare.pearsonP.toFixed(3)}</td>
+                </tr>
+                <tr>
+                  <td style={tdStyle}>Likelihood Ratio</td>
+                  <td style={tdStyle}>{results.chisquare.likelihoodRatio.toFixed(3)}</td>
+                  <td style={tdStyle}>{results.chisquare.df}</td>
+                  <td style={tdStyle}>{results.chisquare.likelihoodP.toFixed(3)}</td>
+                </tr>
+                <tr>
+                  <td style={tdStyle}>Linear-by-Linear Association</td>
+                  <td style={tdStyle}>{results.chisquare.linearByLinear.toFixed(3)}</td>
+                  <td style={tdStyle}>1</td>
+                  <td style={tdStyle}>{results.chisquare.linearP.toFixed(3)}</td>
+                </tr>
+                <tr>
+                  <td style={tdStyle}>N of Valid Cases</td>
+                  <td style={tdStyle}>{results.chisquare.grandTotal}</td>
+                  <td style={tdStyle}></td>
+                  <td style={tdStyle}></td>
+                </tr>
+              </tbody>
+            </table>
+            <p style={noteStyle}>
+              Note. {results.chisquare.cellsUnderFive} cells ({results.chisquare.pctCellsUnderFive.toFixed(1)}%) have expected count less than 5.
+              The minimum expected count is {results.chisquare.minExpected.toFixed(2)}. Cramér's V = {results.chisquare.cramersV.toFixed(3)}.
+            </p>
+          </div>
+        )}
+        
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Results Interpretation</h2>
         {interpretation.split('\n').filter(Boolean).map((para, i) => (
