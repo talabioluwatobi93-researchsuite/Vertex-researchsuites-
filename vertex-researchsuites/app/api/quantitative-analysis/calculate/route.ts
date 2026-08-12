@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, pearson, olsRegression, independentTTest } from '@/lib/stats'
+import { mean, sd, pearson, olsRegression, independentTTest, oneWayAnova } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -258,6 +258,74 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    let anova: any = null
+    if (analysisTypes.includes('anova') && session.anova_config) {
+      const { groupConstructId, outcomeConstructId } = session.anova_config
+      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
+      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const groupLabels = Array.from(new Set(
+          cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)
+        )) as string[]
+
+        const groupedScores: Record<string, number[]> = {}
+        groupLabels.forEach((label) => { groupedScores[label] = [] })
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct)
+          if (score === null) return
+          if (groupedScores[label] !== undefined) groupedScores[label].push(score)
+        })
+
+        const validLabels = groupLabels.filter((label) => groupedScores[label].length >= 2)
+
+        if (validLabels.length >= 3) {
+          const groups = validLabels.map((label) => groupedScores[label])
+          const a = oneWayAnova(groups)
+          anova = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            groupLabels: validLabels,
+            k: a.k,
+            n: a.n,
+            grandMean: r3(a.grandMean),
+            ssBetween: r3(a.ssBetween),
+            ssWithin: r3(a.ssWithin),
+            ssTotal: r3(a.ssTotal),
+            dfBetween: a.dfBetween,
+            dfWithin: a.dfWithin,
+            msBetween: r3(a.msBetween),
+            msWithin: r3(a.msWithin),
+            F: r3(a.f),
+            p: r3(a.p),
+            groupStats: a.groupStats.map((g, i) => ({
+              label: validLabels[i],
+              n: g.n,
+              mean: r2(g.mean),
+              sd: r2(g.sd),
+              sem: r2(g.sem),
+              ciLower: r2(g.ciLower),
+              ciUpper: r2(g.ciUpper),
+              min: r2(g.min),
+              max: r2(g.max),
+            })),
+            tukey: a.tukey.map((t) => ({
+              groupA: validLabels[t.i],
+              groupB: validLabels[t.j],
+              meanDiff: r3(t.meanDiff),
+              seDiff: r3(t.seDiff),
+              p: r3(t.p),
+              ciLower: r3(t.ciLower),
+              ciUpper: r3(t.ciUpper),
+            })),
+          }
+        }
+      }
+    }
+
     const results = {
       sampleSize: cleanedRows.length,
       excludedRows: rawData.length - cleanedRows.length,
@@ -266,6 +334,7 @@ export async function POST(req: NextRequest) {
       correlation,
       regression,
       ttest,
+      anova,
       computedAt: new Date().toISOString()
     }
 
