@@ -183,23 +183,9 @@ export default function PilotStudyResultsPage() {
         </div>
       )}
 
-      <button
-        onClick={handleSaveToBunker}
-        disabled={saving || saved}
-        style={{
-          width: '100%',
-          backgroundColor: saved ? '#EEEEEE' : '#D4AF37',
-          color: '#333333',
-          border: 'none',
-          borderRadius: '10px',
-          padding: '14px',
-          fontSize: '14px',
-          fontWeight: 700,
-          cursor: saved ? 'default' : 'pointer',
-        }}
-      >
-        {saved ? 'Saved to My Bunker' : saving ? 'Saving...' : 'Save to My Bunker'}
-      </button>
+      <p style={{ color: '#777777', fontSize: '13px', textAlign: 'center', margin: '0 0 16px 0' }}>
+            ✓ Saved to your Bunker
+          </p>
     </div>
   )
 }

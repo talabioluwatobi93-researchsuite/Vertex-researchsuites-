@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
       .eq('id', sessionId)
       .single()
 
-    if (sessionRow?.status === 'completed' && sessionRow?.results) {
-      return NextResponse.json({ results: sessionRow.results, interpretation: sessionRow.interpretation, results_ready_at: sessionRow.results_ready_at })
+    if (session?.status === 'completed' && session?.results) {
+      return NextResponse.json({ results: session.results, interpretation: session.interpretation, results_ready_at: session.results_ready_at })
     }
 
     if (fetchError || !session) {
