@@ -31,8 +31,49 @@ export default function PilotStudyResultsPage() {
   const [interpretation, setInterpretation] = useState('')
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+    const [holding, setHolding] = useState(false)
+    const [holdSecondsLeft, setHoldSecondsLeft] = useState(0)
+    const [revealed, setRevealed] = useState(false)
 
   useEffect(() => {
+    function beginHold(readyAt: string | null, cResults: ConstructResult[], comb: CombinedResult, interp: string) {
+      if (!readyAt) { setRevealed(true); return }
+      const HOLD_MS = 60 * 1000
+      const target = new Date(readyAt).getTime() + HOLD_MS
+      const now = Date.now()
+      if (now >= target) {
+        revealPilotStudy(cResults, comb, interp)
+        return
+      }
+      setHolding(true)
+      setHoldSecondsLeft(Math.ceil((target - now) / 1000))
+      const interval = setInterval(() => {
+        const remaining = Math.ceil((target - Date.now()) / 1000)
+        if (remaining <= 0) {
+          clearInterval(interval)
+          revealPilotStudy(cResults, comb, interp)
+        } else {
+          setHoldSecondsLeft(remaining)
+        }
+      }, 1000)
+    }
+
+    async function revealPilotStudy(cResults: ConstructResult[], comb: CombinedResult, interp: string) {
+      const { data: userData } = await supabase.auth.getUser()
+      if (userData?.user?.id) {
+        await supabase.from('bunker_items').insert({
+          user_id: userData.user.id,
+          item_name: 'Pilot Study - Reliability Test',
+          item_type: 'pilot_study',
+          content_reference: sessionId,
+          is_read: false,
+        })
+      }
+      await supabase.from('pilot_study_sessions').update({ results_revealed: true }).eq('id', sessionId)
+      setHolding(false)
+      setRevealed(true)
+    }
+
     const run = async () => {
       try {
         const res = await fetch('/api/pilot-study/calculate', {
@@ -52,6 +93,7 @@ export default function PilotStudyResultsPage() {
         setCombined(data.results.combined || null)
         setInterpretation(data.interpretation || '')
         setLoading(false)
+        beginHold(data.results_ready_at, data.results.constructs || [], data.results.combined || null, data.interpretation || '')
       } catch (err) {
         setErrorMsg('Something went wrong calculating your results. Please try again.')
         setLoading(false)
@@ -60,26 +102,17 @@ export default function PilotStudyResultsPage() {
     run()
   }, [sessionId])
 
-  const handleSaveToBunker = async () => {
-    setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setSaving(false)
-      return
+    if (holding) {
+      return (
+        <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '24px 20px', textAlign: 'center' }}>
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Finalizing your Pilot Study results...</h1>
+          <p style={{ color: '#777777', fontSize: '14px', marginBottom: '4px' }}>Please be patient, feel free to leave this page.</p>
+          <p style={{ color: '#777777', fontSize: '13px' }}>Ready in {holdSecondsLeft}s</p>
+        </div>
+      )
     }
 
-    await supabase.from('bunker_items').insert({
-      user_id: user.id,
-      item_name: 'Pilot Study — Reliability Test',
-      item_type: 'pilot_study',
-      content_reference: sessionId,
-    })
-
-    setSaving(false)
-    setSaved(true)
-  }
-
-  if (loading) {
+    if (loading) {
     return (
       <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '24px 20px' }}>
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>

@@ -44,9 +44,13 @@ export async function POST(req: NextRequest) {
 
     const { data: session, error: fetchError } = await supabase
       .from('pilot_study_sessions')
-      .select('raw_data, constructs, cleaning_config')
+      .select('raw_data, constructs, cleaning_config, results, interpretation, results_ready_at, results_revealed, status')
       .eq('id', sessionId)
       .single()
+
+    if (sessionRow?.status === 'completed' && sessionRow?.results) {
+      return NextResponse.json({ results: sessionRow.results, interpretation: sessionRow.interpretation, results_ready_at: sessionRow.results_ready_at })
+    }
 
     if (fetchError || !session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
@@ -140,17 +144,21 @@ Write a short, clear, plain-English interpretation (4-6 sentences) explaining wh
       interpretation = 'Interpretation could not be generated at this time. Your numerical results above are still valid.'
     }
 
+    const resultsReadyAt = new Date().toISOString()
+
     await supabase
       .from('pilot_study_sessions')
       .update({
         results,
         interpretation,
         status: 'completed',
+        results_ready_at: resultsReadyAt,
+        results_revealed: false,
         updated_at: new Date().toISOString(),
       })
       .eq('id', sessionId)
 
-    return NextResponse.json({ results, interpretation })
+    return NextResponse.json({ results, interpretation, results_ready_at: resultsReadyAt })
   } catch (err) {
     return NextResponse.json({ error: 'Calculation failed' }, { status: 500 })
   }
