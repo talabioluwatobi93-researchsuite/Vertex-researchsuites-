@@ -387,3 +387,128 @@ export function oneWayAnova(groups: number[][]) {
     tukey
   }
 }
+
+// ── Chi-Square distribution (regularized lower incomplete gamma function) ──
+function lowerIncompleteGammaSeries(a: number, x: number): number {
+  // Series expansion, valid for x < a + 1
+  let sum = 1 / a
+  let term = sum
+  for (let n = 1; n < 200; n++) {
+    term *= x / (a + n)
+    sum += term
+    if (Math.abs(term) < Math.abs(sum) * 1e-15) break
+  }
+  return sum * Math.exp(-x + a * Math.log(x) - logGamma(a))
+}
+function upperIncompleteGammaCF(a: number, x: number): number {
+  // Continued fraction, valid for x >= a + 1
+  const FPMIN = 1e-300
+  let b = x + 1 - a
+  let c = 1 / FPMIN
+  let d = 1 / b
+  let h = d
+  for (let i = 1; i < 200; i++) {
+    const an = -i * (i - a)
+    b += 2
+    d = an * d + b
+    if (Math.abs(d) < FPMIN) d = FPMIN
+    c = b + an / c
+    if (Math.abs(c) < FPMIN) c = FPMIN
+    d = 1 / d
+    const del = d * c
+    h *= del
+    if (Math.abs(del - 1) < 1e-15) break
+  }
+  return Math.exp(-x + a * Math.log(x) - logGamma(a)) * h
+}
+function regularizedGammaP(a: number, x: number): number {
+  if (x <= 0) return 0
+  if (x < a + 1) return lowerIncompleteGammaSeries(a, x)
+  return 1 - upperIncompleteGammaCF(a, x)
+}
+
+// Upper-tail p-value for a chi-square statistic with df degrees of freedom
+export function chiSquarePValue(chiSq: number, df: number): number {
+  if (chiSq <= 0) return 1
+  const p = 1 - regularizedGammaP(df / 2, chiSq / 2)
+  return Math.min(Math.max(p, 0), 1)
+}
+
+// ── Chi-Square Test of Independence (SPSS-style Crosstab + Chi-Square Tests) ──
+export function chiSquareTest(rowLabels: string[], colLabels: string[], table: number[][]) {
+  const nRows = rowLabels.length
+  const nCols = colLabels.length
+
+  const rowTotals = table.map(row => row.reduce((a, b) => a + b, 0))
+  const colTotals = colLabels.map((_, j) => table.reduce((sum, row) => sum + row[j], 0))
+  const grandTotal = rowTotals.reduce((a, b) => a + b, 0)
+
+  const expected: number[][] = table.map((row, i) =>
+    row.map((_, j) => (rowTotals[i] * colTotals[j]) / grandTotal)
+  )
+
+  let pearsonChiSq = 0
+  let likelihoodRatio = 0
+  let minExpected = Infinity
+  let cellsUnderFive = 0
+  const totalCells = nRows * nCols
+
+  for (let i = 0; i < nRows; i++) {
+    for (let j = 0; j < nCols; j++) {
+      const o = table[i][j]
+      const e = expected[i][j]
+      if (e < minExpected) minExpected = e
+      if (e < 5) cellsUnderFive++
+      pearsonChiSq += ((o - e) ** 2) / e
+      if (o > 0) likelihoodRatio += 2 * o * Math.log(o / e)
+    }
+  }
+
+  const df = (nRows - 1) * (nCols - 1)
+  const pearsonP = chiSquarePValue(pearsonChiSq, df)
+  const likelihoodP = chiSquarePValue(likelihoodRatio, df)
+
+  // Linear-by-linear association (Mantel-Haenszel) — only meaningful for ordinal data,
+  // but SPSS always reports it in the Chi-Square Tests table, so we compute it too.
+  const rowScores = rowLabels.map((_, i) => i + 1)
+  const colScores = colLabels.map((_, j) => j + 1)
+  const meanRow = rowScores.reduce((a, s, i) => a + s * rowTotals[i], 0) / grandTotal
+  const meanCol = colScores.reduce((a, s, j) => a + s * colTotals[j], 0) / grandTotal
+  let covXY = 0, varX = 0, varY = 0
+  for (let i = 0; i < nRows; i++) {
+    for (let j = 0; j < nCols; j++) {
+      covXY += table[i][j] * (rowScores[i] - meanRow) * (colScores[j] - meanCol)
+    }
+  }
+  for (let i = 0; i < nRows; i++) varX += rowTotals[i] * (rowScores[i] - meanRow) ** 2
+  for (let j = 0; j < nCols; j++) varY += colTotals[j] * (colScores[j] - meanCol) ** 2
+  const r = (varX > 0 && varY > 0) ? covXY / Math.sqrt(varX * varY) : 0
+  const linearByLinear = (grandTotal - 1) * r * r
+  const linearP = chiSquarePValue(linearByLinear, 1)
+
+  // Cramér's V (effect size)
+  const minDim = Math.min(nRows - 1, nCols - 1)
+  const cramersV = minDim > 0 ? Math.sqrt(pearsonChiSq / (grandTotal * minDim)) : 0
+
+  const crosstab = rowLabels.map((label, i) => ({
+    label,
+    observed: table[i],
+    expected: expected[i].map(e => Math.round(e * 100) / 100),
+    rowTotal: rowTotals[i],
+  }))
+
+  return {
+    nRows, nCols, grandTotal,
+    rowLabels, colLabels,
+    colTotals,
+    crosstab,
+    pearsonChiSq, likelihoodRatio, linearByLinear,
+    df,
+    pearsonP, likelihoodP, linearP,
+    cramersV,
+    minExpected,
+    cellsUnderFive,
+    totalCells,
+    pctCellsUnderFive: (cellsUnderFive / totalCells) * 100,
+  }
+}
