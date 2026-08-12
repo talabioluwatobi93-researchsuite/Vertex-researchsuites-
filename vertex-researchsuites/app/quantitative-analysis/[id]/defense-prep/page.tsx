@@ -14,11 +14,13 @@ export default function DefensePrepPage() {
   const { id } = useParams()
 
   const [loading, setLoading] = useState(true)
-  const [stage, setStage] = useState<'offer' | 'generating' | 'done'>('offer')
+  const [stage, setStage] = useState<'offer' | 'generating' | 'holding' | 'done'>('offer')
   const [errorMsg, setErrorMsg] = useState('')
   const [price, setPrice] = useState(0)
   const [balance, setBalance] = useState(0)
   const [processing, setProcessing] = useState(false)
+    const [defensePrepReadyAt, setDefensePrepReadyAt] = useState<string | null>(null)
+    const [holdSecondsLeft, setHoldSecondsLeft] = useState(0)
 
   const [qaList, setQaList] = useState<QA[]>([])
   const [openIndex, setOpenIndex] = useState<number | null>(null)
@@ -26,6 +28,54 @@ export default function DefensePrepPage() {
   useEffect(() => {
     load()
   }, [id])
+
+  function beginHold(readyAt: string | null, alreadyRevealed: boolean, content: QA[]) {
+    if (!readyAt) {
+      setStage('done')
+      return
+    }
+    const HOLD_MS = 60 * 1000
+    const target = new Date(readyAt).getTime() + HOLD_MS
+    const now = Date.now()
+
+    if (now >= target) {
+      if (!alreadyRevealed) revealDefensePrep(content)
+      else setStage('done')
+      return
+    }
+
+    setStage('holding')
+    setHoldSecondsLeft(Math.ceil((target - now) / 1000))
+
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((target - Date.now()) / 1000)
+      if (remaining <= 0) {
+        clearInterval(interval)
+        if (!alreadyRevealed) revealDefensePrep(content)
+        else setStage('done')
+      } else {
+        setHoldSecondsLeft(remaining)
+      }
+    }, 1000)
+  }
+
+  async function revealDefensePrep(content: QA[]) {
+    const { data: userData } = await supabase.auth.getUser()
+    if (userData?.user?.id) {
+      await supabase.from('bunker_items').insert({
+        user_id: userData.user.id,
+        item_name: 'Defense Prep (Likely Questions & Answers)',
+        item_type: 'quantitative_analysis_defense_prep',
+        content_reference: id,
+        is_read: false,
+      })
+    }
+    await supabase
+      .from('quantitative_analysis_sessions')
+      .update({ defense_prep_revealed: true })
+      .eq('id', id)
+    setStage('done')
+  }
 
   async function load() {
     setLoading(true)
@@ -49,7 +99,7 @@ export default function DefensePrepPage() {
 
     const { data: session, error } = await supabase
       .from('quantitative_analysis_sessions')
-      .select('defense_prep_paid, defense_prep_content, results')
+      .select('defense_prep_paid, defense_prep_content, defense_prep_ready_at, defense_prep_revealed, results')
       .eq('id', id)
       .single()
 
@@ -66,9 +116,11 @@ export default function DefensePrepPage() {
     }
 
     if (session.defense_prep_paid && session.defense_prep_content) {
-      setQaList(session.defense_prep_content)
-      setStage('done')
-    }
+        setQaList(session.defense_prep_content)
+        setDefensePrepReadyAt(session.defense_prep_ready_at)
+        beginHold(session.defense_prep_ready_at, session.defense_prep_revealed, session.defense_prep_content)
+        return
+      }
 
     setLoading(false)
   }
@@ -112,7 +164,8 @@ export default function DefensePrepPage() {
         return
       }
       setQaList(data.defense_prep_content)
-      setStage('done')
+      setDefensePrepReadyAt(data.defense_prep_ready_at)
+      beginHold(data.defense_prep_ready_at, false, data.defense_prep_content)
     } catch (e: any) {
       setErrorMsg('Something went wrong generating your defense prep.')
       setStage('offer')
@@ -173,6 +226,14 @@ export default function DefensePrepPage() {
       {stage === 'generating' && (
         <div style={{ padding: '60px 20px', textAlign: 'center' }}>
           <p style={{ color: '#777777', fontSize: '14px' }}>Preparing your likely questions...</p>
+        </div>
+      )}
+
+      {stage === 'holding' && (
+        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Finalizing your Defense Prep...</h1>
+          <p style={{ color: '#777777', fontSize: '14px', marginBottom: '4px' }}>Please be patient, feel free to leave this page.</p>
+          <p style={{ color: '#777777', fontSize: '13px' }}>Ready in {holdSecondsLeft}s</p>
         </div>
       )}
 
