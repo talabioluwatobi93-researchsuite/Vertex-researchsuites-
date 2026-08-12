@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, pearson, olsRegression, independentTTest, oneWayAnova } from '@/lib/stats'
+import { mean, sd, pearson, olsRegression, independentTTest, oneWayAnova, chiSquareTest } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -326,6 +326,64 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let chisquare: any = null
+    if (analysisTypes.includes('chisquare') && session.chisquare_config) {
+      const { rowConstructId, colConstructId } = session.chisquare_config
+      const rowConstruct = constructs.find((c: any) => c.id === rowConstructId)
+      const colConstruct = constructs.find((c: any) => c.id === colConstructId)
+
+      if (rowConstruct && colConstruct) {
+        const rowCol = rowConstruct.columnIndexes[0]
+        const colCol = colConstruct.columnIndexes[0]
+
+        const rowLabels = Array.from(new Set(
+          cleanedRows.map((r: any[]) => String(r[rowCol]).trim()).filter(Boolean)
+        )) as string[]
+        const colLabels = Array.from(new Set(
+          cleanedRows.map((r: any[]) => String(r[colCol]).trim()).filter(Boolean)
+        )) as string[]
+
+        const table: number[][] = rowLabels.map(() => colLabels.map(() => 0))
+        const rowIndex: Record<string, number> = {}
+        rowLabels.forEach((l, i) => { rowIndex[l] = i })
+        const colIndex: Record<string, number> = {}
+        colLabels.forEach((l, j) => { colIndex[l] = j })
+
+        cleanedRows.forEach((row: any[]) => {
+          const rLabel = String(row[rowCol]).trim()
+          const cLabel = String(row[colCol]).trim()
+          if (!rLabel || !cLabel) return
+          if (rowIndex[rLabel] === undefined || colIndex[cLabel] === undefined) return
+          table[rowIndex[rLabel]][colIndex[cLabel]]++
+        })
+
+        if (rowLabels.length >= 2 && colLabels.length >= 2) {
+          const cs = chiSquareTest(rowLabels, colLabels, table)
+          chisquare = {
+            rowVariableName: rowConstruct.name,
+            colVariableName: colConstruct.name,
+            rowLabels: cs.rowLabels,
+            colLabels: cs.colLabels,
+            colTotals: cs.colTotals,
+            grandTotal: cs.grandTotal,
+            crosstab: cs.crosstab,
+            df: cs.df,
+            pearsonChiSq: r3(cs.pearsonChiSq),
+            pearsonP: r3(cs.pearsonP),
+            likelihoodRatio: r3(cs.likelihoodRatio),
+            likelihoodP: r3(cs.likelihoodP),
+            linearByLinear: r3(cs.linearByLinear),
+            linearP: r3(cs.linearP),
+            cramersV: r3(cs.cramersV),
+            minExpected: r2(cs.minExpected),
+            cellsUnderFive: cs.cellsUnderFive,
+            totalCells: cs.totalCells,
+            pctCellsUnderFive: r2(cs.pctCellsUnderFive),
+          }
+        }
+      }
+    }
+
     const results = {
       sampleSize: cleanedRows.length,
       excludedRows: rawData.length - cleanedRows.length,
@@ -335,6 +393,7 @@ export async function POST(req: NextRequest) {
       regression,
       ttest,
       anova,
+      chisquare,
       computedAt: new Date().toISOString()
     }
 

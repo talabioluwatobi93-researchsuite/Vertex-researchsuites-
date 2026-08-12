@@ -8,7 +8,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 )
 
-type AnalysisType = 'descriptive' | 'correlation' | 'regression' | 'ttest' | 'anova'
+type AnalysisType = 'descriptive' | 'correlation' | 'regression' | 'ttest' | 'anova' | 'chisquare'
 type Construct = { id: string; name: string; role: string; columnIndexes: number[] }
 
 const ANALYSIS_INFO: Record<AnalysisType, { label: string; description: string }> = {
@@ -32,6 +32,10 @@ const ANALYSIS_INFO: Record<AnalysisType, { label: string; description: string }
     label: 'One-Way ANOVA',
     description: 'Compares the mean of a variable across three or more groups (e.g., Year 1 vs Year 2 vs Year 3), with Tukey HSD post-hoc test and full SPSS-style output.',
   },
+  chisquare: {
+    label: 'Chi-Square Test of Independence',
+    description: 'Tests whether two categorical variables are related (e.g., Gender vs Preferred Study Mode), with a full Crosstab and Chi-Square Tests table.',
+  },
 }
 
 export default function AnalysisTypePage() {
@@ -52,12 +56,14 @@ export default function AnalysisTypePage() {
   const [ttestOutcomeId, setTtestOutcomeId] = useState('')
   const [anovaGroupId, setAnovaGroupId] = useState('')
   const [anovaOutcomeId, setAnovaOutcomeId] = useState('')
+  const [chisquareRowId, setChisquareRowId] = useState('')
+  const [chisquareColId, setChisquareColId] = useState('')
 
   useEffect(() => {
     const load = async () => {
       const { data, error } = await supabase
         .from('quantitative_analysis_sessions')
-        .select('constructs, analysis_type, raw_data, ttest_config, anova_config')
+        .select('constructs, analysis_type, raw_data, ttest_config, anova_config, chisquare_config')
         .eq('id', sessionId)
         .single()
 
@@ -79,6 +85,10 @@ export default function AnalysisTypePage() {
       if (data.anova_config) {
         setAnovaGroupId(data.anova_config.groupConstructId || '')
         setAnovaOutcomeId(data.anova_config.outcomeConstructId || '')
+      }
+      if (data.chisquare_config) {
+        setChisquareRowId(data.chisquare_config.rowConstructId || '')
+        setChisquareColId(data.chisquare_config.colConstructId || '')
       }
       setLoading(false)
     }
@@ -121,6 +131,15 @@ export default function AnalysisTypePage() {
 
   const outcomeEligibleConstructsAnova = constructs.filter((c) => c.id !== anovaGroupId)
 
+  // A construct is eligible for Chi-Square if it uses exactly ONE column
+  // AND that column has 2 or more distinct non-empty values in the data.
+  const chisquareEligibleConstructs = constructs
+    .filter((c) => c.columnIndexes && c.columnIndexes.length === 1)
+    .map((c) => ({ ...c, distinctValues: getDistinctValues(c.columnIndexes[0]) }))
+    .filter((c) => c.distinctValues.length >= 2)
+
+  const chisquareColEligibleConstructs = chisquareEligibleConstructs.filter((c) => c.id !== chisquareRowId)
+
   const availability: Record<AnalysisType, { available: boolean; reason: string }> = {
     descriptive: {
       available: constructs.length > 0,
@@ -141,6 +160,10 @@ export default function AnalysisTypePage() {
     anova: {
       available: groupEligibleConstructsAnova.length > 0 && constructs.length >= 2,
       reason: 'Need a single-column variable with 3 or more distinct values (e.g., Year Level) to group by.',
+    },
+    chisquare: {
+      available: chisquareEligibleConstructs.length >= 2,
+      reason: 'Need at least 2 categorical, single-column variables with 2 or more distinct values each.',
     },
   }
 
@@ -184,6 +207,17 @@ export default function AnalysisTypePage() {
       }
     }
 
+    if (selected.includes('chisquare')) {
+      if (!chisquareRowId) {
+        setErrorMsg('Please choose the first variable for the Chi-Square test.')
+        return
+      }
+      if (!chisquareColId) {
+        setErrorMsg('Please choose the second variable for the Chi-Square test.')
+        return
+      }
+    }
+
     setSaving(true)
     setErrorMsg('')
 
@@ -196,6 +230,9 @@ export default function AnalysisTypePage() {
           : null,
         anova_config: selected.includes('anova')
           ? { groupConstructId: anovaGroupId, outcomeConstructId: anovaOutcomeId }
+          : null,
+        chisquare_config: selected.includes('chisquare')
+          ? { rowConstructId: chisquareRowId, colConstructId: chisquareColId }
           : null,
         updated_at: new Date().toISOString(),
       })
@@ -361,6 +398,45 @@ export default function AnalysisTypePage() {
                 {anovaGroupId && anovaOutcomeId && (
                   <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>
                     We'll compare {outcomeEligibleConstructsAnova.find((c) => c.id === anovaOutcomeId)?.name} across the groups of {groupEligibleConstructsAnova.find((c) => c.id === anovaGroupId)?.name}.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {type === 'chisquare' && isSelected && avail.available && (
+              <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+                <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                  First variable
+                </label>
+                <select
+                  value={chisquareRowId}
+                  onChange={(e) => { setChisquareRowId(e.target.value); if (chisquareColId === e.target.value) setChisquareColId('') }}
+                  style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}
+                >
+                  <option value="">Select a variable...</option>
+                  {chisquareEligibleConstructs.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.distinctValues.join(', ')})</option>
+                  ))}
+                </select>
+
+                <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                  Second variable
+                </label>
+                <select
+                  value={chisquareColId}
+                  onChange={(e) => setChisquareColId(e.target.value)}
+                  disabled={!chisquareRowId}
+                  style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}
+                >
+                  <option value="">Select a variable...</option>
+                  {chisquareColEligibleConstructs.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.distinctValues.join(', ')})</option>
+                  ))}
+                </select>
+
+                {chisquareRowId && chisquareColId && (
+                  <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>
+                    We'll test whether {chisquareEligibleConstructs.find((c) => c.id === chisquareRowId)?.name} and {chisquareEligibleConstructs.find((c) => c.id === chisquareColId)?.name} are related.
                   </p>
                 )}
               </div>
