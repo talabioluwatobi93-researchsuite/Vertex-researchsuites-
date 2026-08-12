@@ -12,7 +12,7 @@ export default function QualChapter5Page() {
   const { id } = useParams()
 
   const [loading, setLoading] = useState(true)
-  const [stage, setStage] = useState<'offer' | 'form' | 'generating' | 'done'>('offer')
+  const [stage, setStage] = useState<'offer' | 'form' | 'generating' | 'holding' | 'done'>('offer')
   const [errorMsg, setErrorMsg] = useState('')
   const [price, setPrice] = useState(0)
   const [balance, setBalance] = useState(0)
@@ -22,8 +22,47 @@ export default function QualChapter5Page() {
   const [limitations, setLimitations] = useState('')
   const [chapter5Content, setChapter5Content] = useState('')
   const [processing, setProcessing] = useState(false)
+    const [chapter5ReadyAt, setChapter5ReadyAt] = useState<string | null>(null)
+    const [holdSecondsLeft, setHoldSecondsLeft] = useState(0)
 
   useEffect(() => { load() }, [id])
+
+  function beginHold(readyAt: string | null, alreadyRevealed: boolean, content: string) {
+    if (!readyAt) { setStage('done'); return }
+    const HOLD_MS = 60 * 1000
+    const target = new Date(readyAt).getTime() + HOLD_MS
+    const now = Date.now()
+    if (now >= target) {
+      if (!alreadyRevealed) revealChapter5(content); else setStage('done')
+      return
+    }
+    setStage('holding')
+    setHoldSecondsLeft(Math.ceil((target - now) / 1000))
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((target - Date.now()) / 1000)
+      if (remaining <= 0) {
+        clearInterval(interval)
+        if (!alreadyRevealed) revealChapter5(content); else setStage('done')
+      } else {
+        setHoldSecondsLeft(remaining)
+      }
+    }, 1000)
+  }
+
+  async function revealChapter5(content: string) {
+    const { data: userData } = await supabase.auth.getUser()
+    if (userData?.user?.id) {
+      await supabase.from('bunker_items').insert({
+        user_id: userData.user.id,
+        item_name: 'Chapter 5 (Summary, Conclusion, Recommendations)',
+        item_type: 'qualitative_analysis_chapter5',
+        content_reference: id,
+        is_read: false,
+      })
+    }
+    await supabase.from('qualitative_analysis_sessions').update({ chapter5_revealed: true }).eq('id', id)
+    setStage('done')
+  }
 
   async function load() {
     setLoading(true)
@@ -38,13 +77,13 @@ export default function QualChapter5Page() {
 
     const { data: session, error } = await supabase
       .from('qualitative_analysis_sessions')
-      .select('chapter5_paid, chapter5_content, results')
+      .select('chapter5_paid, chapter5_content, chapter5_ready_at, chapter5_revealed, results')
       .eq('id', id)
       .single()
 
     if (error || !session) { setErrorMsg('Could not load this session.'); setLoading(false); return }
     if (!session.results) { setErrorMsg('Please complete your main analysis before adding Chapter 5.'); setLoading(false); return }
-    if (session.chapter5_paid && session.chapter5_content) { setChapter5Content(session.chapter5_content); setStage('done') }
+    if (session.chapter5_paid && session.chapter5_content) { setChapter5Content(session.chapter5_content); setChapter5ReadyAt(session.chapter5_ready_at); beginHold(session.chapter5_ready_at, session.chapter5_revealed, session.chapter5_content); return }
 
     setLimitations('This study was limited to the transcripts analyzed, which may not capture the full range of perspectives on this topic. The findings are context-specific and may not generalize beyond the study\u2019s participants.')
     setLoading(false)
@@ -76,7 +115,7 @@ export default function QualChapter5Page() {
       })
       const data = await res.json()
       if (!res.ok) { setErrorMsg(data.error || 'Chapter 5 generation failed.'); setProcessing(false); setStage('form'); return }
-      setChapter5Content(data.chapter5_content); setStage('done')
+      setChapter5Content(data.chapter5_content); setChapter5ReadyAt(data.chapter5_ready_at); beginHold(data.chapter5_ready_at, false, data.chapter5_content)
     } catch (e) { setErrorMsg('Something went wrong.'); setStage('form') }
     setProcessing(false)
   }
@@ -119,6 +158,13 @@ export default function QualChapter5Page() {
         </div>
       )}
       {stage === 'generating' && <div style={{ padding: '60px 20px', textAlign: 'center' }}><p style={{ color: '#777777', fontSize: '14px' }}>Writing your Chapter 5...</p></div>}
+      {stage === 'holding' && (
+        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Finalizing your Chapter 5...</h1>
+          <p style={{ color: '#777777', fontSize: '14px', marginBottom: '4px' }}>Please be patient, feel free to leave this page.</p>
+          <p style={{ color: '#777777', fontSize: '13px' }}>Ready in {holdSecondsLeft}s</p>
+        </div>
+      )}
       {stage === 'done' && (
         <div>
           <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '16px' }}>Chapter 5</h1>
