@@ -8,7 +8,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 )
 
-type AnalysisType = 'descriptive' | 'correlation' | 'regression' | 'ttest'
+type AnalysisType = 'descriptive' | 'correlation' | 'regression' | 'ttest' | 'anova'
 type Construct = { id: string; name: string; role: string; columnIndexes: number[] }
 
 const ANALYSIS_INFO: Record<AnalysisType, { label: string; description: string }> = {
@@ -28,6 +28,10 @@ const ANALYSIS_INFO: Record<AnalysisType, { label: string; description: string }
     label: 'Independent Samples T-Test',
     description: 'Compares the mean of a variable between exactly two groups (e.g., Male vs Female), with Levene\u2019s Test and full SPSS-style output.',
   },
+  anova: {
+    label: 'One-Way ANOVA',
+    description: 'Compares the mean of a variable across three or more groups (e.g., Year 1 vs Year 2 vs Year 3), with Tukey HSD post-hoc test and full SPSS-style output.',
+  },
 }
 
 export default function AnalysisTypePage() {
@@ -46,12 +50,14 @@ export default function AnalysisTypePage() {
   const [rawData, setRawData] = useState<any[][]>([])
   const [ttestGroupId, setTtestGroupId] = useState('')
   const [ttestOutcomeId, setTtestOutcomeId] = useState('')
+  const [anovaGroupId, setAnovaGroupId] = useState('')
+  const [anovaOutcomeId, setAnovaOutcomeId] = useState('')
 
   useEffect(() => {
     const load = async () => {
       const { data, error } = await supabase
         .from('quantitative_analysis_sessions')
-        .select('constructs, analysis_type, raw_data, ttest_config')
+        .select('constructs, analysis_type, raw_data, ttest_config, anova_config')
         .eq('id', sessionId)
         .single()
 
@@ -69,6 +75,10 @@ export default function AnalysisTypePage() {
       if (data.ttest_config) {
         setTtestGroupId(data.ttest_config.groupConstructId || '')
         setTtestOutcomeId(data.ttest_config.outcomeConstructId || '')
+      }
+      if (data.anova_config) {
+        setAnovaGroupId(data.anova_config.groupConstructId || '')
+        setAnovaOutcomeId(data.anova_config.outcomeConstructId || '')
       }
       setLoading(false)
     }
@@ -102,6 +112,15 @@ export default function AnalysisTypePage() {
   // Outcome variable for t-test: any construct NOT chosen as the grouping variable
   const outcomeEligibleConstructs = constructs.filter((c) => c.id !== ttestGroupId)
 
+  // A construct is eligible as an ANOVA grouping variable if it uses exactly ONE
+  // column AND that column has 3 or more distinct non-empty values in the data.
+  const groupEligibleConstructsAnova = constructs
+    .filter((c) => c.columnIndexes && c.columnIndexes.length === 1)
+    .map((c) => ({ ...c, distinctValues: getDistinctValues(c.columnIndexes[0]) }))
+    .filter((c) => c.distinctValues.length >= 3)
+
+  const outcomeEligibleConstructsAnova = constructs.filter((c) => c.id !== anovaGroupId)
+
   const availability: Record<AnalysisType, { available: boolean; reason: string }> = {
     descriptive: {
       available: constructs.length > 0,
@@ -118,6 +137,10 @@ export default function AnalysisTypePage() {
     ttest: {
       available: groupEligibleConstructs.length > 0 && constructs.length >= 2,
       reason: 'Need a single-column variable with exactly 2 distinct values (e.g., Gender) to group by.',
+    },
+    anova: {
+      available: groupEligibleConstructsAnova.length > 0 && constructs.length >= 2,
+      reason: 'Need a single-column variable with 3 or more distinct values (e.g., Year Level) to group by.',
     },
   }
 
@@ -150,6 +173,17 @@ export default function AnalysisTypePage() {
       }
     }
 
+    if (selected.includes('anova')) {
+      if (!anovaGroupId) {
+        setErrorMsg('Please choose a grouping variable for the ANOVA (must have 3 or more groups).')
+        return
+      }
+      if (!anovaOutcomeId) {
+        setErrorMsg('Please choose an outcome variable for the ANOVA.')
+        return
+      }
+    }
+
     setSaving(true)
     setErrorMsg('')
 
@@ -159,6 +193,9 @@ export default function AnalysisTypePage() {
         analysis_type: selected,
         ttest_config: selected.includes('ttest')
           ? { groupConstructId: ttestGroupId, outcomeConstructId: ttestOutcomeId }
+          : null,
+        anova_config: selected.includes('anova')
+          ? { groupConstructId: anovaGroupId, outcomeConstructId: anovaOutcomeId }
           : null,
         updated_at: new Date().toISOString(),
       })
@@ -285,6 +322,45 @@ export default function AnalysisTypePage() {
                 {ttestGroupId && ttestOutcomeId && (
                   <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>
                     We'll compare {outcomeEligibleConstructs.find((c) => c.id === ttestOutcomeId)?.name} between the two groups of {groupEligibleConstructs.find((c) => c.id === ttestGroupId)?.name}.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {type === 'anova' && isSelected && avail.available && (
+              <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+                <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                  Grouping variable (must have 3 or more groups)
+                </label>
+                <select
+                  value={anovaGroupId}
+                  onChange={(e) => { setAnovaGroupId(e.target.value); if (anovaOutcomeId === e.target.value) setAnovaOutcomeId('') }}
+                  style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}
+                >
+                  <option value="">Select a grouping variable...</option>
+                  {groupEligibleConstructsAnova.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.distinctValues.join(', ')})</option>
+                  ))}
+                </select>
+
+                <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                  Outcome variable (what you're comparing)
+                </label>
+                <select
+                  value={anovaOutcomeId}
+                  onChange={(e) => setAnovaOutcomeId(e.target.value)}
+                  disabled={!anovaGroupId}
+                  style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}
+                >
+                  <option value="">Select an outcome variable...</option>
+                  {outcomeEligibleConstructsAnova.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+
+                {anovaGroupId && anovaOutcomeId && (
+                  <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>
+                    We'll compare {outcomeEligibleConstructsAnova.find((c) => c.id === anovaOutcomeId)?.name} across the groups of {groupEligibleConstructsAnova.find((c) => c.id === anovaGroupId)?.name}.
                   </p>
                 )}
               </div>
