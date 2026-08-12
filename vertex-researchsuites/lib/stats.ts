@@ -249,3 +249,141 @@ export function independentTTest(group1: number[], group2: number[]) {
     },
   }
 }
+
+// ── Studentized range distribution (for Tukey HSD) ──
+function normalPDF(z: number): number {
+  return Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI)
+}
+function erf(x: number): number {
+  const sign = x < 0 ? -1 : 1
+  x = Math.abs(x)
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741
+  const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911
+  const t = 1 / (1 + p * x)
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x)
+  return sign * y
+}
+function normalCDF(z: number): number {
+  return 0.5 * (1 + erf(z / Math.SQRT2))
+}
+
+// P(range of k iid N(0,1) <= q), infinite-df case, via Simpson's rule
+function wprob(q: number, k: number): number {
+  const nSteps = 400
+  const lower = -8, upper = 8
+  const h = (upper - lower) / nSteps
+  let sum = 0
+  for (let i = 0; i <= nSteps; i++) {
+    const z = lower + i * h
+    const val = normalPDF(z) * Math.pow(normalCDF(z) - normalCDF(z - q), k - 1)
+    const weight = (i === 0 || i === nSteps) ? 1 : (i % 2 === 0 ? 2 : 4)
+    sum += weight * val
+  }
+  return k * (h / 3) * sum
+}
+
+// CDF of the studentized range distribution, finite df, via double numerical integration
+function ptukey(q: number, k: number, df: number): number {
+  if (q <= 0) return 0
+  if (df > 400) return wprob(q, k)
+  const nSteps = 200
+  const lower = 0.001, upper = 8
+  const h = (upper - lower) / nSteps
+  const logConst = (df / 2) * Math.log(df / 2) - logGamma(df / 2) + Math.log(2)
+  let sum = 0
+  for (let i = 0; i <= nSteps; i++) {
+    const u = lower + i * h
+    const logf = logConst + (df - 1) * Math.log(u) - (df * u * u) / 2
+    const f = Math.exp(logf)
+    const val = f * wprob(q * u, k)
+    const weight = (i === 0 || i === nSteps) ? 1 : (i % 2 === 0 ? 2 : 4)
+    sum += weight * val
+  }
+  return (h / 3) * sum
+}
+
+export function tukeyPValue(q: number, k: number, df: number): number {
+  const p = 1 - ptukey(q, k, df)
+  return Math.min(Math.max(p, 0), 1)
+}
+
+export function qTukeyCritical(k: number, df: number, alpha: number = 0.05): number {
+  let lo = 0, hi = 50
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2
+    const p = 1 - ptukey(mid, k, df)
+    if (p > alpha) lo = mid; else hi = mid
+  }
+  return (lo + hi) / 2
+}
+
+// ── Full One-Way ANOVA (SPSS-style table) + Tukey HSD post-hoc ──
+export function oneWayAnova(groups: number[][]) {
+  const k = groups.length
+  const allValues = groups.flat()
+  const n = allValues.length
+  const grandMean = mean(allValues)
+
+  let ssBetween = 0
+  let ssWithin = 0
+  groups.forEach(g => {
+    const gMean = mean(g)
+    ssBetween += g.length * (gMean - grandMean) ** 2
+    g.forEach(v => { ssWithin += (v - gMean) ** 2 })
+  })
+  const ssTotal = ssBetween + ssWithin
+  const dfBetween = k - 1
+  const dfWithin = n - k
+  const msBetween = ssBetween / dfBetween
+  const msWithin = ssWithin / dfWithin
+  const f = msBetween / msWithin
+  const p = fTestPValue(f, dfBetween, dfWithin)
+
+  const groupStats = groups.map(g => {
+    const gn = g.length
+    const gMean = mean(g)
+    const gSd = sd(g)
+    const gSem = gSd / Math.sqrt(gn)
+    const tCrit = tCriticalValue(gn - 1, 0.05)
+    return {
+      n: gn,
+      mean: gMean,
+      sd: gSd,
+      sem: gSem,
+      ciLower: gMean - tCrit * gSem,
+      ciUpper: gMean + tCrit * gSem,
+      min: Math.min(...g),
+      max: Math.max(...g)
+    }
+  })
+
+  const qCrit = qTukeyCritical(k, dfWithin, 0.05)
+  const tukey: {
+    i: number; j: number; meanDiff: number; seDiff: number
+    q: number; p: number; ciLower: number; ciUpper: number
+  }[] = []
+  for (let i = 0; i < k; i++) {
+    for (let j = i + 1; j < k; j++) {
+      const mi = groupStats[i].mean, mj = groupStats[j].mean
+      const meanDiff = mi - mj
+      const seDiff = Math.sqrt((msWithin / 2) * (1 / groupStats[i].n + 1 / groupStats[j].n))
+      const q = Math.abs(meanDiff) / seDiff
+      tukey.push({
+        i, j, meanDiff, seDiff, q,
+        p: tukeyPValue(q, k, dfWithin),
+        ciLower: meanDiff - qCrit * seDiff,
+        ciUpper: meanDiff + qCrit * seDiff
+      })
+    }
+  }
+
+  return {
+    k, n, grandMean,
+    ssBetween, ssWithin, ssTotal,
+    dfBetween, dfWithin,
+    msBetween, msWithin,
+    f, p,
+    groupStats,
+    tukey
+  }
+}
