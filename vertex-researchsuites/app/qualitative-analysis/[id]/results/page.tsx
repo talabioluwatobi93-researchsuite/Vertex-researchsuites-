@@ -29,21 +29,77 @@ export default function QualResultsPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [holdSecondsLeft, setHoldSecondsLeft] = useState(0)
 
   useEffect(() => {
     run()
   }, [id])
 
+  function beginHold(readyAt: string | null, alreadyRevealed: boolean, resultsData: any) {
+    if (!readyAt) {
+      setStatus('done')
+      return
+    }
+    const HOLD_MS = 3 * 60 * 1000
+    const target = new Date(readyAt).getTime() + HOLD_MS
+    const now = Date.now()
+
+    if (now >= target) {
+      if (!alreadyRevealed) revealQualResults(resultsData)
+      else setStatus('done')
+      return
+    }
+
+    setStatus('holding')
+    setHoldSecondsLeft(Math.ceil((target - now) / 1000))
+
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((target - Date.now()) / 1000)
+      if (remaining <= 0) {
+        clearInterval(interval)
+        if (!alreadyRevealed) revealQualResults(resultsData)
+        else setStatus('done')
+      } else {
+        setHoldSecondsLeft(remaining)
+      }
+    }, 1000)
+  }
+
+  async function revealQualResults(resultsData: any) {
+    const { data: userData } = await supabase.auth.getUser()
+    if (userData?.user?.id) {
+      await supabase.from('bunker_items').insert({
+        user_id: userData.user.id,
+        item_name: 'Qualitative Analysis - Coded Data',
+        item_type: 'qualitative_analysis_dataset',
+        content_reference: id,
+        is_read: false,
+      })
+      await supabase.from('bunker_items').insert({
+        user_id: userData.user.id,
+        item_name: 'Qualitative Analysis - Full Report',
+        item_type: 'qualitative_analysis_report',
+        content_reference: id,
+        is_read: false,
+      })
+    }
+    await supabase
+      .from('qualitative_analysis_sessions')
+      .update({ results_revealed: true })
+      .eq('id', id)
+    setStatus('done')
+  }
+
   async function run() {
     const { data: session } = await supabase
       .from('qualitative_analysis_sessions')
-      .select('results')
+      .select('results, results_ready_at, results_revealed')
       .eq('id', id)
       .single()
 
     if (session?.results) {
       setResults(session.results)
-      setStatus('done')
+      beginHold(session.results_ready_at, session.results_revealed, session.results)
       return
     }
 
@@ -58,32 +114,34 @@ export default function QualResultsPage() {
         setErrorMsg(data.error || 'Report generation failed.')
         return
       }
+      const readyAt = new Date().toISOString()
+      await supabase
+        .from('qualitative_analysis_sessions')
+        .update({ results_ready_at: readyAt, results_revealed: false })
+        .eq('id', id)
       setResults(data.results)
-      setStatus('done')
+      beginHold(readyAt, false, data.results)
     } catch (e: any) {
       setErrorMsg(e.message || 'Something went wrong.')
     }
   }
 
-  async function saveToBunker() {
-    setSaving(true)
-    const { data: userData } = await supabase.auth.getUser()
-    await supabase.from('bunker_items').insert({
-      user_id: userData?.user?.id,
-      item_name: 'Qualitative Analysis Report',
-      item_type: 'qualitative_analysis_report',
-      content_reference: id
-    })
-    setSaving(false)
-    setSaved(true)
-  }
-
-  if (errorMsg) {
+    if (errorMsg) {
     return (
       <div style={{ maxWidth: '700px', margin: '0 auto', padding: '40px 16px' }}>
         <div style={{ backgroundColor: '#FDEDEC', borderRadius: '12px', padding: '16px' }}>
           <p style={{ color: '#C0392B', fontSize: '14px', margin: 0 }}>{errorMsg}</p>
         </div>
+      </div>
+    )
+  }
+
+  if (status === 'holding') {
+    return (
+      <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Analyzing your data...</h1>
+        <p style={{ color: '#777777', fontSize: '14px', marginBottom: '4px' }}>Please be patient, feel free to leave this page.</p>
+        <p style={{ color: '#777777', fontSize: '13px' }}>Ready in {Math.floor(holdSecondsLeft / 60)}:{String(holdSecondsLeft % 60).padStart(2, '0')}</p>
       </div>
     )
   }
@@ -134,16 +192,9 @@ export default function QualResultsPage() {
         ))}
       </div>
 
-      <button
-        onClick={saveToBunker}
-        disabled={saving || saved}
-        style={{
-          width: '100%', backgroundColor: saved ? '#777777' : '#D4AF37', color: '#333333', border: 'none',
-          borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer'
-        }}
-      >
-        {saved ? 'Saved to Bunker \u2713' : saving ? 'Saving...' : 'Save to Bunker'}
-      </button>
+      <p style={{ color: '#777777', fontSize: '13px', textAlign: 'center', margin: '0 0 16px 0' }}>
+            ✓ Saved to your Bunker
+          </p>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
         <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Want a complete Chapter 5?</p>
