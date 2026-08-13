@@ -317,6 +317,7 @@ export default function Dashboard() {
                 {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis'), flags['quantitative-analysis'] === false)}
                 {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis'), flags['qualitative-analysis'] === false)}
         {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true, bunkerUnreadCount, flags['bunker'] === false)}
+        {featureCard('🎙️', 'Voice Transcription & Analysis', 'Upload interview audio, get transcript + notes', () => router.push('/voice-transcription'), false, 0, flags['voice-transcription'] === false)}
       </div>
     <Billboard />
     </div>
