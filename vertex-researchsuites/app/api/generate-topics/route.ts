@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
-    const { institution, course, department, interest, sequence } = await req.json()
+    const { institution, course, department, interest, sequence, researchType, problemStatement, userCategory } = await req.json()
 
     const prompt = `You are an experienced academic research supervisor in Nigeria. A student has given you these details:
 Institution: ${institution}
@@ -10,6 +10,7 @@ Course of study: ${course}
 Department: ${department}
 ${interest ? `Research interest: ${interest}` : ''}
 ${sequence ? `Additional focus/interest: ${sequence}` : ''}
+${researchType === 'applied' ? `This is APPLIED research, meaning it must address a specific, real-world problem. The student (a ${userCategory || 'researcher'}) described the problem as: "${problemStatement}". Every topic must be clearly tied to solving this problem.` : `This is PURE (basic) research, meaning it should focus on generating new knowledge or theoretical understanding rather than solving one specific practical problem.`}
 
 Generate exactly 5 well-dated, current, and academically acceptable research topic ideas suitable for this student's field of study and institution level in Nigeria. Write in simple, clear English that a Nigerian undergraduate or postgraduate student and their supervisor can easily understand.
 

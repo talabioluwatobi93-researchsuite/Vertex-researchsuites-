@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
-    const { institution, course, department, interest, sequence, chosenTopic } = await req.json()
+    const { institution, course, department, interest, sequence, chosenTopic, researchType, problemStatement } = await req.json()
 
     const prompt = `You are an experienced academic research supervisor in Nigeria, writing a complete, full-length research proposal for a student. Write with genuine depth and detail — this must be a comprehensive, submission-ready document of approximately 15 pages (around 4,000-4,500 words), not a summary.
 
@@ -12,6 +12,7 @@ Course of study: ${course}
 Department: ${department}
 ${interest ? `Research interest: ${interest}` : ''}
 ${sequence ? `Additional focus: ${sequence}` : ''}
+${researchType === 'applied' ? `This is APPLIED research. The student described the underlying problem as: "${problemStatement}". The Statement of the Problem, Significance, and Methodology sections must clearly stay grounded in solving this real problem.` : `This is PURE (basic) research, aimed at generating new knowledge/theory rather than solving one specific applied problem.`}
 
 Chosen topic:
 ${chosenTopic}
