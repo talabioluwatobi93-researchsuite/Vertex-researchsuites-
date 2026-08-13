@@ -12,6 +12,7 @@ const supabase = createClient(
 type Construct = {
   id: string
   name: string
+  role: 'Scale' | 'Demographic'
   columnIndexes: number[]
   reverseIndexes: number[]
 }
@@ -31,6 +32,9 @@ export default function PilotStudyColumnsPage() {
   const [scaleMin, setScaleMin] = useState(1)
   const [scaleMax, setScaleMax] = useState(5)
   const [newConstructName, setNewConstructName] = useState('')
+  const [newConstructRole, setNewConstructRole] = useState<Construct['role']>('Scale')
+  const [includeDemographics, setIncludeDemographics] = useState(true)
+  const [apaStyle, setApaStyle] = useState<'6th' | '7th'>('7th')
 
   useEffect(() => {
     const load = async () => {
@@ -56,7 +60,7 @@ export default function PilotStudyColumnsPage() {
     const name = newConstructName.trim()
     if (!name) return
     const id = `c_${Date.now()}`
-    setConstructs([...constructs, { id, name, columnIndexes: [], reverseIndexes: [] }])
+    setConstructs([...constructs, { id, name, role: newConstructRole, columnIndexes: [], reverseIndexes: [] }])
     setNewConstructName('')
   }
 
@@ -97,26 +101,33 @@ export default function PilotStudyColumnsPage() {
       return
     }
 
-    const tooSmall = usedConstructs.find((c) => c.columnIndexes.length < 2)
-    if (tooSmall) {
-      setErrorMsg(`"${tooSmall.name}" needs at least 2 items to calculate reliability.`)
+    const tooSmallScale = usedConstructs.find((c) => c.role === 'Scale' && c.columnIndexes.length < 2)
+    if (tooSmallScale) {
+      setErrorMsg(`"${tooSmallScale.name}" needs at least 2 items to calculate reliability.`)
+      return
+    }
+
+    const hasScaleConstruct = usedConstructs.some((c) => c.role === 'Scale')
+    if (!hasScaleConstruct) {
+      setErrorMsg('Please add at least one Scale construct (Demographics alone cannot be tested for reliability).')
       return
     }
 
     setSaving(true)
     setErrorMsg('')
 
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) { setErrorMsg('Please log in again.'); setSaving(false); return; }
-    const { data: priceRow } = await supabase.from('feature_pricing').select('price').eq('feature_name', 'pilot_study').single();
-    const price = priceRow?.price ?? 0;
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData?.user) { setErrorMsg('Please log in again.'); setSaving(false); return }
+
+    const { data: priceRow } = await supabase.from('feature_pricing').select('price').eq('feature_name', 'pilot_study').single()
+    const price = priceRow?.price ?? 0
     if (price > 0) {
-      const { data: wallet } = await supabase.from('wallets').select('balance').eq('id', userData.user.id).single();
-      const balance = wallet?.balance ?? 0;
-      if (balance < price) { setErrorMsg('Your balance is not enough, kindly top up.'); setSaving(false); return; }
-      const { error: deductError } = await supabase.from('wallets').update({ balance: balance - price }).eq('id', userData.user.id);
-      if (deductError) { setErrorMsg('Could not process payment. Please try again.'); setSaving(false); return; }
-      await supabase.from('transactions').insert({ user_id: userData.user.id, type: 'debit', amount: price, status: 'success', description: 'Pilot Study & Reliability Test' });
+      const { data: wallet } = await supabase.from('wallets').select('balance').eq('id', userData.user.id).single()
+      const balance = wallet?.balance ?? 0
+      if (balance < price) { setErrorMsg('Your balance is not enough, kindly top up.'); setSaving(false); return }
+      const { error: deductError } = await supabase.from('wallets').update({ balance: balance - price }).eq('id', userData.user.id)
+      if (deductError) { setErrorMsg('Could not process payment. Please try again.'); setSaving(false); return }
+      await supabase.from('transactions').insert({ user_id: userData.user.id, type: 'debit', amount: price, status: 'success', description: 'Pilot Study & Reliability Test' })
     }
 
     const { error } = await supabase
@@ -124,6 +135,8 @@ export default function PilotStudyColumnsPage() {
       .update({
         constructs: usedConstructs,
         cleaning_config: { scaleMin, scaleMax },
+        include_demographics: includeDemographics,
+        apa_style: apaStyle,
         status: 'mapped',
         updated_at: new Date().toISOString(),
       })
@@ -135,7 +148,7 @@ export default function PilotStudyColumnsPage() {
       return
     }
 
-    router.push(`/pilot-study/${sessionId}/results`)
+    router.push(`/pilot-study/${sessionId}/cleaning`)
   }
 
   if (loading) {
@@ -152,7 +165,7 @@ export default function PilotStudyColumnsPage() {
         Group Your Items
       </h1>
       <p style={{ color: '#777777', fontSize: '13px', marginBottom: '20px' }}>
-        Create your constructs, then assign each question column to one. Leave demographic columns unassigned.
+        Create your constructs, then assign each question column to one. Tag demographic columns as "Demographic" instead of leaving them unassigned.
       </p>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
@@ -175,6 +188,27 @@ export default function PilotStudyColumnsPage() {
       </div>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Report settings</p>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <input
+            type="checkbox"
+            checked={includeDemographics}
+            onChange={(e) => setIncludeDemographics(e.target.checked)}
+          />
+          <span style={{ color: '#333333', fontSize: '13px' }}>Analyze demographics (uncheck to only collect, not analyze)</span>
+        </label>
+        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>APA style</p>
+        <select
+          value={apaStyle}
+          onChange={(e) => setApaStyle(e.target.value as '6th' | '7th')}
+          style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px', color: '#333333' }}
+        >
+          <option value="7th">APA 7th Edition</option>
+          <option value="6th">APA 6th Edition</option>
+        </select>
+      </div>
+
+      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Your constructs</p>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
           <input
@@ -184,6 +218,14 @@ export default function PilotStudyColumnsPage() {
             onChange={(e) => setNewConstructName(e.target.value)}
             style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }}
           />
+          <select
+            value={newConstructRole}
+            onChange={(e) => setNewConstructRole(e.target.value as Construct['role'])}
+            style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px', color: '#333333' }}
+          >
+            <option value="Scale">Scale item</option>
+            <option value="Demographic">Demographic</option>
+          </select>
           <button
             onClick={addConstruct}
             style={{ backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
@@ -193,7 +235,7 @@ export default function PilotStudyColumnsPage() {
         </div>
         {constructs.map((c) => (
           <span key={c.id} style={{ display: 'inline-block', backgroundColor: '#F9F9F9', border: '1px solid #EEEEEE', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: '#333333', marginRight: '6px', marginBottom: '6px' }}>
-            {c.name} ({c.columnIndexes.length})
+            {c.name} · {c.role} ({c.columnIndexes.length})
           </span>
         ))}
       </div>
@@ -212,12 +254,12 @@ export default function PilotStudyColumnsPage() {
                 style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}
                 disabled={constructs.length === 0}
               >
-                <option value="">Exclude (demographic / not used)</option>
+                <option value="">Exclude (not used)</option>
                 {constructs.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>{c.name} ({c.role})</option>
                 ))}
               </select>
-              {assignedConstruct && (
+              {assignedConstruct && assignedConstruct.role === 'Scale' && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
                   <input
                     type="checkbox"
@@ -243,7 +285,7 @@ export default function PilotStudyColumnsPage() {
         disabled={saving}
         style={{ width: '100%', backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
       >
-        {saving ? 'Calculating...' : 'Continue to Results'}
+        {saving ? 'Saving...' : 'Continue to Data Cleaning'}
       </button>
     </div>
   )

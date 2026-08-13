@@ -6,33 +6,52 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
-function mean(values: number[]): number {
-  return values.reduce((a, b) => a + b, 0) / values.length
+function r3(n: number): number { return Math.round(n * 1000) / 1000 }
+function r2(n: number): number { return Math.round(n * 100) / 100 }
+
+function variance(arr: number[]): number {
+  const n = arr.length
+  if (n < 2) return 0
+  const mean = arr.reduce((a, b) => a + b, 0) / n
+  const sumSq = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0)
+  return sumSq / (n - 1)
 }
 
-function variance(values: number[]): number {
-  const m = mean(values)
-  const squaredDiffs = values.map((v) => (v - m) ** 2)
-  return squaredDiffs.reduce((a, b) => a + b, 0) / (values.length - 1)
-}
-
-function cronbachAlpha(itemMatrix: number[][]): { alpha: number; k: number; n: number } {
-  const k = itemMatrix[0].length
-  const n = itemMatrix.length
-
+function cronbachAlpha(matrix: number[][]): { k: number; n: number; alpha: number } {
+  const n = matrix.length
+  const k = matrix[0]?.length || 0
+  if (n < 2 || k < 2) return { k, n, alpha: 0 }
   const itemVariances: number[] = []
-  for (let col = 0; col < k; col++) {
-    const columnValues = itemMatrix.map((row) => row[col])
-    itemVariances.push(variance(columnValues))
+  for (let j = 0; j < k; j++) {
+    const col = matrix.map((row) => row[j])
+    itemVariances.push(variance(col))
   }
-
-  const totalScores = itemMatrix.map((row) => row.reduce((a, b) => a + b, 0))
+  const totalScores = matrix.map((row) => row.reduce((a, b) => a + b, 0))
   const totalVariance = variance(totalScores)
+  const sumItemVar = itemVariances.reduce((a, b) => a + b, 0)
+  const alpha = totalVariance === 0 ? 0 : (k / (k - 1)) * (1 - sumItemVar / totalVariance)
+  return { k, n, alpha: r3(alpha) }
+}
 
-  const sumItemVariances = itemVariances.reduce((a, b) => a + b, 0)
-  const alpha = (k / (k - 1)) * (1 - sumItemVariances / totalVariance)
-
-  return { alpha: Math.round(alpha * 100) / 100, k, n }
+function buildMatrix(rows: any[][], columnIndexes: number[], reverseIndexes: number[], scaleMin: number, scaleMax: number): number[][] {
+  const matrix: number[][] = []
+  for (const row of rows) {
+    const values = columnIndexes.map((colIdx) => {
+      const raw = row[colIdx]
+      const num = typeof raw === 'number' ? raw : parseFloat(raw)
+      return { colIdx, num }
+    })
+    const allValid = values.every((v) => !isNaN(v.num))
+    if (!allValid) continue
+    const scored = values.map((v) => {
+      if (reverseIndexes.includes(v.colIdx)) {
+        return scaleMin + scaleMax - v.num
+      }
+      return v.num
+    })
+    matrix.push(scored)
+  }
+  return matrix
 }
 
 export async function POST(req: NextRequest) {
@@ -42,59 +61,65 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 })
     }
 
-    const { data: session, error: fetchError } = await supabase
+    const { data: session, error } = await supabase
       .from('pilot_study_sessions')
-      .select('raw_data, constructs, cleaning_config, results, interpretation, results_ready_at, results_revealed, status')
+      .select('*')
       .eq('id', sessionId)
       .single()
 
-    if (session?.status === 'completed' && session?.results) {
-      return NextResponse.json({ results: session.results, interpretation: session.interpretation, results_ready_at: session.results_ready_at })
-    }
-
-    if (fetchError || !session) {
+    if (error || !session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
-    const rawData: any[][] = session.raw_data
-    const constructs: { id: string; name: string; columnIndexes: number[]; reverseIndexes: number[] }[] = session.constructs
-    const scaleMin = session.cleaning_config?.scaleMin ?? 1
-    const scaleMax = session.cleaning_config?.scaleMax ?? 5
+    const rawData: any[][] = session.raw_data || []
+    const constructs: any[] = session.constructs || []
+    const cleaningConfig: any = session.cleaning_config || {}
+    const scaleMin = cleaningConfig.scaleMin ?? 1
+    const scaleMax = cleaningConfig.scaleMax ?? 5
+    const missingConfig: any = cleaningConfig.missing_values || {}
+    const duplicateInfo: any = cleaningConfig.duplicates || { row_indexes: [], action: 'excluded' }
+    const straightLining: any = cleaningConfig.straight_lining || { detected_row_indexes: [], action: 'excluded' }
+    const apaStyle: string = session.apa_style || '7th'
+    const includeDemographics = session.include_demographics !== false
 
-    if (!constructs || constructs.length === 0) {
-      return NextResponse.json({ error: 'No constructs found for this session' }, { status: 400 })
+    const scaleConstructs = constructs.filter((c: any) => c.role === 'Scale')
+    const demoConstructs = constructs.filter((c: any) => c.role === 'Demographic')
+
+    const excludedRowIndexes = new Set<number>()
+    if (duplicateInfo.action === 'excluded') {
+      ;(duplicateInfo.row_indexes || []).forEach((idx: number) => excludedRowIndexes.add(idx))
+    }
+    if (straightLining.action === 'excluded') {
+      ;(straightLining.detected_row_indexes || []).forEach((idx: number) => excludedRowIndexes.add(idx))
     }
 
-    const buildMatrix = (columnIndexes: number[], reverseIndexes: number[]): number[][] => {
-      const matrix: number[][] = []
-      for (const row of rawData) {
-        const values = columnIndexes.map((colIdx) => {
-          const raw = row[colIdx]
-          const num = typeof raw === 'number' ? raw : parseFloat(raw)
-          return { colIdx, num }
+    const rowIsMissingForExcludeRow = (row: any[]): boolean => {
+      for (const c of scaleConstructs) {
+        const cfg = missingConfig[c.id]
+        if (!cfg || cfg.strategy !== 'exclude_row') continue
+        const cols: number[] = c.columnIndexes || []
+        const hasMissing = cols.some((ci) => {
+          const val = row[ci]
+          return val === null || val === undefined || String(val).trim() === ''
         })
-
-        const allValid = values.every((v) => !isNaN(v.num))
-        if (!allValid) continue
-
-        const scored = values.map((v) => {
-          if (reverseIndexes.includes(v.colIdx)) {
-            return scaleMin + scaleMax - v.num
-          }
-          return v.num
-        })
-
-        matrix.push(scored)
+        if (hasMissing) return true
       }
-      return matrix
+      return false
     }
+
+    const cleanedRows: any[][] = []
+    rawData.forEach((row, idx) => {
+      if (excludedRowIndexes.has(idx)) return
+      if (rowIsMissingForExcludeRow(row)) return
+      cleanedRows.push(row)
+    })
 
     const constructResults: { name: string; k: number; n: number; alpha: number; error?: string }[] = []
     const allColumnIndexes: number[] = []
     const allReverseIndexes: number[] = []
 
-    for (const construct of constructs) {
-      const matrix = buildMatrix(construct.columnIndexes, construct.reverseIndexes)
+    for (const construct of scaleConstructs) {
+      const matrix = buildMatrix(cleanedRows, construct.columnIndexes, construct.reverseIndexes, scaleMin, scaleMax)
       allColumnIndexes.push(...construct.columnIndexes)
       allReverseIndexes.push(...construct.reverseIndexes)
 
@@ -107,23 +132,88 @@ export async function POST(req: NextRequest) {
       constructResults.push({ name: construct.name, ...result })
     }
 
-    const combinedMatrix = buildMatrix(allColumnIndexes, allReverseIndexes)
+    const combinedMatrix = buildMatrix(cleanedRows, allColumnIndexes, allReverseIndexes, scaleMin, scaleMax)
     let combinedResult: { k: number; n: number; alpha: number } | null = null
     if (combinedMatrix.length >= 2 && allColumnIndexes.length >= 2) {
       combinedResult = cronbachAlpha(combinedMatrix)
     }
 
-    const results = { constructs: constructResults, combined: combinedResult }
+    let demographics: { tables: any[] } | null = null
+    if (includeDemographics && demoConstructs.length > 0) {
+      const tables = demoConstructs.map((c: any) => {
+        const col = (c.columnIndexes || [])[0]
+        const counts: Record<string, number> = {}
+        let validTotal = 0
+        let missingCount = 0
 
-    const interpretationPrompt = `You are explaining Cronbach's Alpha reliability results to a student who is not a statistics expert, for their pilot study chapter. Do not recalculate anything — only interpret the numbers given below, which were computed with real statistical code.
+        cleanedRows.forEach((row: any[]) => {
+          const val = row[col]
+          if (val === null || val === undefined || String(val).trim() === '') {
+            missingCount++
+            return
+          }
+          const key = String(val).trim()
+          counts[key] = (counts[key] || 0) + 1
+          validTotal++
+        })
 
-Results:
-${constructResults.map((c) => `- ${c.name}: Cronbach's Alpha = ${c.alpha} (${c.k} items, ${c.n} valid respondents)`).join('\n')}
-${combinedResult ? `- Combined (all sections): Cronbach's Alpha = ${combinedResult.alpha} (${combinedResult.k} items, ${combinedResult.n} valid respondents)` : ''}
+        const allTotal = validTotal + missingCount
+        let cumulative = 0
+        const rows = Object.entries(counts).map(([label, count]) => {
+          const validPercent = validTotal > 0 ? (count / validTotal) * 100 : 0
+          cumulative += validPercent
+          return {
+            label,
+            frequency: count,
+            percent: allTotal > 0 ? r2((count / allTotal) * 100) : 0,
+            validPercent: r2(validPercent),
+            cumulativePercent: r2(cumulative),
+          }
+        })
 
-Write a short, clear, plain-English interpretation (4-6 sentences) explaining what these alpha values mean for reliability, using standard thresholds (below 0.6 poor, 0.6-0.7 questionable, 0.7-0.8 acceptable, 0.8-0.9 good, above 0.9 excellent). Do not invent numbers not given above. Keep it suitable for inclusion in an academic pilot study writeup.`
+        return { name: c.name, nValid: validTotal, nMissing: missingCount, rows }
+      })
 
-    let interpretation = ''
+      demographics = { tables }
+    }
+
+    const results = {
+      constructs: constructResults,
+      combined: combinedResult,
+      demographics,
+      sampleSize: cleanedRows.length,
+      excludedRows: rawData.length - cleanedRows.length,
+      apaStyle,
+    }
+
+    const reliabilitySummary = `${constructResults.map((c) =>
+      `- ${c.name}: Cronbach's Alpha = ${c.alpha} (${c.k} items, ${c.n} valid respondents)`
+    ).join('\n')}
+${combinedResult ? `- Combined (all scale sections): Cronbach's Alpha = ${combinedResult.alpha} (${combinedResult.k} items, ${combinedResult.n} valid respondents)` : ''}`
+
+    const demographicsSummary = demographics
+      ? demographics.tables.map((t) =>
+          `${t.name}: ${t.rows.map((r: any) => `${r.label} (n=${r.frequency}, ${r.validPercent}%)`).join(', ')}`
+        ).join('\n')
+      : ''
+
+    const interpretationPrompt = `You are explaining pilot study statistics to a student who is not a statistics expert, for their thesis pilot study chapter. Do not recalculate anything -- only interpret the numbers given below, which were computed with real statistical code.
+
+RELIABILITY RESULTS:
+${reliabilitySummary}
+
+${demographics ? `DEMOGRAPHIC RESULTS:\n${demographicsSummary}\n` : ''}
+
+Return ONLY a raw JSON object, no markdown fences, no preamble, in exactly this shape:
+{
+  "reliability": "4-6 sentence plain-English interpretation of the reliability results using standard thresholds (below 0.6 poor, 0.6-0.7 questionable, 0.7-0.8 acceptable, 0.8-0.9 good, above 0.9 excellent). Do not invent numbers not given above."${demographics ? `,\n  "demographics": "3-5 sentence plain-English interpretation of the demographic profile of respondents, describing the sample composition. Do not invent numbers not given above."` : ''}
+}`
+
+    let interpretations: { reliability: string; demographics?: string } = {
+      reliability: 'Interpretation could not be generated at this time. Your numerical results above are still valid.',
+    }
+    if (demographics) interpretations.demographics = 'Interpretation could not be generated at this time. Your numerical results above are still valid.'
+
     try {
       const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -134,14 +224,17 @@ Write a short, clear, plain-English interpretation (4-6 sentences) explaining wh
         },
         body: JSON.stringify({
           model: 'claude-sonnet-5',
-          max_tokens: 500,
+          max_tokens: 700,
           messages: [{ role: 'user', content: interpretationPrompt }],
         }),
       })
       const aiData = await aiResponse.json()
-      interpretation = aiData.content?.map((b: any) => b.text || '').join('\n') || ''
+      const text = aiData.content?.map((b: any) => b.text || '').join('\n') || ''
+      const clean = text.replace(/```json|```/g, '').trim()
+      const parsed = JSON.parse(clean)
+      interpretations = parsed
     } catch (aiErr) {
-      interpretation = 'Interpretation could not be generated at this time. Your numerical results above are still valid.'
+      // fall back to defaults set above
     }
 
     const resultsReadyAt = new Date().toISOString()
@@ -150,7 +243,7 @@ Write a short, clear, plain-English interpretation (4-6 sentences) explaining wh
       .from('pilot_study_sessions')
       .update({
         results,
-        interpretation,
+        interpretations,
         status: 'completed',
         results_ready_at: resultsReadyAt,
         results_revealed: false,
@@ -158,7 +251,7 @@ Write a short, clear, plain-English interpretation (4-6 sentences) explaining wh
       })
       .eq('id', sessionId)
 
-    return NextResponse.json({ results, interpretation, results_ready_at: resultsReadyAt })
+    return NextResponse.json({ results, interpretations, results_ready_at: resultsReadyAt })
   } catch (err) {
     return NextResponse.json({ error: 'Calculation failed' }, { status: 500 })
   }
