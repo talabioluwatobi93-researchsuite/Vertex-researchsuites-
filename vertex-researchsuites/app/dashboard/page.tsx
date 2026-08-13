@@ -26,6 +26,19 @@ export default function Dashboard() {
   const [balance, setBalance] = useState<number | null>(null)
   const [serialId, setSerialId] = useState('')
   const [bunkerUnreadCount, setBunkerUnreadCount] = useState(0)
+  const [flags, setFlags] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    const fetchFlags = async () => {
+      const { data } = await supabase.from('feature_flags').select('key, enabled')
+      if (data) {
+        const map: Record<string, boolean> = {}
+        data.forEach((f: any) => { map[f.key] = f.enabled })
+        setFlags(map)
+      }
+    }
+    fetchFlags()
+  }, [])
 
   useEffect(() => {
     const fetchUnreadBunkerCount = async () => {
@@ -158,21 +171,23 @@ export default function Dashboard() {
     ? balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : '0.00'
 
-  const featureCard = (icon: string, title: string, subtitle: string, onClick: () => void, dark?: boolean, badgeCount?: number) => (
+  const featureCard = (icon: string, title: string, subtitle: string, onClick: () => void, dark?: boolean, badgeCount?: number, disabled?: boolean) => (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       style={{
         width: '100%',
         display: 'flex',
         alignItems: 'center',
         gap: '14px',
-        backgroundColor: '#ffffff',
+        backgroundColor: disabled ? '#F5F5F5' : '#ffffff',
         border: '1px solid #EEEEEE',
         borderRadius: '16px',
         padding: '18px 20px',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         textAlign: 'left',
         marginBottom: '12px',
+        opacity: disabled ? 0.55 : 1,
       }}
     >
       <div style={{
@@ -192,7 +207,7 @@ export default function Dashboard() {
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><p style={{ color: '#333333', fontSize: '15px', fontWeight: 700, margin: 0 }}>{title}</p>{!!badgeCount && badgeCount > 0 && (<span style={{ backgroundColor: '#D4AF37', color: '#ffffff', fontSize: '11px', fontWeight: 700, borderRadius: '10px', padding: '1px 7px', minWidth: '18px', textAlign: 'center' }}>{badgeCount}</span>)}</div>
-        <p style={{ color: '#888888', fontSize: '12px', margin: '2px 0 0' }}>{subtitle}</p>
+        <p style={{ color: disabled ? '#B33' : '#888888', fontSize: '12px', margin: '2px 0 0', fontWeight: disabled ? 700 : 400 }}>{disabled ? 'Under Maintenance' : subtitle}</p>
       </div>
       <span style={{ color: '#B8860B', fontSize: '18px' }}>›</span>
     </button>
@@ -296,12 +311,12 @@ export default function Dashboard() {
       </div>
 
       <div style={{ padding: '0 20px 40px' }}>
-        {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/new'))}
-        {featureCard('✍️', 'Writing Check & Polish', 'Check your writing for originality and clarity', () => router.push('/writing-check'))}
-            {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study'))}
-                {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis'))}
-                {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis'))}
-        {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true, bunkerUnreadCount)}
+        {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/new'), flags['proposals'] === false)}
+        {featureCard('✍️', 'Writing Check & Polish', 'Check your writing for originality and clarity', () => router.push('/writing-check'), flags['writing-check'] === false)}
+            {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study'), flags['pilot-study'] === false)}
+                {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis'), flags['quantitative-analysis'] === false)}
+                {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis'), flags['qualitative-analysis'] === false)}
+        {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true, bunkerUnreadCount, flags['bunker'] === false)}
       </div>
     <Billboard />
     </div>
