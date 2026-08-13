@@ -14,7 +14,34 @@ const MUTED = "#555555";
 const BG = "#F9F9F9";
 const BORDER = "#EEEEEE";
 
+const CHUNK_LENGTH_SECONDS = 300; // 5 minutes
+const CHUNK_OVERLAP_SECONDS = 15;
+
 type Stage = "loading" | "fee-confirm" | "upload" | "transcribing" | "review-transcript" | "notes";
+
+function mergeTranscriptChunks(accumulated: string, next: string): string {
+  const a = accumulated.trim();
+  const b = next.trim();
+  if (!a) return b;
+  if (!b) return a;
+
+  const aWords = a.split(/\s+/);
+  const bWords = b.split(/\s+/);
+  const maxOverlap = Math.min(40, aWords.length, bWords.length);
+  let overlapLen = 0;
+
+  for (let len = maxOverlap; len > 3; len--) {
+    const aTail = aWords.slice(aWords.length - len).join(" ").toLowerCase();
+    const bHead = bWords.slice(0, len).join(" ").toLowerCase();
+    if (aTail === bHead) {
+      overlapLen = len;
+      break;
+    }
+  }
+
+  const bRemainder = bWords.slice(overlapLen).join(" ");
+  return bRemainder ? `${a} ${bRemainder}` : a;
+}
 
 export default function VoiceTranscription() {
   const router = useRouter();
@@ -27,6 +54,7 @@ export default function VoiceTranscription() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [sessionId, setSessionId] = useState("");
+  const [processingMsg, setProcessingMsg] = useState("");
 
   const [transcript, setTranscript] = useState("");
   const [notes, setNotes] = useState("");
@@ -77,6 +105,45 @@ export default function VoiceTranscription() {
     setPaying(false);
   };
 
+  const runOneShotTranscription = async (currentSessionId: string, audioPath: string) => {
+    const res = await fetch("/api/voice-transcription/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: currentSessionId, audioPath }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Transcription failed. Please try again.");
+    return data.transcript as string;
+  };
+
+  const runChunkedTranscription = async (audioPath: string, durationSeconds: number) => {
+    let accumulated = "";
+    let start = 0;
+    const step = CHUNK_LENGTH_SECONDS - CHUNK_OVERLAP_SECONDS;
+    const totalChunks = Math.max(1, Math.ceil(durationSeconds / step));
+    let chunkIndex = 0;
+
+    while (start < durationSeconds) {
+      chunkIndex += 1;
+      setProcessingMsg(`Please be patient, as we process your transcript. Transcribing part ${chunkIndex} of ${totalChunks}...`);
+
+      const chunkDuration = Math.min(CHUNK_LENGTH_SECONDS, durationSeconds - start);
+
+      const res = await fetch("/api/voice-transcription/chunk-transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioPath, startSeconds: start, durationSeconds: chunkDuration }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Transcription failed on part ${chunkIndex}. Please try again.`);
+
+      accumulated = mergeTranscriptChunks(accumulated, data.text || "");
+      start += step;
+    }
+
+    return accumulated;
+  };
+
   const handleUploadAndTranscribe = async () => {
     if (!file) return;
     setUploading(true);
@@ -103,26 +170,34 @@ export default function VoiceTranscription() {
       }
 
       setSessionId(session.id);
-      setStage("transcribing");
       setUploading(false);
+      setStage("transcribing");
+      setProcessingMsg("Please be patient, as we process your transcript.");
 
-      const res = await fetch("/api/voice-transcription/transcribe", {
+      const probeRes = await fetch("/api/voice-transcription/probe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id, audioPath: path }),
+        body: JSON.stringify({ audioPath: path }),
       });
-      const data = await res.json();
+      const probeData = await probeRes.json();
 
-      if (!res.ok) {
-        setErrorMsg(data.error || "Transcription failed. Please try again.");
-        setStage("upload");
-        return;
+      let finalTranscript = "";
+
+      if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > CHUNK_LENGTH_SECONDS) {
+        finalTranscript = await runChunkedTranscription(path, probeData.durationSeconds);
+      } else {
+        finalTranscript = await runOneShotTranscription(session.id, path);
       }
 
-      setTranscript(data.transcript);
+      await supabase
+        .from("voice_transcription_sessions")
+        .update({ raw_transcript: finalTranscript, status: "transcribed", updated_at: new Date().toISOString() })
+        .eq("id", session.id);
+
+      setTranscript(finalTranscript);
       setStage("review-transcript");
-    } catch {
-      setErrorMsg("Something went wrong. Please try again.");
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Something went wrong. Please try again.");
       setStage("upload");
       setUploading(false);
     }
@@ -202,8 +277,9 @@ export default function VoiceTranscription() {
 
       {stage === "transcribing" && (
         <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}`, textAlign: "center" }}>
-          <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "8px" }}>Transcribing your interview...</p>
+          <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "8px" }}>{processingMsg || "Please be patient, as we process your transcript."}</p>
           <p style={{ color: MUTED, fontSize: 13 }}>This can take a moment for longer recordings. Please don't close this page.</p>
+          {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginTop: "12px" }}>{errorMsg}</p>}
         </div>
       )}
 
