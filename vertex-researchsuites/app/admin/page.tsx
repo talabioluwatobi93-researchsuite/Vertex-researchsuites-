@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ApiCredits from '../../components/ApiCredits';
 import BillboardManager from "../../components/admin/BillboardManager";
 import { createClient } from "@supabase/supabase-js";
+import FeatureFlagsManager from "../../components/admin/FeatureFlagsManager";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
