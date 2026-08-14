@@ -681,7 +681,7 @@ export default function AdminPage() {
       <h2 style={{ color: DARK, fontSize: 17, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>
         Feature Toggles
       </h2>
-      <FeatureFlagsManager />
+      <FeatureFlagsManager supabase={supabase} />
 
         User Lookup
       </h2>
