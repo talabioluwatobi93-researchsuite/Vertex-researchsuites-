@@ -33,6 +33,7 @@ export default function Bunker() {
   const [detailError, setDetailError] = useState('')
   const [pilotResults, setPilotResults] = useState<any>(null)
   const [pilotInterpretations, setPilotInterpretations] = useState<any>(null)
+  const [genericJson, setGenericJson] = useState<any>(null)
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -57,6 +58,7 @@ export default function Bunker() {
     setDetailError('')
     setPilotResults(null)
     setPilotInterpretations(null)
+    setGenericJson(null)
 
     if (!item.is_read) {
       await supabase.from('bunker_items').update({ is_read: true }).eq('id', item.id)
@@ -78,6 +80,41 @@ export default function Bunker() {
         setPilotInterpretations(data.interpretations)
       }
       setDetailLoading(false)
+      return
+    }
+
+    if (item.item_type === 'quantitative_analysis_dataset' || item.item_type === 'quantitative_analysis_report') {
+      setDetailLoading(true)
+      const { data, error } = await supabase
+        .from('quantitative_analysis_sessions')
+        .select('results, interpretation')
+        .eq('id', item.content_reference)
+        .single()
+
+      if (error || !data) {
+        setDetailError('Could not load this result. The session may have been removed.')
+      } else {
+        setGenericJson(item.item_type === 'quantitative_analysis_report' && data.interpretation ? data.interpretation : data.results)
+      }
+      setDetailLoading(false)
+      return
+    }
+
+    if (item.item_type === 'qualitative_analysis_dataset' || item.item_type === 'qualitative_analysis_report') {
+      setDetailLoading(true)
+      const { data, error } = await supabase
+        .from('qualitative_analysis_sessions')
+        .select('results')
+        .eq('id', item.content_reference)
+        .single()
+
+      if (error || !data) {
+        setDetailError('Could not load this result. The session may have been removed.')
+      } else {
+        setGenericJson(data.results)
+      }
+      setDetailLoading(false)
+      return
     }
   }
 
@@ -180,6 +217,22 @@ export default function Bunker() {
                   </>
                 )}
               </>
+            )}
+          </>
+        ) : selected.item_type && selected.item_type.startsWith('quantitative_analysis') || (selected.item_type && selected.item_type.startsWith('qualitative_analysis')) ? (
+          <>
+            {detailLoading && <p style={{ color: '#888888', fontSize: '14px' }}>Loading your results...</p>}
+            {detailError && (
+              <div style={{ backgroundColor: '#FDEDEC', borderRadius: '16px', padding: '20px' }}>
+                <p style={{ color: '#C0392B', fontSize: '14px', margin: 0 }}>{detailError}</p>
+              </div>
+            )}
+            {genericJson && (
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE' }}>
+                <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '13px', color: '#333333', lineHeight: '1.6', margin: 0 }}>
+                  {typeof genericJson === 'string' ? genericJson : JSON.stringify(genericJson, null, 2)}
+                </pre>
+              </div>
             )}
           </>
         ) : (
