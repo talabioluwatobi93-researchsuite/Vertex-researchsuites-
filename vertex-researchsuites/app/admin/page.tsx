@@ -678,6 +678,11 @@ export default function AdminPage() {
       <ApiCredits />
       <BillboardManager />
 
+      <h2 style={{ color: DARK, fontSize: 17, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>
+        Feature Toggles
+      </h2>
+      <FeatureFlagsManager />
+
         User Lookup
       </h2>
 
