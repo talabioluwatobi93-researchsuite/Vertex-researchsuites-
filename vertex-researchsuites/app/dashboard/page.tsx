@@ -191,8 +191,8 @@ export default function Dashboard() {
       }}
     >
       <div style={{
-        width: '44px',
-        height: '44px',
+          width: 'clamp(44px, 6vw, 56px)',
+          height: 'clamp(44px, 6vw, 56px)',
         borderRadius: '12px',
         background: dark
           ? 'linear-gradient(135deg, #333333 0%, #555555 100%)'
@@ -200,14 +200,14 @@ export default function Dashboard() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '20px',
+          fontSize: 'clamp(20px, 2.5vw, 26px)',
         flexShrink: 0,
       }}>
         {icon}
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><p style={{ color: '#333333', fontSize: '15px', fontWeight: 700, margin: 0 }}>{title}</p>{!!badgeCount && badgeCount > 0 && (<span style={{ backgroundColor: '#D4AF37', color: '#ffffff', fontSize: '11px', fontWeight: 700, borderRadius: '10px', padding: '1px 7px', minWidth: '18px', textAlign: 'center' }}>{badgeCount}</span>)}</div>
-        <p style={{ color: disabled ? '#B33' : '#888888', fontSize: '12px', margin: '2px 0 0', fontWeight: disabled ? 700 : 400 }}>{disabled ? 'Under Maintenance' : subtitle}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><p style={{ color: '#333333', fontSize: 'clamp(15px, 1.8vw, 17px)', fontWeight: 700, margin: 0 }}>{title}</p>{!!badgeCount && badgeCount > 0 && (<span style={{ backgroundColor: '#D4AF37', color: '#ffffff', fontSize: '11px', fontWeight: 700, borderRadius: '10px', padding: '1px 7px', minWidth: '18px', textAlign: 'center' }}>{badgeCount}</span>)}</div>
+        <p style={{ color: disabled ? '#B33' : '#888888', fontSize: 'clamp(12px, 1.4vw, 13px)', margin: '2px 0 0', fontWeight: disabled ? 700 : 400 }}>{disabled ? 'Under Maintenance' : subtitle}</p>
       </div>
       <span style={{ color: '#B8860B', fontSize: '18px' }}>›</span>
     </button>
@@ -215,6 +215,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh' }}>
+      <div style={{ maxWidth: '640px', margin: '0 auto' }}>
       <div style={{ padding: '24px 20px 12px' }}>
         <h1 style={{ color: '#333333', fontSize: '22px', fontWeight: 700, margin: 0 }}>
           {greeting}, {firstName || 'there'} 👋
@@ -320,6 +321,7 @@ export default function Dashboard() {
         {featureCard('🎙️', 'Voice Transcription & Analysis', 'Upload interview audio, get transcript + notes', () => router.push('/voice-transcription'), false, 0, flags['voice-transcription'] === false)}
       </div>
     <Billboard />
+    </div>
     </div>
   )
 }
