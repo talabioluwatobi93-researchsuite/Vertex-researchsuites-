@@ -1,7 +1,7 @@
 'use client'
+
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { useRouter } from 'next/navigation'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,16 +11,28 @@ const supabase = createClient(
 type BunkerItem = {
   id: string
   item_name: string
+  item_type: string
   content_reference: string
   created_at: string
   is_read: boolean
 }
 
+function reliabilityLabel(alpha: number): { label: string; color: string } {
+  if (alpha >= 0.9) return { label: 'Excellent', color: '#2E7D32' }
+  if (alpha >= 0.8) return { label: 'Good', color: '#558B2F' }
+  if (alpha >= 0.7) return { label: 'Acceptable', color: '#D4AF37' }
+  if (alpha >= 0.6) return { label: 'Questionable', color: '#E67E22' }
+  return { label: 'Poor', color: '#C0392B' }
+}
+
 export default function Bunker() {
-  const router = useRouter()
   const [items, setItems] = useState<BunkerItem[]>([])
   const [selected, setSelected] = useState<BunkerItem | null>(null)
   const [loading, setLoading] = useState(true)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState('')
+  const [pilotResults, setPilotResults] = useState<any>(null)
+  const [pilotInterpretations, setPilotInterpretations] = useState<any>(null)
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -29,7 +41,7 @@ export default function Bunker() {
 
       const { data } = await supabase
         .from('bunker_items')
-        .select('id, item_name, content_reference, created_at, is_read')
+        .select('id, item_name, item_type, content_reference, created_at, is_read')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
@@ -42,9 +54,30 @@ export default function Bunker() {
 
   async function openItem(item: BunkerItem) {
     setSelected(item)
+    setDetailError('')
+    setPilotResults(null)
+    setPilotInterpretations(null)
+
     if (!item.is_read) {
       await supabase.from('bunker_items').update({ is_read: true }).eq('id', item.id)
       setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, is_read: true } : i)))
+    }
+
+    if (item.item_type === 'pilot_study') {
+      setDetailLoading(true)
+      const { data, error } = await supabase
+        .from('pilot_study_sessions')
+        .select('results, interpretations')
+        .eq('id', item.content_reference)
+        .single()
+
+      if (error || !data) {
+        setDetailError('Could not load this result. The session may have been removed.')
+      } else {
+        setPilotResults(data.results)
+        setPilotInterpretations(data.interpretations)
+      }
+      setDetailLoading(false)
     }
   }
 
@@ -60,11 +93,102 @@ export default function Bunker() {
         <h1 style={{ color: '#333333', fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>
           {selected.item_name}
         </h1>
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE' }}>
-          <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: '#333333', lineHeight: '1.6', margin: 0 }}>
-            {selected.content_reference}
-          </pre>
-        </div>
+
+        {selected.item_type === 'pilot_study' ? (
+          <>
+            {detailLoading && (
+              <p style={{ color: '#888888', fontSize: '14px' }}>Loading your results...</p>
+            )}
+            {detailError && (
+              <div style={{ backgroundColor: '#FDEDEC', borderRadius: '16px', padding: '20px' }}>
+                <p style={{ color: '#C0392B', fontSize: '14px', margin: 0 }}>{detailError}</p>
+              </div>
+            )}
+            {pilotResults && (
+              <>
+                <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #EEEEEE', overflow: 'hidden', marginBottom: '16px' }}>
+                  <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, fontStyle: 'italic', padding: '14px 16px 0' }}>Table 1</p>
+                  <p style={{ color: '#333333', fontSize: '13px', fontStyle: 'italic', padding: '2px 16px 12px' }}>Reliability Statistics (Cronbach's Alpha) by Construct</p>
+                  <div style={{ display: 'flex', backgroundColor: '#F9F9F9', padding: '10px 16px', borderTop: '1px solid #333333', borderBottom: '1px solid #333333' }}>
+                    <span style={{ flex: 2, fontSize: '11px', fontWeight: 700, color: '#333333' }}>Construct</span>
+                    <span style={{ flex: 1, fontSize: '11px', fontWeight: 700, color: '#333333', textAlign: 'center' }}>Items (k)</span>
+                    <span style={{ flex: 1, fontSize: '11px', fontWeight: 700, color: '#333333', textAlign: 'center' }}>n</span>
+                    <span style={{ flex: 1, fontSize: '11px', fontWeight: 700, color: '#333333', textAlign: 'center' }}>Alpha</span>
+                  </div>
+                  {(pilotResults.constructs || []).map((c: any, idx: number) => {
+                    const rel = c.error ? null : reliabilityLabel(c.alpha)
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #F0F0F0' }}>
+                        <span style={{ flex: 2, fontSize: '13px', color: '#333333' }}>{c.name}</span>
+                        <span style={{ flex: 1, fontSize: '13px', color: '#333333', textAlign: 'center' }}>{c.k}</span>
+                        <span style={{ flex: 1, fontSize: '13px', color: '#333333', textAlign: 'center' }}>{c.n}</span>
+                        <span style={{ flex: 1, textAlign: 'center' }}>
+                          {c.error ? (
+                            <span style={{ fontSize: '11px', color: '#C0392B' }}>N/A</span>
+                          ) : (
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: rel!.color }}>{c.alpha.toFixed(2)}</span>
+                          )}
+                        </span>
+                      </div>
+                    )
+                  })}
+                  {pilotResults.combined && (
+                    <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', backgroundColor: '#F9F9F9', borderTop: '1px solid #333333' }}>
+                      <span style={{ flex: 2, fontSize: '13px', fontWeight: 700, color: '#333333' }}>Total (Combined)</span>
+                      <span style={{ flex: 1, fontSize: '13px', color: '#333333', textAlign: 'center' }}>{pilotResults.combined.k}</span>
+                      <span style={{ flex: 1, fontSize: '13px', color: '#333333', textAlign: 'center' }}>{pilotResults.combined.n}</span>
+                      <span style={{ flex: 1, fontSize: '13px', fontWeight: 700, color: reliabilityLabel(pilotResults.combined.alpha).color, textAlign: 'center' }}>
+                        {pilotResults.combined.alpha.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {pilotInterpretations?.reliability && (
+                  <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '24px' }}>
+                    <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>Interpretation</p>
+                    <p style={{ color: '#555555', fontSize: '13px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{pilotInterpretations.reliability}</p>
+                  </div>
+                )}
+
+                {pilotResults.demographics && pilotResults.demographics.tables.length > 0 && (
+                  <>
+                    {pilotResults.demographics.tables.map((t: any, ti: number) => (
+                      <div key={ti} style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #EEEEEE', overflow: 'hidden', marginBottom: '10px' }}>
+                        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, fontStyle: 'italic', padding: '14px 16px 0' }}>Table 2{ti > 0 ? `.${ti + 1}` : ''}</p>
+                        <p style={{ color: '#333333', fontSize: '13px', fontStyle: 'italic', padding: '2px 16px 12px' }}>Frequency Distribution of {t.name}</p>
+                        <div style={{ display: 'flex', backgroundColor: '#F9F9F9', padding: '10px 16px', borderTop: '1px solid #333333', borderBottom: '1px solid #333333' }}>
+                          <span style={{ flex: 2, fontSize: '11px', fontWeight: 700, color: '#333333' }}>{t.name}</span>
+                          <span style={{ flex: 1, fontSize: '11px', fontWeight: 700, color: '#333333', textAlign: 'center' }}>Frequency</span>
+                          <span style={{ flex: 1, fontSize: '11px', fontWeight: 700, color: '#333333', textAlign: 'center' }}>Valid %</span>
+                        </div>
+                        {t.rows.map((r: any, ri: number) => (
+                          <div key={ri} style={{ display: 'flex', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid #F0F0F0' }}>
+                            <span style={{ flex: 2, fontSize: '13px', color: '#333333' }}>{r.label}</span>
+                            <span style={{ flex: 1, fontSize: '13px', color: '#333333', textAlign: 'center' }}>{r.frequency}</span>
+                            <span style={{ flex: 1, fontSize: '13px', color: '#333333', textAlign: 'center' }}>{r.validPercent}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                    {pilotInterpretations?.demographics && (
+                      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+                        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>Interpretation</p>
+                        <p style={{ color: '#555555', fontSize: '13px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{pilotInterpretations.demographics}</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE' }}>
+            <p style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: '#333333', lineHeight: '1.6', margin: 0 }}>
+              {selected.content_reference}
+            </p>
+          </div>
+        )}
       </div>
     )
   }
@@ -72,7 +196,7 @@ export default function Bunker() {
   return (
     <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '24px 20px' }}>
       <h1 style={{ color: '#333333', fontSize: '22px', fontWeight: 700, marginBottom: '20px' }}>
-        🗄️ My Bunker
+        🗄️My Bunker
       </h1>
 
       {loading ? (
