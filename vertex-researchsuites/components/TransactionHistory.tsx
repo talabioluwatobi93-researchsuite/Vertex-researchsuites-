@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -33,6 +34,7 @@ export default function TransactionHistory() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -55,7 +57,7 @@ export default function TransactionHistory() {
   return (
     <>
       <div
-        onClick={() => setShowModal(true)}
+        onClick={() => router.push('/transactions')}
         style={{
           background: '#FFFFFF',
           border: '1px solid #EEEEEE',

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -46,6 +47,7 @@ export default function PurchaseHistory() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     let active = true;
@@ -90,7 +92,7 @@ export default function PurchaseHistory() {
     <>
       {/* Dashboard Card */}
       <div
-        onClick={() => setModalOpen(true)}
+        onClick={() => router.push('/purchases')}
         style={{
           background: "#FFFFFF",
           border: `1px solid ${BORDER}`,
