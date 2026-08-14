@@ -40,12 +40,15 @@ export default function Bunker() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('bunker_items')
         .select('id, item_name, item_type, content_reference, created_at, is_read')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
+      if (error) {
+        console.error('Bunker fetchItems error:', error.message, error.details, error.hint)
+      }
       if (data) setItems(data as BunkerItem[])
       setLoading(false)
     }
