@@ -13,7 +13,7 @@ type BunkerItem = {
   item_name: string
   item_type: string
   content_reference: string
-  created_at: string
+  purchased_at: string
   is_read: boolean
 }
 
@@ -42,9 +42,9 @@ export default function Bunker() {
 
       const { data, error } = await supabase
         .from('bunker_items')
-        .select('id, item_name, item_type, content_reference, created_at, is_read')
+        .select('id, item_name, item_type, content_reference, purchased_at, is_read')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .order('purchased_at', { ascending: false })
 
       if (error) {
         console.error('Bunker fetchItems error:', error.message, error.details, error.hint)
@@ -293,7 +293,7 @@ export default function Bunker() {
                   {item.item_name}
                 </p>
                 <p style={{ color: '#888888', fontSize: '12px', margin: '4px 0 0' }}>
-                  {new Date(item.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {new Date(item.purchased_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               </div>
             </button>
