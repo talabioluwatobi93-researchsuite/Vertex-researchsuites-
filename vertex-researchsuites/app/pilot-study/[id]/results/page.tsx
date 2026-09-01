@@ -43,7 +43,7 @@ export default function PilotStudyResultsPage() {
   useEffect(() => {
     function beginHold(readyAt: string | null, cResults: ConstructResult[], comb: CombinedResult, demo: { tables: DemoTable[] } | null, interp: Interpretations, apa: '6th' | '7th') {
       if (!readyAt) { setRevealed(true); return }
-      const HOLD_MS = 60 * 1000
+      const HOLD_MS = 0
       const target = new Date(readyAt).getTime() + HOLD_MS
       const now = Date.now()
       if (now >= target) {
