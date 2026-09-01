@@ -72,7 +72,7 @@ export default function Bunker() {
       setDetailLoading(true)
       const { data, error } = await supabase
         .from('pilot_study_sessions')
-        .select('results, interpretations')
+        .select('results, interpretation')
         .eq('id', item.content_reference)
         .single()
 
@@ -80,7 +80,7 @@ export default function Bunker() {
         setDetailError('Could not load this result. The session may have been removed.')
       } else {
         setPilotResults(data.results)
-        setPilotInterpretations(data.interpretations)
+        setPilotInterpretations(data.interpretation)
       }
       setDetailLoading(false)
       return
