@@ -35,6 +35,7 @@ export default function PilotStudyResultsPage() {
   const [interpretations, setInterpretations] = useState<Interpretations>({ reliability: '' })
   const [apaStyle, setApaStyle] = useState<'6th' | '7th'>('7th')
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [holding, setHolding] = useState(false)
   const [holdSecondsLeft, setHoldSecondsLeft] = useState(0)
@@ -63,21 +64,33 @@ export default function PilotStudyResultsPage() {
       }, 1000)
     }
 
-    async function revealPilotStudy(cResults: ConstructResult[], comb: CombinedResult, demo: { tables: DemoTable[] } | null, interp: Interpretations, apa: '6th' | '7th') {
-      const { data: userData } = await supabase.auth.getUser()
-      if (userData?.user?.id) {
-        await supabase.from('bunker_items').insert({
-          user_id: userData.user.id,
-          item_name: 'Pilot Study - Reliability Test',
-          item_type: 'pilot_study',
-          content_reference: sessionId,
-          is_read: false,
-        })
-      }
-      await supabase.from('pilot_study_sessions').update({ results_revealed: true }).eq('id', sessionId)
+  async function revealPilotStudy(cResults: ConstructResult[], comb: CombinedResult | null, demo: { tables: DemoTable[] } | null, interp: Interpretations, apa: '6th' | '7th') {
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+    if (userError || !userData?.user?.id) {
+      console.error('Could not get logged-in user for Bunker save:', userError)
+      setSaveError('Could not verify your login. Please refresh and try again.')
       setHolding(false)
       setRevealed(true)
+      return
     }
+    const { error: bunkerError } = await supabase.from('bunker_items').insert({
+      user_id: userData.user.id,
+      item_name: 'Pilot Study - Reliability Test',
+      item_type: 'pilot_study',
+      content_reference: sessionId,
+      is_read: false,
+    })
+    if (bunkerError) {
+      console.error('Failed to insert bunker_items row:', bunkerError)
+      setSaveError('Could not save to your Bunker: ' + bunkerError.message)
+    }
+    const { error: revealError } = await supabase.from('pilot_study_sessions').update({ results_revealed: true }).eq('id', sessionId)
+    if (revealError) {
+      console.error('Failed to mark results_revealed:', revealError)
+    }
+    setHolding(false)
+    setRevealed(true)
+  }
 
     const run = async () => {
       try {
@@ -251,8 +264,8 @@ export default function PilotStudyResultsPage() {
         </>
       )}
 
-      <p style={{ color: '#777777', fontSize: '13px', textAlign: 'center', margin: '16px 0' }}>
-        ✓ Saved to your Bunker
+      <p style={{ color: saveError ? '#C0392B' : '#777777', fontSize: '13px', textAlign: 'center', margin: '16px 0' }}>
+        {saveError ? saveError : '\u2713 Saved to your Bunker'}
       </p>
     </div>
   )
