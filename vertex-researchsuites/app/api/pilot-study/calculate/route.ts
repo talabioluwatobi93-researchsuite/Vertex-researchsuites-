@@ -243,7 +243,7 @@ Return ONLY a raw JSON object, no markdown fences, no preamble, in exactly this 
         .from('pilot_study_sessions')
         .update({
           results,
-          interpretations,
+          interpretation: interpretations,
           status: 'completed',
           results_ready_at: resultsReadyAt,
           results_revealed: false,
@@ -257,7 +257,7 @@ Return ONLY a raw JSON object, no markdown fences, no preamble, in exactly this 
         return NextResponse.json({ error: 'Could not save your results. Please try again.' }, { status: 500 })
       }
 
-    return NextResponse.json({ results, interpretations, results_ready_at: resultsReadyAt })
+    return NextResponse.json({ results, interpretation: interpretations, results_ready_at: resultsReadyAt })
   } catch (err) {
     return NextResponse.json({ error: 'Calculation failed' }, { status: 500 })
   }
