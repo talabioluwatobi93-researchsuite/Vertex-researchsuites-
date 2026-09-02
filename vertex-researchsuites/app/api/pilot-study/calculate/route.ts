@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     const missingConfig: any = cleaningConfig.missing_values || {}
     const duplicateInfo: any = cleaningConfig.duplicates || { row_indexes: [], action: 'excluded' }
     const straightLining: any = cleaningConfig.straight_lining || { detected_row_indexes: [], action: 'excluded' }
-    const apaStyle: string = session.apa_style || '7th'
+    const citationStyle: string = session.citation_style || 'APA7'
     const includeDemographics = session.include_demographics !== false
 
     const scaleConstructs = constructs.filter((c: any) => c.role === 'Scale')
@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
       demographics,
       sampleSize: cleanedRows.length,
       excludedRows: rawData.length - cleanedRows.length,
-      apaStyle,
+      citationStyle,
     }
 
     const reliabilitySummary = `${constructResults.map((c) =>

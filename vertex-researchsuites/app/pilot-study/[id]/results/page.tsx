@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { CITATION_STYLES, CitationStyleValue } from '@/lib/citationStyles'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,7 +34,7 @@ export default function PilotStudyResultsPage() {
   const [combined, setCombined] = useState<CombinedResult>(null)
   const [demographics, setDemographics] = useState<{ tables: DemoTable[] } | null>(null)
   const [interpretations, setInterpretations] = useState<Interpretations>({ reliability: '' })
-  const [apaStyle, setApaStyle] = useState<'6th' | '7th'>('7th')
+  const [citationStyle, setCitationStyle] = useState<CitationStyleValue | ''>('APA7')
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -42,9 +43,9 @@ export default function PilotStudyResultsPage() {
   const [revealed, setRevealed] = useState(false)
 
   useEffect(() => {
-    function beginHold(readyAt: string | null, cResults: ConstructResult[], comb: CombinedResult, demo: { tables: DemoTable[] } | null, interp: Interpretations, apa: '6th' | '7th') {
+    function beginHold(readyAt: string | null, cResults: ConstructResult[], comb: CombinedResult, demo: { tables: DemoTable[] } | null, interp: Interpretations, apa: CitationStyleValue) {
       if (!readyAt) { setRevealed(true); return }
-      const HOLD_MS = 0
+      const HOLD_MS = 30000
       const target = new Date(readyAt).getTime() + HOLD_MS
       const now = Date.now()
       if (now >= target) {
@@ -64,7 +65,7 @@ export default function PilotStudyResultsPage() {
       }, 1000)
     }
 
-  async function revealPilotStudy(cResults: ConstructResult[], comb: CombinedResult | null, demo: { tables: DemoTable[] } | null, interp: Interpretations, apa: '6th' | '7th') {
+  async function revealPilotStudy(cResults: ConstructResult[], comb: CombinedResult | null, demo: { tables: DemoTable[] } | null, interp: Interpretations, apa: CitationStyleValue) {
     const { data: userData, error: userError } = await supabase.auth.getUser()
     if (userError || !userData?.user?.id) {
       console.error('Could not get logged-in user for Bunker save:', userError)
@@ -111,9 +112,9 @@ export default function PilotStudyResultsPage() {
         setCombined(data.results.combined || null)
         setDemographics(data.results.demographics || null)
         setInterpretations(data.interpretations || { reliability: '' })
-        setApaStyle(data.results.apaStyle || '7th')
+        setCitationStyle(data.results.citationStyle || 'APA7')
         setLoading(false)
-        beginHold(data.results_ready_at, data.results.constructs || [], data.results.combined || null, data.results.demographics || null, data.interpretations || { reliability: '' }, data.results.apaStyle || '7th')
+        beginHold(data.results_ready_at, data.results.constructs || [], data.results.combined || null, data.results.demographics || null, data.interpretations || { reliability: '' }, data.results.citationStyle || 'APA7')
       } catch (err) {
         setErrorMsg('Something went wrong calculating your results. Please try again.')
         setLoading(false)
@@ -162,16 +163,16 @@ export default function PilotStudyResultsPage() {
     )
   }
 
-  const apaLabel = apaStyle === '6th' ? 'APA 6th Edition' : 'APA 7th Edition'
-  const table1Label = apaStyle === '6th' ? 'Table 1' : 'Table 1'
-  const table2Label = apaStyle === '6th' ? 'Table 2' : 'Table 2'
+  const citationLabel = CITATION_STYLES.find((s) => s.value === citationStyle)?.label || 'Not selected'
+  const table1Label = 'Table 1'
+  const table2Label = 'Table 2'
 
   return (
     <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '24px 20px' }}>
       <h1 style={{ color: '#333333', fontSize: '20px', fontWeight: 700, marginBottom: '4px' }}>
         Pilot Study Results
       </h1>
-      <p style={{ color: '#999999', fontSize: '11px', marginBottom: '20px' }}>Formatted in {apaLabel}</p>
+      <p style={{ color: '#999999', fontSize: '11px', marginBottom: '20px' }}>Formatted in {citationLabel}</p>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #EEEEEE', overflow: 'hidden', marginBottom: '10px' }}>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, fontStyle: 'italic', padding: '14px 16px 0' }}>{table1Label}</p>
@@ -194,7 +195,7 @@ export default function PilotStudyResultsPage() {
                 {c.error ? (
                   <span style={{ fontSize: '11px', color: '#C0392B' }}>N/A</span>
                 ) : (
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: rel!.color }}>{c.alpha.toFixed(2)}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: rel!.color }}>{c.alpha.toFixed(3)}</span>
                 )}
               </span>
             </div>
@@ -207,14 +208,12 @@ export default function PilotStudyResultsPage() {
             <span style={{ flex: 1, fontSize: '13px', color: '#333333', textAlign: 'center' }}>{combined.k}</span>
             <span style={{ flex: 1, fontSize: '13px', color: '#333333', textAlign: 'center' }}>{combined.n}</span>
             <span style={{ flex: 1, fontSize: '13px', fontWeight: 700, color: reliabilityLabel(combined.alpha).color, textAlign: 'center' }}>
-              {combined.alpha.toFixed(2)}
+              {combined.alpha.toFixed(3)}
             </span>
           </div>
         )}
         <p style={{ fontSize: '11px', color: '#999999', fontStyle: 'italic', padding: '10px 16px' }}>
-          {apaStyle === '6th'
-            ? `Note. Alpha values above .70 are considered acceptable for pilot testing.`
-            : `Note. α values above .70 are considered acceptable for pilot testing.`}
+              {`Note. u03b1 values above .70 are considered acceptable for pilot testing.`}
         </p>
       </div>
 

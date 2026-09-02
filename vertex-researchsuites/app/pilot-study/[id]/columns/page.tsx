@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { CITATION_STYLES, CitationStyleValue } from '@/lib/citationStyles'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,6 +24,7 @@ export default function PilotStudyColumnsPage() {
   const sessionId = params.id as string
 
   const [columnHeaders, setColumnHeaders] = useState<string[]>([])
+  const [rawData, setRawData] = useState<any[][]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -34,13 +36,15 @@ export default function PilotStudyColumnsPage() {
   const [newConstructName, setNewConstructName] = useState('')
   const [newConstructRole, setNewConstructRole] = useState<Construct['role']>('Scale')
   const [includeDemographics, setIncludeDemographics] = useState(true)
-  const [apaStyle, setApaStyle] = useState<'6th' | '7th'>('7th')
+  const [questionnairesShared, setQuestionnairesShared] = useState<number | ''>('')
+  const [responsesReceived, setResponsesReceived] = useState<number | ''>('')
+  const [citationStyle, setCitationStyle] = useState<CitationStyleValue | ''>('')
 
   useEffect(() => {
     const load = async () => {
       const { data, error } = await supabase
         .from('pilot_study_sessions')
-        .select('column_headers')
+        .select('column_headers, raw_data')
         .eq('id', sessionId)
         .single()
 
@@ -51,6 +55,7 @@ export default function PilotStudyColumnsPage() {
       }
 
       setColumnHeaders(data.column_headers || [])
+      setRawData(data.raw_data || [])
       setLoading(false)
     }
     load()
@@ -113,6 +118,21 @@ export default function PilotStudyColumnsPage() {
       return
     }
 
+    const nonNumericConstruct = usedConstructs.find((c) => {
+      if (c.role !== 'Scale') return false
+      return c.columnIndexes.some((colIndex) =>
+        rawData.some((row) => {
+          const value = row[colIndex]
+          if (value === '' || value === null || value === undefined) return false
+          return isNaN(Number(value))
+        })
+      )
+    })
+    if (nonNumericConstruct) {
+      setErrorMsg(`"${nonNumericConstruct.name}" contains text instead of numbers. Please convert its responses to numeric codes (e.g. "Strongly Agree" -> 5) before continuing.`)
+      return
+    }
+
     setSaving(true)
     setErrorMsg('')
 
@@ -136,7 +156,9 @@ export default function PilotStudyColumnsPage() {
         constructs: usedConstructs,
         cleaning_config: { scaleMin, scaleMax },
         include_demographics: includeDemographics,
-        apa_style: apaStyle,
+      questionnaires_shared: questionnairesShared || null,
+      responses_received: responsesReceived || null,
+        citation_style: citationStyle,
         status: 'mapped',
         updated_at: new Date().toISOString(),
       })
@@ -199,15 +221,28 @@ export default function PilotStudyColumnsPage() {
         </label>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>APA style</p>
         <select
-          value={apaStyle}
-          onChange={(e) => setApaStyle(e.target.value as '6th' | '7th')}
+          value={citationStyle}
+          onChange={(e) => setCitationStyle(e.target.value as CitationStyleValue)}
           style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px', color: '#333333' }}
         >
-          <option value="7th">APA 7th Edition</option>
-          <option value="6th">APA 6th Edition</option>
+          <option value="">Select citation style</option>
+          {CITATION_STYLES.map((style) => (
+            <option key={style.value} value={style.value}>{style.label}</option>
+          ))}
         </select>
       </div>
 
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+            <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Reliability input (optional)</p>
+            <p style={{ color: '#777777', fontSize: '12px', marginBottom: '12px' }}>Add these if you want your response rate calculated in the report.</p>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
+              <input type="number" placeholder="Questionnaires shared" value={questionnairesShared} onChange={(e) => setQuestionnairesShared(e.target.value === '' ? '' : Number(e.target.value))} style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }} />
+              <input type="number" placeholder="Responses received" value={responsesReceived} onChange={(e) => setResponsesReceived(e.target.value === '' ? '' : Number(e.target.value))} style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }} />
+            </div>
+            {questionnairesShared && responsesReceived ? (
+              <p style={{ color: '#333333', fontSize: '12px', fontWeight: 600 }}>Response rate: {((Number(responsesReceived) / Number(questionnairesShared)) * 100).toFixed(1)}%</p>
+            ) : null}
+          </div>
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Your constructs</p>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
