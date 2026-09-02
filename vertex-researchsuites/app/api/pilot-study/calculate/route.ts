@@ -1,5 +1,8 @@
+export const maxDuration = 60;
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { callPilotStudyChain } from '@/lib/openrouter'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -215,25 +218,12 @@ Return ONLY a raw JSON object, no markdown fences, no preamble, in exactly this 
     if (demographics) interpretations.demographics = 'Interpretation could not be generated at this time. Your numerical results above are still valid.'
 
     try {
-      const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY!,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-5',
-          max_tokens: 700,
-          messages: [{ role: 'user', content: interpretationPrompt }],
-        }),
-      })
-      const aiData = await aiResponse.json()
-      const text = aiData.content?.map((b: any) => b.text || '').join('\n') || ''
+      const { content: text } = await callPilotStudyChain(interpretationPrompt)
       const clean = text.replace(/```json|```/g, '').trim()
       const parsed = JSON.parse(clean)
       interpretations = parsed
     } catch (aiErr) {
+      console.error('Pilot Study AI chain failed:', aiErr)
       // fall back to defaults set above
     }
 
