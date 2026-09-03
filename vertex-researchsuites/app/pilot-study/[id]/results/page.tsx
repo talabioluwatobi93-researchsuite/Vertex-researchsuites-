@@ -14,7 +14,7 @@ type ConstructResult = { name: string; k: number; n: number; alpha: number; erro
 type CombinedResult = { k: number; n: number; alpha: number } | null
 type DemoRow = { label: string; frequency: number; percent: number; validPercent: number; cumulativePercent: number }
 type DemoTable = { name: string; nValid: number; nMissing: number; rows: DemoRow[] }
-type Interpretations = { reliability: string; demographics?: string }
+type Interpretations = { pilot_study_report?: { insufficient_data: string | null; response_rate_summary: string | null; reliability_overview: string; construct_evaluations: { construct_name: string; alpha_score: string; status: string; action_required: string }[]; validity_discussion: string; defense_prep_questions: { question: string; answer: string }[] } }
 
 function reliabilityLabel(alpha: number): { label: string; color: string } {
   if (alpha >= 0.9) return { label: 'Excellent', color: '#2E7D32' }
@@ -33,7 +33,7 @@ export default function PilotStudyResultsPage() {
   const [constructResults, setConstructResults] = useState<ConstructResult[]>([])
   const [combined, setCombined] = useState<CombinedResult>(null)
   const [demographics, setDemographics] = useState<{ tables: DemoTable[] } | null>(null)
-  const [interpretations, setInterpretations] = useState<Interpretations>({ reliability: '' })
+  const [interpretations, setInterpretations] = useState<Interpretations>({})
   const [citationStyle, setCitationStyle] = useState<CitationStyleValue | ''>('APA7')
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -111,7 +111,7 @@ export default function PilotStudyResultsPage() {
         setConstructResults(data.results.constructs || [])
         setCombined(data.results.combined || null)
         setDemographics(data.results.demographics || null)
-        setInterpretations(data.interpretations || { reliability: '' })
+        setInterpretations(data.interpretations || {})
         setCitationStyle(data.results.citationStyle || 'APA7')
         setLoading(false)
         beginHold(data.results_ready_at, data.results.constructs || [], data.results.combined || null, data.results.demographics || null, data.interpretations || { reliability: '' }, data.results.citationStyle || 'APA7')
@@ -238,10 +238,10 @@ export default function PilotStudyResultsPage() {
               </div>
             )}
 
-            {interpretations.pilot_study_report?.construct_evaluations?.length > 0 && (
+            {(interpretations.pilot_study_report?.construct_evaluations?.length ?? 0) > 0 && (
               <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '24px' }}>
                 <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '12px' }}>Construct Evaluations</p>
-                {interpretations.pilot_study_report.construct_evaluations.map((c: any, ci: number) => (
+                {interpretations.pilot_study_report?.construct_evaluations?.map((c: any, ci: number) => (
                   <div key={ci} style={{ padding: '10px 0', borderBottom: '1px solid #F0F0F0' }}>
                     <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, margin: 0 }}>{c.construct_name} — {c.alpha_score} ({c.status})</p>
                     <p style={{ color: '#555555', fontSize: '12px', margin: '4px 0 0 0' }}>{c.action_required}</p>
@@ -287,10 +287,10 @@ export default function PilotStudyResultsPage() {
             </div>
           ))}
 
-            {interpretations.pilot_study_report?.defense_prep_questions?.length > 0 && (
+            {(interpretations.pilot_study_report?.defense_prep_questions?.length ?? 0) > 0 && (
               <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
                 <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '12px' }}>Defense Prep Questions</p>
-                {interpretations.pilot_study_report.defense_prep_questions.map((q: any, qi: number) => (
+                {interpretations.pilot_study_report?.defense_prep_questions?.map((q: any, qi: number) => (
                   <div key={qi} style={{ padding: '10px 0', borderBottom: '1px solid #F0F0F0' }}>
                     <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, margin: 0 }}>Q: {q.question}</p>
                     <p style={{ color: '#555555', fontSize: '13px', lineHeight: '1.6', margin: '6px 0 0 0', whiteSpace: 'pre-wrap' }}>A: {q.answer}</p>
