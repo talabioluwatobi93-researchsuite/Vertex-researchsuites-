@@ -128,7 +128,7 @@ export default function CrossChecksPage() {
       .eq('id', sessionId)
 
     if (error) {
-      setErrorMsg('Something went wrong saving this step. Please try again.')
+      setErrorMsg(`Save failed: ${error.message} (code: ${error.code})`)
       setSaving(false)
       return
     }
