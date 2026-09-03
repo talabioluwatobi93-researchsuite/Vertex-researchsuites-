@@ -308,7 +308,41 @@ Return ONLY a raw JSON object, no markdown fences, no preamble, in exactly this 
         return NextResponse.json({ error: 'Could not save your results. Please try again.' }, { status: 500 })
       }
 
-    return NextResponse.json({ results, interpretation: interpretations, results_ready_at: resultsReadyAt })
+    let promoCode: string | null = null
+    try {
+      await supabase
+        .from('user_promo_codes')
+        .update({ status: 'expired' })
+        .eq('user_id', session.user_id)
+        .eq('status', 'active')
+
+      const generatedCode = 'PILOT' + Math.random().toString(36).substring(2, 8).toUpperCase()
+      const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
+
+      const { error: promoError, data: promoRow } = await supabase
+        .from('user_promo_codes')
+        .insert({
+          user_id: session.user_id,
+          code: generatedCode,
+          status: 'active',
+          discount_percent: 10,
+          applies_to: 'quantitative_analysis',
+          linked_pilot_result_id: sessionId,
+          expires_at: expiresAt,
+        })
+        .select()
+        .single()
+
+      if (promoError) {
+        console.error('Failed to generate promo code:', promoError)
+      } else {
+        promoCode = promoRow.code
+      }
+    } catch (promoErr) {
+      console.error('Promo code generation failed:', promoErr)
+    }
+
+    return NextResponse.json({ results, interpretation: interpretations, results_ready_at: resultsReadyAt, promo_code: promoCode })
   } catch (err) {
     return NextResponse.json({ error: 'Calculation failed' }, { status: 500 })
   }
