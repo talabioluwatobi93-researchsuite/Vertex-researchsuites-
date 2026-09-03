@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import jsPDF from 'jspdf'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,6 +19,7 @@ export default function PilotStudyUpsellPage() {
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [reportData, setReportData] = useState<any>(null)
 
   useEffect(() => {
     loadPromoCode()
@@ -29,7 +31,7 @@ export default function PilotStudyUpsellPage() {
 
     const { data: sessionData, error: sessionError } = await supabase
       .from('pilot_study_sessions')
-      .select('user_id')
+      .select('user_id, results, interpretation, citation_style')
       .eq('id', id)
       .single()
 
@@ -54,6 +56,7 @@ export default function PilotStudyUpsellPage() {
       return
     }
 
+    setReportData(sessionData)
     setPromoCode(promoData.code)
     setExpiresAt(promoData.expires_at)
     setLoading(false)
@@ -69,6 +72,74 @@ export default function PilotStudyUpsellPage() {
   const formattedExpiry = expiresAt
     ? new Date(expiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : ''
+
+  function downloadPDF() {
+    if (!reportData) return
+    const doc = new jsPDF()
+    let y = 20
+    doc.setFontSize(16)
+    doc.text('Pilot Study Reliability & Validity Report', 14, y)
+    y += 10
+    doc.setFontSize(10)
+    doc.text(`Citation Style: ${reportData.citation_style || 'APA7'}`, 14, y)
+    y += 10
+
+    let interp: any = {}
+    try {
+      interp = typeof reportData.interpretation === 'string' ? JSON.parse(reportData.interpretation) : reportData.interpretation
+    } catch {
+      interp = {}
+    }
+    const report = interp?.pilot_study_report
+
+    const addSection = (title: string, text: string) => {
+      if (!text) return
+      doc.setFontSize(12)
+      doc.text(title, 14, y)
+      y += 6
+      doc.setFontSize(10)
+      const lines = doc.splitTextToSize(text, 180)
+      doc.text(lines, 14, y)
+      y += lines.length * 5 + 6
+      if (y > 270) { doc.addPage(); y = 20 }
+    }
+
+    addSection('Reliability Overview', report?.reliability_overview || '')
+    addSection('Validity Discussion', report?.validity_discussion || '')
+
+    if (report?.construct_evaluations?.length) {
+      doc.setFontSize(12)
+      doc.text('Construct Evaluations', 14, y)
+      y += 6
+      doc.setFontSize(10)
+      report.construct_evaluations.forEach((c: any) => {
+        const line = `${c.construct_name} - ${c.alpha_score} (${c.status}): ${c.action_required}`
+        const l = doc.splitTextToSize(line, 180)
+        doc.text(l, 14, y)
+        y += l.length * 5 + 4
+        if (y > 270) { doc.addPage(); y = 20 }
+      })
+      y += 4
+    }
+
+    if (report?.defense_prep_questions?.length) {
+      doc.setFontSize(12)
+      doc.text('Defense Prep Questions', 14, y)
+      y += 6
+      doc.setFontSize(10)
+      report.defense_prep_questions.forEach((q: any, i: number) => {
+        const ql = doc.splitTextToSize(`Q${i + 1}: ${q.question}`, 180)
+        doc.text(ql, 14, y)
+        y += ql.length * 5 + 2
+        const al = doc.splitTextToSize(`A: ${q.answer}`, 180)
+        doc.text(al, 14, y)
+        y += al.length * 5 + 6
+        if (y > 270) { doc.addPage(); y = 20 }
+      })
+    }
+
+    doc.save('Pilot_Study_Report.pdf')
+  }
 
   if (loading) {
     return (
@@ -121,18 +192,18 @@ export default function PilotStudyUpsellPage() {
         </div>
       )}
 
-      <button
-        onClick={() => router.push('/quantitative-analysis')}
-        style={{ width: '100%', backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', marginBottom: '10px' }}
-      >
-        Start Quantitative Analysis
-      </button>
-      <button
-        onClick={() => router.push('/dashboard')}
-        style={{ width: '100%', backgroundColor: 'transparent', color: '#777777', border: 'none', padding: '10px', fontSize: '13px', cursor: 'pointer' }}
-      >
-        Maybe later
-      </button>
+        <button
+          onClick={downloadPDF}
+          style={{ width: '100%', backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', marginBottom: '10px' }}
+        >
+          Download Report (PDF)
+        </button>
+        <button
+          onClick={() => router.push('/dashboard')}
+          style={{ width: '100%', backgroundColor: 'transparent', color: '#777777', border: '1px solid #EEEEEE', borderRadius: '10px', padding: '12px', fontSize: '13px', cursor: 'pointer' }}
+        >
+          Go to Dashboard
+        </button>
     </div>
   )
 }
