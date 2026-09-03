@@ -267,10 +267,16 @@ Return ONLY a raw JSON object, no markdown fences, no preamble, in exactly this 
   "reliability": "4-6 sentence plain-English interpretation of the reliability results using standard thresholds (below 0.6 poor, 0.6-0.7 questionable, 0.7-0.8 acceptable, 0.8-0.9 good, above 0.9 excellent). Do not invent numbers not given above."${demographics ? `,\n  "demographics": "3-5 sentence plain-English interpretation of the demographic profile of respondents, describing the sample composition. Do not invent numbers not given above."` : ''}
 }`
 
-    let interpretations: { reliability: string; demographics?: string } = {
-      reliability: 'Interpretation could not be generated at this time. Your numerical results above are still valid.',
+    let interpretations: any = {
+      pilot_study_report: {
+        insufficient_data: null,
+        response_rate_summary: null,
+        reliability_overview: 'Interpretation could not be generated at this time. Your numerical results above are still valid.',
+        construct_evaluations: [],
+        validity_discussion: '',
+        defense_prep_questions: [],
+      },
     }
-    if (demographics) interpretations.demographics = 'Interpretation could not be generated at this time. Your numerical results above are still valid.'
 
     try {
       const { content: text } = await callPilotStudyChain(pilotStudyPrompt)

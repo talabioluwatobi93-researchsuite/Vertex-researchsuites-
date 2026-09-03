@@ -217,12 +217,45 @@ export default function PilotStudyResultsPage() {
         </p>
       </div>
 
-      {interpretations.reliability && (
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '24px' }}>
-          <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>Interpretation</p>
-          <p style={{ color: '#555555', fontSize: '13px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{interpretations.reliability}</p>
-        </div>
-      )}
+            {interpretations.pilot_study_report?.insufficient_data && (
+              <div style={{ backgroundColor: '#FFF8E7', borderRadius: '16px', padding: '18px', border: '1px solid #D4AF37', marginBottom: '24px' }}>
+                <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>Insufficient Data</p>
+                <p style={{ color: '#555555', fontSize: '13px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{interpretations.pilot_study_report.insufficient_data}</p>
+              </div>
+            )}
+
+            {interpretations.pilot_study_report?.response_rate_summary && (
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+                <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>Response Rate</p>
+                <p style={{ color: '#555555', fontSize: '13px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{interpretations.pilot_study_report.response_rate_summary}</p>
+              </div>
+            )}
+
+            {interpretations.pilot_study_report?.reliability_overview && (
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '24px' }}>
+                <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>Interpretation</p>
+                <p style={{ color: '#555555', fontSize: '13px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{interpretations.pilot_study_report.reliability_overview}</p>
+              </div>
+            )}
+
+            {interpretations.pilot_study_report?.construct_evaluations?.length > 0 && (
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '24px' }}>
+                <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '12px' }}>Construct Evaluations</p>
+                {interpretations.pilot_study_report.construct_evaluations.map((c: any, ci: number) => (
+                  <div key={ci} style={{ padding: '10px 0', borderBottom: '1px solid #F0F0F0' }}>
+                    <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, margin: 0 }}>{c.construct_name} — {c.alpha_score} ({c.status})</p>
+                    <p style={{ color: '#555555', fontSize: '12px', margin: '4px 0 0 0' }}>{c.action_required}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {interpretations.pilot_study_report?.validity_discussion && (
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '24px' }}>
+                <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>Validity Discussion</p>
+                <p style={{ color: '#555555', fontSize: '13px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{interpretations.pilot_study_report.validity_discussion}</p>
+              </div>
+            )}
 
       {demographics && demographics.tables.length > 0 && (
         <>
@@ -254,12 +287,17 @@ export default function PilotStudyResultsPage() {
             </div>
           ))}
 
-          {interpretations.demographics && (
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
-              <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>Interpretation</p>
-              <p style={{ color: '#555555', fontSize: '13px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{interpretations.demographics}</p>
-            </div>
-          )}
+            {interpretations.pilot_study_report?.defense_prep_questions?.length > 0 && (
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+                <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '12px' }}>Defense Prep Questions</p>
+                {interpretations.pilot_study_report.defense_prep_questions.map((q: any, qi: number) => (
+                  <div key={qi} style={{ padding: '10px 0', borderBottom: '1px solid #F0F0F0' }}>
+                    <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, margin: 0 }}>Q: {q.question}</p>
+                    <p style={{ color: '#555555', fontSize: '13px', lineHeight: '1.6', margin: '6px 0 0 0', whiteSpace: 'pre-wrap' }}>A: {q.answer}</p>
+                  </div>
+                ))}
+              </div>
+            )}
         </>
       )}
 
