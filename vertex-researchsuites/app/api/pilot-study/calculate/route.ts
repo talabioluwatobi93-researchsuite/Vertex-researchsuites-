@@ -200,6 +200,61 @@ ${combinedResult ? `- Combined (all scale sections): Cronbach's Alpha = ${combin
         ).join('\n')
       : ''
 
+    const cronbachAlphaScores = constructResults
+      .map((c) => `${c.name}: ${c.error ? 'N/A' : c.alpha}`)
+      .join(', ')
+
+    const scaleInfo = `${scaleMin} to ${scaleMax}`
+
+    const questionnairesShared = session.questionnaires_shared ?? null
+    const responsesReceived = session.responses_received ?? null
+
+    const pilotStudyPrompt = `You are preparing a formal Pilot Study Reliability & Validity Report for a research project submission.
+
+INPUT DATA:
+- Sample Size (n): ${results.sampleSize}
+- Cronbach's Alpha Scores per Construct: ${cronbachAlphaScores}
+- Scale Context: ${scaleInfo}
+- Questionnaires Shared / Responses Received (if provided): ${questionnairesShared ?? 'not provided'}, ${responsesReceived ?? 'not provided'}
+
+TASK:
+Analyze the internal consistency of the measurement instrument. Evaluate Cronbach's Alpha scores against the standard 0.70 reliability threshold, identify problematic items needing modification, and state the response rate if reliability input was provided.
+
+STRICT TONE & GRAMMAR CONSTRAINTS:
+1. Write in simple, clear, direct English.
+2. Use STRICT THIRD-PERSON PERSPECTIVE. NEVER use 'I', 'we', or 'my'.
+3. Present Cronbach's Alpha values to 3 decimal places (e.g. 0.842).
+
+GUARDRAILS (do not skip):
+4. Do not evaluate a construct with no alpha score provided. Only report on constructs actually present in the input.
+5. If sampleSize or cronbachAlphaScores is missing/empty, return "insufficient_data" instead of generating a report.
+6. Defense prep questions must scan the actual alpha values and sample size of THIS pilot study. Each question paired with a defense-grade answer.
+
+Respond ONLY with valid JSON, no preamble, no markdown fences:
+
+{
+"pilot_study_report": {
+"insufficient_data": "string or null",
+"response_rate_summary": "string, if questionnairesShared/responsesReceived provided",
+"reliability_overview": "string, 100-150 words",
+"construct_evaluations": [
+{
+"construct_name": "string",
+"alpha_score": "string, e.g. 0.842",
+"status": "string, Reliable (Acceptable/Excellent) or Unreliable",
+"action_required": "string"
+}
+],
+"validity_discussion": "string, 100-150 words",
+"defense_prep_questions": [
+{
+"question": "string, specific to this pilot study's actual data",
+"answer": "string, detailed, defense-grade"
+}
+]
+}
+}`
+
     const interpretationPrompt = `You are explaining pilot study statistics to a student who is not a statistics expert, for their thesis pilot study chapter. Do not recalculate anything -- only interpret the numbers given below, which were computed with real statistical code.
 
 RELIABILITY RESULTS:
@@ -218,7 +273,7 @@ Return ONLY a raw JSON object, no markdown fences, no preamble, in exactly this 
     if (demographics) interpretations.demographics = 'Interpretation could not be generated at this time. Your numerical results above are still valid.'
 
     try {
-      const { content: text } = await callPilotStudyChain(interpretationPrompt)
+      const { content: text } = await callPilotStudyChain(pilotStudyPrompt)
       const clean = text.replace(/```json|```/g, '').trim()
       const parsed = JSON.parse(clean)
       interpretations = parsed
