@@ -61,3 +61,20 @@ export async function callPilotStudyChain(prompt: string): Promise<OpenRouterRes
     return { content, providerUsed: 'gpt4o-mini-fallback' };
   }
 }
+
+export const QUANT_INTERPRET_MODEL_ROUTES = {
+  primary: 'anthropic/claude-sonnet-4.5', // ⚠verify exact slug on openrouter.ai/models
+  fallback: 'openai/gpt-4o-mini',
+};
+
+export async function callQuantInterpretChain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUANT_INTERPRET_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'sonnet5-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Quant Interpret primary failed, falling back:', err);
+    const content = await callOpenRouterStreaming(QUANT_INTERPRET_MODEL_ROUTES.fallback, prompt);
+    return { content, providerUsed: 'gpt4o-mini-fallback' };
+  }
+}

@@ -2,6 +2,7 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { callQuantInterpretChain } from '@/lib/openrouter'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,30 +58,13 @@ PART 2 (after the separator) — General Findings & Discussion:
 
 General rules for both parts: Do not invent any numbers not present in the data above. Do not use decorative language. Output plain text only, structured in short academic paragraphs, no markdown headers or bullet points.`
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 2500,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      return NextResponse.json({ error: data.error?.message || 'AI interpretation failed' }, { status: 500 })
+    let fullText: string
+    try {
+      const result = await callQuantInterpretChain(prompt)
+      fullText = result.content
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message || 'AI interpretation failed' }, { status: 500 })
     }
-
-    const fullText = data.content
-      .map((block: any) => (block.type === 'text' ? block.text : ''))
-      .filter(Boolean)
-      .join('\n')
 
     const splitIndex = fullText.indexOf('===DISCUSSION===')
     let resultsText = fullText
