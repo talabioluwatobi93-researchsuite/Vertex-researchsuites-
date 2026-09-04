@@ -9,6 +9,36 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
+function deriveScaleLabels(constructs: any[]): Record<string, any> {
+  const scaleInfo: Record<string, any> = {}
+
+  const known: Record<string, string[]> = {
+    "5-point: Strongly Disagree \u2194 Strongly Agree": ["Strongly Disagree", "Disagree", "Neutral (Undecided)", "Agree", "Strongly Agree"],
+    "5-point: Never \u2194 Always": ["Never", "Rarely", "Sometimes", "Often", "Always"],
+    "5-point: Very Dissatisfied \u2194 Very Satisfied": ["Very Dissatisfied", "Dissatisfied", "Neutral (Undecided)", "Satisfied", "Very Satisfied"],
+    "4-point: Strongly Disagree \u2194 Strongly Agree (no neutral)": ["Strongly Disagree", "Disagree", "Agree", "Strongly Agree"],
+    "7-point: Strongly Disagree \u2194 Strongly Agree": ["Strongly Disagree", "Disagree", "Somewhat Disagree", "Neutral (Undecided)", "Somewhat Agree", "Agree", "Strongly Agree"],
+    "Yes / No (binary)": ["Yes", "No"],
+  }
+
+  for (const c of constructs) {
+    if (c.role === "Demographic") continue
+    const labels = known[c.presetLabel]
+    if (!labels) {
+      scaleInfo[c.name] = "scale meaning not provided"
+      continue
+    }
+    const ordered = c.scaleReversed ? [...labels].reverse() : labels
+    const mapping: Record<string, string> = {}
+    ordered.forEach((label, i) => {
+      mapping[String(c.scaleMin + i)] = label
+    })
+    scaleInfo[c.name] = mapping
+  }
+
+  return scaleInfo
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { sessionId } = await req.json()
@@ -27,7 +57,7 @@ export async function POST(req: NextRequest) {
     }
 
     const framework = session.research_framework || {}
-    const scaleInfo = session.scale_labels || {}
+    const scaleInfo = deriveScaleLabels(session.constructs || [])
     const responseRateInfo = session.response_rate_info || {}
     const reliabilityInfo = session.reliability_info || {}
     const results = session.results
