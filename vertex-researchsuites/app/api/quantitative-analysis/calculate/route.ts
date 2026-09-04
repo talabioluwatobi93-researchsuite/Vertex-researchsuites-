@@ -9,6 +9,7 @@ const supabase = createClient(
 
 function r3(n: number): number { return Math.round(n * 1000) / 1000 }
 function r2(n: number): number { return Math.round(n * 100) / 100 }
+function r1(n: number): number { return Math.round(n * 10) / 10 }
 
 export async function POST(req: NextRequest) {
   try {
@@ -148,9 +149,9 @@ export async function POST(req: NextRequest) {
         return {
           label,
           frequency: count,
-          percent: r2(allTotal > 0 ? (count / allTotal) * 100 : 0),
-          validPercent: r2(validPercent),
-          cumulativePercent: r2(cumulative)
+          percent: r1(allTotal > 0 ? (count / allTotal) * 100 : 0),
+          validPercent: r1(validPercent),
+          cumulativePercent: r1(cumulative)
         }
       })
 
