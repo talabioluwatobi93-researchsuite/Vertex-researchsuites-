@@ -166,6 +166,8 @@ export default function CleaningPage() {
       })
     })
 
+    const chartPrefs = { bar: true, pie: true }
+
     const cleaning_config = {
       missing_values: missingConfig,
       duplicates: duplicateInfo,
@@ -175,7 +177,7 @@ export default function CleaningPage() {
 
     const { error } = await supabase
       .from('quantitative_analysis_sessions')
-      .update({ cleaning_config, status: 'cleaning_complete' })
+      .update({ cleaning_config, chart_preferences: chartPrefs, status: 'cleaning_complete' })
       .eq('id', id)
 
     setSaving(false)
