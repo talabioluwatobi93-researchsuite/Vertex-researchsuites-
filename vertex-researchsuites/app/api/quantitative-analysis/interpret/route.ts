@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
     }
 
     const framework = session.research_framework || {}
+    const scaleInfo = session.scale_labels || {}
+    const responseRateInfo = session.response_rate_info || {}
+    const reliabilityInfo = session.reliability_info || {}
     const results = session.results
     const apaVersion = framework.apaVersion || '7th edition'
 
@@ -37,6 +40,15 @@ Topic: ${framework.topic || 'N/A'}
 Research Questions: ${JSON.stringify(framework.researchQuestions || [])}
 Hypotheses: ${JSON.stringify(framework.hypotheses || [])}
 Objectives: ${JSON.stringify(framework.objectives || [])}
+
+SCALE LABEL MEANINGS (per construct — describe findings using these exact words, e.g. "respondents generally Agreed", never a bare number like "the mean was 3.53"):
+${JSON.stringify(scaleInfo)}
+
+RESPONSE RATE INFORMATION (state this plainly in Part 1, e.g. "X questionnaires were administered, Y were returned, a response rate of Z%"):
+${JSON.stringify(responseRateInfo)}
+
+RELIABILITY INFORMATION (Cronbach's Alpha per construct, IV/DV roles — reference this when discussing whether the instrument passed reliability testing):
+${JSON.stringify(reliabilityInfo)}
 
 CALCULATED STATISTICAL RESULTS (already computed, do not recalculate, just interpret):
 ${JSON.stringify(results, null, 2)}
@@ -56,7 +68,7 @@ PART 2 (after the separator) — General Findings & Discussion:
 3. Tie findings back to the stated research questions and objectives.
 4. Keep this part free of table references — it should read as a discussion, not a results recap.
 
-General rules for both parts: Do not invent any numbers not present in the data above. Do not use decorative language. Output plain text only, structured in short academic paragraphs, no markdown headers or bullet points.`
+General rules for both parts: Do not invent any numbers not present in the data above. Do not use decorative language. Output plain text only, structured in short academic paragraphs, no markdown headers or bullet points. If a construct's scale meaning is missing from SCALE LABEL MEANINGS above, write "scale meaning not provided" for that construct instead of guessing a label. If RESPONSE RATE INFORMATION or RELIABILITY INFORMATION above is empty, state plainly that this information was not provided rather than inventing figures.`
 
     let fullText: string
     try {
