@@ -192,7 +192,7 @@ export default function ColumnsPage() {
       return
     }
 
-    router.push(`/quantitative-analysis/${sessionId}/analysis`)
+    router.push(`/quantitative-analysis/${sessionId}/reliability`)
   }
 
   if (loading) {
