@@ -100,7 +100,7 @@ export default function QuantitativeAnalysisUploadPage() {
         return
       }
 
-      router.push(`/quantitative-analysis/${session.id}/cross-checks`)
+      router.push(`/quantitative-analysis/${session.id}/response-rate`)
     } catch (err) {
       setErrorMsg('This file could not be read. Please check the format and try again.')
       setLoading(false)
