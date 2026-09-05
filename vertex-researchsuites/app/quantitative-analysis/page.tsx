@@ -59,6 +59,9 @@ export default function QuantitativeAnalysisUploadPage() {
       }
 
       const buffer = await file.arrayBuffer()
+      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      const fileFingerprint = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
       const workbook = XLSX.read(buffer, { type: 'array' })
       const firstSheetName = workbook.SheetNames[0]
       const sheet = workbook.Sheets[firstSheetName]
@@ -90,6 +93,7 @@ export default function QuantitativeAnalysisUploadPage() {
           column_headers: columnHeaders,
           raw_data: dataRows,
           research_framework: researchFramework,
+          file_fingerprint: fileFingerprint,
         })
         .select('id')
         .single()
