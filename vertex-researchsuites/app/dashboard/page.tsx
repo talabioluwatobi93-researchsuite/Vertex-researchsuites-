@@ -7,6 +7,7 @@ import TopUpButton from '../../components/TopUpButton'
 import TransactionHistory from '../../components/TransactionHistory';
 import PurchaseHistory from '../../components/PurchaseHistory';
 import Billboard from '../../components/Billboard';
+import { checkFeatureAccess } from '@/lib/checkFeatureAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -315,7 +316,7 @@ export default function Dashboard() {
         {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/new'), flags['proposals'] === false)}
         {featureCard('✍️', 'Writing Check & Polish', 'Check your writing for originality and clarity', () => router.push('/writing-check'), flags['writing-check'] === false)}
             {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study'), flags['pilot-study'] === false)}
-                {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis'), flags['quantitative-analysis'] === false)}
+                {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', async () => { const { data: { user: u } } = await supabase.auth.getUser(); if (!u) { return }; const access = await checkFeatureAccess('quant_new_analysis', u.id); if (!access.allowed) { alert(access.message || 'Insufficient balance. Please top up.'); return } router.push('/quantitative-analysis') }, flags['quantitative-analysis'] === false)}
                 {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis'), flags['qualitative-analysis'] === false)}
         {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true, bunkerUnreadCount, flags['bunker'] === false)}
         {featureCard('🎙️', 'Voice Transcription & Analysis', 'Upload interview audio, get transcript + notes', () => router.push('/voice-transcription'), false, 0, flags['voice-transcription'] === false)}
