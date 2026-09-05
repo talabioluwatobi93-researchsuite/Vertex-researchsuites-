@@ -58,6 +58,8 @@ export default function ResultsPage() {
   const [revealed, setRevealed] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(0)
   const [gateInfo, setGateInfo] = useState<any>({ constructs: [], response_rate_info: null, reliability_info: null })
+  const [reRunInfo, setReRunInfo] = useState<any>({ file_fingerprint: null, raw_data: null, column_headers: null, research_framework: null, parent_session_id: null, user_id: null })
+  const [reRunLoading, setReRunLoading] = useState(false)
 
   useEffect(() => {
     init()
@@ -68,7 +70,7 @@ export default function ResultsPage() {
       // 1. Check if this session already has computed results stored
       const { data: session, error: sessionErr } = await supabase
         .from('quantitative_analysis_sessions')
-        .select('results_json, interpretation, discussion, results_ready_at, results_revealed, constructs, response_rate_info, reliability_info')
+        .select('results_json, interpretation, discussion, results_ready_at, results_revealed, constructs, response_rate_info, reliability_info, file_fingerprint, raw_data, column_headers, research_framework, parent_session_id, user_id')
         .eq('id', id)
         .single()
 
@@ -85,6 +87,14 @@ export default function ResultsPage() {
         constructs: session?.constructs || [],
         response_rate_info: session?.response_rate_info || null,
         reliability_info: session?.reliability_info || null
+      })
+      setReRunInfo({
+        file_fingerprint: session?.file_fingerprint || null,
+        raw_data: session?.raw_data || null,
+        column_headers: session?.column_headers || null,
+        research_framework: session?.research_framework || null,
+        parent_session_id: session?.parent_session_id || null,
+        user_id: session?.user_id || null
       })
 
       // 2. If not computed yet, compute now and persist to the session row
