@@ -17,7 +17,7 @@ function deriveScaleLabels(constructs: any[]): Record<string, any> {
     "5-point: Never \u2194 Always": ["Never", "Rarely", "Sometimes", "Often", "Always"],
     "5-point: Very Dissatisfied \u2194 Very Satisfied": ["Very Dissatisfied", "Dissatisfied", "Neutral (Undecided)", "Satisfied", "Very Satisfied"],
     "4-point: Strongly Disagree \u2194 Strongly Agree (no neutral)": ["Strongly Disagree", "Disagree", "Agree", "Strongly Agree"],
-    "7-point: Strongly Disagree \u2194 Strongly Agree": ["Strongly Disagree", "Disagree", "Somewhat Disagree", "Neutral (Undecided)", "Somewhat Agree", "Agree", "Strongly Agree"],
+    "7-point: Strongly Disagree \u2194 Strongly Agree": ["Strongly Disagree", "Somewhat Disagree", "Neutral (Undecided)", "Somewhat Agree", "Agree", "Strongly Agree"],
     "Yes / No (binary)": ["Yes", "No"],
   }
 
@@ -37,6 +37,10 @@ function deriveScaleLabels(constructs: any[]): Record<string, any> {
   }
 
   return scaleInfo
+}
+
+function stripFences(text: string): string {
+  return text.replace(/```json/g, '').replace(/```/g, '').trim()
 }
 
 export async function POST(req: NextRequest) {
@@ -70,63 +74,142 @@ export async function POST(req: NextRequest) {
     const results = session.results
     const apaVersion = framework.apaVersion || '7th edition'
 
-    const prompt = `You are a research methodology expert writing the Results and Discussion sections of a student's academic thesis/dissertation. Use strict APA ${apaVersion} style, formal academic tone, no first person, no AI-sounding phrases.
+    const prompt3a = `You are analyzing quantitative statistical results (SPSS outputs) for an undergraduate research submission under NUC guidelines. This is Step 3a of the chunked pipeline \u2014 primary statistical breakdown and mathematical parameters only. Step 3b (a separate, dedicated call) adds hypothesis decisions and scale-label context on top of this output.
 
-RESEARCH FRAMEWORK:
-Topic: ${framework.topic || 'N/A'}
-Research Questions: ${JSON.stringify(framework.researchQuestions || [])}
-Hypotheses: ${JSON.stringify(framework.hypotheses || [])}
-Objectives: ${JSON.stringify(framework.objectives || [])}
+INPUT DATA:
+- SPSS Statistical Results/Tables: "${JSON.stringify(results)}"
+- Research Hypotheses (for table labeling only, not for decisions): ${JSON.stringify(framework.hypotheses || [])}
 
-SCALE LABEL MEANINGS (per construct — describe findings using these exact words, e.g. "respondents generally Agreed", never a bare number like "the mean was 3.53"):
-${JSON.stringify(scaleInfo)}
+TASK:
+Extract and structure ONLY the mathematical parameters. Explicitly identify and structure whichever of the following are present:
+- Pearson/Spearman Correlation (r, p-value, strength and direction)
+- Linear/Multiple Regression (R, R-squared, Adjusted R-squared, Std. Error, Beta coefficients, t-values, p-values per predictor)
+- ANOVA/Model Fit (F-statistic, df, significance)
+- Chi-Square Test of Independence (chi-square value, df, p-value)
+- t-test / ANOVA (t or F value, df, p-value, mean differences)
 
-RESPONSE RATE INFORMATION (state this plainly in Part 1, e.g. "X questionnaires were administered, Y were returned, a response rate of Z%"):
-${JSON.stringify(responseRateInfo)}
+For each test present, also state WHY that specific test was appropriate for this research design, based only on the actual IV/DV/grouping-variable roles and data types already established for this session \u2014 do not invent methodological reasoning beyond what those roles support.
 
-RELIABILITY INFORMATION (Cronbach's Alpha per construct, IV/DV roles — reference this when discussing whether the instrument passed reliability testing):
-${JSON.stringify(reliabilityInfo)}
+Reproduce the key result table for each test as structured data.
 
-CALCULATED STATISTICAL RESULTS (already computed, do not recalculate, just interpret):
-${JSON.stringify(results, null, 2)}
+GUARDRAILS (do not skip):
+1. Do NOT decide Supported/Rejected, do NOT write plain-language interpretation of significance, and do NOT reference questionnaire scale labels \u2014 all of that belongs to Step 3b, never here. The test-appropriateness justification is the one exception \u2014 it explains methodology choice, not results.
+2. Only structure tests actually present in the results. Never invent a test, value, or table not provided.
+3. If the results are missing/unreadable/insufficient, return "insufficient_data" naming which test could not be structured and why.
+4. Every table title appears ABOVE the table, plain text, NEVER italicized.
+5. Report every number exactly as given \u2014 no rounding beyond the source, no rephrasing into words.
 
-Write your response in exactly two parts, separated by the exact line "===DISCUSSION===" (nothing else on that line).
+Respond ONLY with valid JSON, no preamble, no markdown fences:
 
-PART 1 (before the separator) — Results, table by table:
-1. Briefly restate the sample size and demographic composition using the frequency tables.
-2. Report descriptive statistics narratively (referencing Table numbers as "Table 1", "Table 2" etc in the order: Descriptives, Frequency, Correlation if present, Regression if present).
-'3. For each inferential test included (Correlation, Regression, T-Test, ANOVA, or Chi-Square), briefly state WHY that specific test was appropriate for this research design before reporting its output. Base this only on the actual IV/DV/grouping-variable roles and data types already established for this session.\n'
-3. If correlation results are present, interpret the strength and direction of each significant relationship (p < .05).
-4. If regression results are present, interpret R-squared as percentage of variance explained, report the F-test significance, and interpret each significant predictor's Beta coefficient in plain academic language.
-5. Do not draw conclusions about hypotheses yet in this part — stay descriptive and table-by-table.
+{
+"quantitative_statistical_breakdown": {
+"insufficient_data": "string or null",
+"result_tables": [
+{
+"table_title": "string, plain text, no italics",
+"test_type": "string",
+"why_appropriate": "string, grounded only in this session's IV/DV/grouping-variable roles and data types",
+"columns": ["string"],
+"rows": [["string"]]
+}
+]
+}
+}`
 
-PART 2 (after the separator) — General Findings & Discussion:
-1. Synthesize the results into a cohesive narrative, not a repeat of Part 1.
-2. Explicitly state which hypotheses are supported and which are not supported, referencing the specific statistics that justify each conclusion.
-3. Tie findings back to the stated research questions and objectives.
-4. Keep this part free of table references — it should read as a discussion, not a results recap.
-
-General rules for both parts: Do not invent any numbers not present in the data above. Do not use decorative language. Output plain text only, structured in short academic paragraphs, no markdown headers or bullet points. If a construct's scale meaning is missing from SCALE LABEL MEANINGS above, write "scale meaning not provided" for that construct instead of guessing a label. If RESPONSE RATE INFORMATION or RELIABILITY INFORMATION above is empty, state plainly that this information was not provided rather than inventing figures.`
-
-    let fullText: string
+    let step3aRaw: string
     try {
-      const result = await callQuantInterpretChain(prompt)
-      fullText = result.content
+      const result3a = await callQuantInterpretChain(prompt3a)
+      step3aRaw = result3a.content
     } catch (err: any) {
-      return NextResponse.json({ error: err.message || 'AI interpretation failed' }, { status: 500 })
+      return NextResponse.json({ error: err.message || 'Step 3a (statistical breakdown) failed' }, { status: 500 })
     }
 
-    const splitIndex = fullText.indexOf('===DISCUSSION===')
-    let resultsText = fullText
-    let discussionText = ''
-
-    if (splitIndex !== -1) {
-      resultsText = fullText.slice(0, splitIndex).trim()
-      discussionText = fullText.slice(splitIndex + '===DISCUSSION==='.length).trim()
+    let step3a: any
+    try {
+      step3a = JSON.parse(stripFences(step3aRaw))
+    } catch (err: any) {
+      return NextResponse.json({ error: 'Step 3a returned invalid JSON: ' + step3aRaw.slice(0, 300) }, { status: 500 })
     }
 
-    const interpretation = resultsText
-    const discussion = discussionText
+    const resultTables = step3a?.quantitative_statistical_breakdown?.result_tables || []
+
+    const prompt3b = `You are producing hypothesis decisions and contextual findings for an undergraduate research submission under NUC guidelines. This is Step 3b of the chunked pipeline \u2014 it receives Step 3a's result_tables as input and adds the interpretive layer that Step 3a deliberately excluded.
+
+INPUT DATA:
+- Step 3a Result Tables: ${JSON.stringify(resultTables)}
+- Research Questions: ${JSON.stringify(framework.researchQuestions || [])}
+- Research Hypotheses: ${JSON.stringify(framework.hypotheses || [])}
+- Questionnaire Scale Labels (per construct): ${JSON.stringify(scaleInfo)}
+- Reliability Info (if provided): ${JSON.stringify(reliabilityInfo)}
+- Response Rate Info (if provided): ${JSON.stringify(responseRateInfo)}
+
+TASK:
+For each table in Step 3a's result_tables, write a distinct interpretation paragraph. Every contextual finding must be phrased in terms of the actual questionnaire scale labels the respondents saw (e.g. "most respondents Agree", "the mean falls in the Neutral (Undecided) range") rather than a bare restatement of the coefficient or p-value. Then, for each hypothesis, state explicitly whether it is Supported or Rejected.
+
+STRICT TONE & GRAMMAR CONSTRAINTS:
+1. Write in clear, simple, direct English.
+2. Use STRICT THIRD-PERSON PERSPECTIVE. NEVER use 'I', 'we', or 'our'.
+3. Link every statistical interpretation directly to its hypothesis.
+
+GUARDRAILS (do not skip):
+4. Do not treat statistical significance alone as the full picture. Where significant but effect size is small, or p-value is borderline (0.045-0.050), explicitly note this nuance rather than an unqualified Supported/Rejected framing.
+5. Only interpret tables actually provided by Step 3a. Never invent a result not present in step3aResultTables.
+6. If step3aResultTables is missing/empty for a hypothesis, return "insufficient_data" naming which hypothesis could not be tested and why.
+7. Every table gets its OWN distinct interpretation paragraph \u2014 never combine multiple tables into one shared interpretation.
+
+Respond ONLY with valid JSON, no preamble, no markdown fences:
+
+{
+"quantitative_hypothesis_findings": {
+"insufficient_data": "string or null",
+"table_interpretations": [
+{
+"table_title": "string, must match a table_title from Step 3a",
+"interpretation": "string, mapped to questionnaire scale labels"
+}
+],
+"hypothesis_testing": [
+{
+"hypothesis_id": 1,
+"statement": "string",
+"statistical_test_used": "string",
+"key_metric_value": "string",
+"effect_size_note": "string",
+"decision": "string, Supported or Rejected",
+"academic_interpretation": "string, 3-4 sentences"
+}
+]
+}
+}`
+
+    let step3bRaw: string
+    try {
+      const result3b = await callQuantInterpretChain(prompt3b)
+      step3bRaw = result3b.content
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message || 'Step 3b (hypothesis findings) failed' }, { status: 500 })
+    }
+
+    let step3b: any
+    try {
+      step3b = JSON.parse(stripFences(step3bRaw))
+    } catch (err: any) {
+      return NextResponse.json({ error: 'Step 3b returned invalid JSON: ' + step3bRaw.slice(0, 300) }, { status: 500 })
+    }
+
+    const findings = step3b?.quantitative_hypothesis_findings || {}
+
+    let interpretation = ''
+    for (const t of resultTables) {
+      interpretation += `${t.table_title}\n${t.why_appropriate ? 'Rationale: ' + t.why_appropriate + '\n' : ''}`
+      const match = (findings.table_interpretations || []).find((ti: any) => ti.table_title === t.table_title)
+      if (match) interpretation += `${match.interpretation}\n\n`
+    }
+
+    let discussion = ''
+    for (const h of (findings.hypothesis_testing || [])) {
+      discussion += `${h.statement} (${h.decision}): ${h.academic_interpretation}${h.effect_size_note ? ' ' + h.effect_size_note : ''}\n\n`
+    }
 
     await supabase
       .from('quantitative_analysis_sessions')
