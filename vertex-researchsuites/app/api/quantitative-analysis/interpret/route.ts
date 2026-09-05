@@ -95,6 +95,7 @@ Write your response in exactly two parts, separated by the exact line "===DISCUS
 PART 1 (before the separator) — Results, table by table:
 1. Briefly restate the sample size and demographic composition using the frequency tables.
 2. Report descriptive statistics narratively (referencing Table numbers as "Table 1", "Table 2" etc in the order: Descriptives, Frequency, Correlation if present, Regression if present).
+'3. For each inferential test included (Correlation, Regression, T-Test, ANOVA, or Chi-Square), briefly state WHY that specific test was appropriate for this research design before reporting its output. Base this only on the actual IV/DV/grouping-variable roles and data types already established for this session.\n'
 3. If correlation results are present, interpret the strength and direction of each significant relationship (p < .05).
 4. If regression results are present, interpret R-squared as percentage of variance explained, report the F-test significance, and interpret each significant predictor's Beta coefficient in plain academic language.
 5. Do not draw conclusions about hypotheses yet in this part — stay descriptive and table-by-table.
