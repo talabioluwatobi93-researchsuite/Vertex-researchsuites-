@@ -50,7 +50,7 @@ export default function ResultsPage() {
       // 1. Check if this session already has computed results stored
       const { data: session, error: sessionErr } = await supabase
         .from('quantitative_analysis_sessions')
-        .select('results_json, interpretation, discussion, results_ready_at, results_revealed')
+        .select('results_json, interpretation, discussion, results_ready_at, results_revealed, constructs, response_rate_info, reliability_info')
         .eq('id', id)
         .single()
 
@@ -79,30 +79,18 @@ export default function ResultsPage() {
         }
         finalResults = calcData.results
 
-        setStatus('Analyzing results...')
-        const interpRes = await fetch('/api/quantitative-analysis/interpret', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: id })
-        })
-        const interpData = await interpRes.json()
-        if (!interpRes.ok) {
-          setErrorMsg(interpData.error || 'Interpretation failed.')
-          return
-        }
-        finalInterpretation = interpData.interpretation
-        finalDiscussion = interpData.discussion || ''
-        readyAt = new Date().toISOString()
-
+        // Gate check: don't auto-run interpretation. Persist calculated
+        // results and let the user confirm via the Proceed button below.
         await supabase
           .from('quantitative_analysis_sessions')
           .update({
-            results_json: finalResults,
-            interpretation: finalInterpretation,
-            discussion: finalDiscussion,
-            results_ready_at: readyAt
+            results_json: finalResults
           })
           .eq('id', id)
+
+        setResults(finalResults)
+        setStatus('awaiting-interpretation')
+        return
       }
 
       setResults(finalResults)
