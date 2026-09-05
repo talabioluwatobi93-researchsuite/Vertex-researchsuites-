@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { checkFeatureAccess } from '@/lib/checkFeatureAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -154,19 +155,12 @@ export default function ResultsPage() {
       const freeReRunsUsed = (siblings || []).length - 1
 
       if (freeReRunsUsed >= 2) {
-        const { data: pricing } = await supabase
-          .from('feature_pricing')
-          .select('price')
-          .eq('feature_name', 'quant_rerun_unlock')
-          .single()
-
-        const priceText = pricing?.price
-          ? `for ₦${pricing.price.toLocaleString()}`
-          : ''
-
-        setErrorMsg(`You have used your 2 free re-runs for this dataset within the last 7 days. You can unlock another re-run ${priceText}.`.trim())
-        setReRunLoading(false)
-        return
+        const access = await checkFeatureAccess('quant_rerun_unlock', reRunInfo.user_id)
+        if (!access.allowed) {
+          setErrorMsg(access.message || 'You have used your 2 free re-runs for this dataset within the last 7 days.')
+          setReRunLoading(false)
+          return
+        }
       }
 
       const { data: newSession, error: createErr } = await supabase
