@@ -133,6 +133,57 @@ export default function ResultsPage() {
     }
   }
 
+  function handleDownload() {
+    const lines: string[] = []
+    lines.push('QUANTITATIVE ANALYSIS RESULTS')
+    lines.push('')
+    lines.push(`Sample Size: ${results?.sampleSize ?? 'N/A'}`)
+    lines.push(`Excluded Rows: ${results?.excludedRows ?? 0}`)
+    lines.push('')
+
+    if (results?.descriptives?.length > 0) {
+      lines.push('DESCRIPTIVE STATISTICS')
+      results.descriptives.forEach((d: any) => {
+        lines.push(`${d.variable}: N=${d.n}, Mean=${d.mean}, SD=${d.sd}, Min=${d.min}, Max=${d.max}`)
+      })
+      lines.push('')
+    }
+
+    if (results?.correlation) {
+      lines.push('CORRELATION RESULTS')
+      lines.push(JSON.stringify(results.correlation, null, 2))
+      lines.push('')
+    }
+
+    if (results?.regression) {
+      lines.push('REGRESSION RESULTS')
+      lines.push(JSON.stringify(results.regression, null, 2))
+      lines.push('')
+    }
+
+    if (interpretation) {
+      lines.push('INTERPRETATION')
+      lines.push(interpretation)
+      lines.push('')
+    }
+
+    if (discussion) {
+      lines.push('DISCUSSION')
+      lines.push(discussion)
+      lines.push('')
+    }
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `quantitative-analysis-results-${id}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   async function handleReRun() {
     setReRunLoading(true)
     setErrorMsg('')
@@ -408,6 +459,24 @@ export default function ResultsPage() {
           }}
         >
           {reRunLoading ? 'Starting re-run...' : 'Re-run Analysis'}
+        </button>
+
+        <button
+          onClick={handleDownload}
+          style={{
+            backgroundColor: '#333333',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '10px',
+            padding: '10px 16px',
+            fontSize: '13px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            marginBottom: '24px',
+            marginLeft: '10px'
+          }}
+        >
+          Download Results
         </button>
 
       {results.descriptives?.length > 0 && (
