@@ -116,17 +116,46 @@ export default function ResultsPage() {
         return
       }
 
-      setResults(finalResults)
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Something went wrong.')
+    }
+  }
+
+  async function handleProceed() {
+    try {
+      setStatus('Analyzing results...')
+      const interpRes = await fetch('/api/quantitative-analysis/interpret', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: id })
+      })
+      const interpData = await interpRes.json()
+      if (!interpRes.ok) {
+        setErrorMsg(interpData.error || 'Interpretation failed.')
+        return
+      }
+      const finalInterpretation = interpData.interpretation
+      const finalDiscussion = interpData.discussion || ''
+      const readyAt = new Date().toISOString()
+
+      await supabase
+        .from('quantitative_analysis_sessions')
+        .update({
+          interpretation: finalInterpretation,
+          discussion: finalDiscussion,
+          results_ready_at: readyAt
+        })
+        .eq('id', id)
+
       setInterpretation(finalInterpretation || '')
       setDiscussion(finalDiscussion || '')
 
-      // 3. Work out whether the 3-minute hold has passed
       const readyTime = new Date(readyAt).getTime()
       const revealTime = readyTime + HOLD_MS
       const now = Date.now()
 
-      if (session?.results_revealed || now >= revealTime) {
-        await revealNow(finalResults)
+      if (now >= revealTime) {
+        await revealNow(results)
       } else {
         setStatus('holding')
         const msLeft = revealTime - now
@@ -135,7 +164,7 @@ export default function ResultsPage() {
           setSecondsLeft((s) => {
             if (s <= 1) {
               clearInterval(interval)
-              revealNow(finalResults)
+              revealNow(results)
               return 0
             }
             return s - 1
@@ -217,6 +246,59 @@ export default function ResultsPage() {
         <p style={{ fontSize: '13px', color: '#D4AF37', fontWeight: 600, marginTop: '20px' }}>
           {mins > 0 ? `${mins}m ${secs}s` : `${secs}s`} remaining
         </p>
+      </div>
+    )
+  }
+
+  if (status === 'awaiting-interpretation' && results) {
+    const gate = checkInterpretationGate(gateInfo)
+    return (
+      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
+        <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#333333', marginBottom: '4px' }}>
+          Results
+        </h1>
+        <p style={{ fontSize: '13px', color: '#777777', marginBottom: '24px' }}>
+          Your data has been calculated. Review below, then proceed to generate the full interpretation.
+        </p>
+
+        {gate.hasMissingScaleLabels && (
+          <div style={{ backgroundColor: '#FFF8E7', borderRadius: '12px', padding: '14px', marginBottom: '16px', border: '1px solid #D4AF37' }}>
+            <p style={{ color: '#333333', fontSize: '13px', margin: 0 }}>
+              Some scales are missing meaning labels. Interpretation will note this rather than guess.
+            </p>
+          </div>
+        )}
+
+        {!gate.ready && (
+          <div style={{ backgroundColor: '#FDEDEC', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
+            <p style={{ color: '#C0392B', fontSize: '13px', margin: 0, fontWeight: 600 }}>
+              Cannot proceed to interpretation yet:
+            </p>
+            <ul style={{ color: '#C0392B', fontSize: '13px', margin: '4px 0 0 18px', padding: 0 }}>
+              {gate.reasons.map((r: string, idx: number) => (
+                <li key={idx}>{r}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <button
+          onClick={handleProceed}
+          disabled={!gate.ready}
+          style={{
+            width: '100%',
+            backgroundColor: gate.ready ? '#D4AF37' : '#EEEEEE',
+            color: gate.ready ? '#333333' : '#999999',
+            border: 'none',
+            borderRadius: '10px',
+            padding: '14px',
+            fontSize: '14px',
+            fontWeight: 700,
+            cursor: gate.ready ? 'pointer' : 'not-allowed'
+          }}
+        >
+          Proceed to Full Document Interpretation
+        </button>
       </div>
     )
   }
