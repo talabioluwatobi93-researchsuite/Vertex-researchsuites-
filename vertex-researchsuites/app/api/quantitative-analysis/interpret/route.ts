@@ -56,6 +56,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Results not found. Run calculation first.' }, { status: 404 })
     }
 
+    if (!session.response_rate_info) {
+      return NextResponse.json({ error: 'Response rate information is missing.' }, { status: 400 })
+    }
+    if (!session.reliability_info) {
+      return NextResponse.json({ error: 'Reliability information is missing.' }, { status: 400 })
+    }
+
     const framework = session.research_framework || {}
     const scaleInfo = deriveScaleLabels(session.constructs || [])
     const responseRateInfo = session.response_rate_info || {}
