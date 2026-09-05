@@ -31,6 +31,23 @@ const noteStyle: React.CSSProperties = {
   fontSize: '11px', color: '#777777', marginTop: '8px', fontStyle: 'italic'
 }
 
+function checkInterpretationGate(gateInfo: any) {
+  const reasons: string[] = []
+  if (!gateInfo?.response_rate_info) reasons.push('Response rate information is missing.')
+  if (!gateInfo?.reliability_info) reasons.push('Reliability information is missing.')
+
+  const missingScaleConstructs = (gateInfo?.constructs || []).filter((c: any) => {
+    return c.role !== 'Demographic' && !c.presetLabel
+  })
+
+  return {
+    ready: reasons.length === 0,
+    reasons,
+    hasMissingScaleLabels: missingScaleConstructs.length > 0,
+    missingScaleConstructs
+  }
+}
+
 export default function ResultsPage() {
   const { id } = useParams()
   const [status, setStatus] = useState('Calculating results...')
@@ -40,6 +57,7 @@ export default function ResultsPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [revealed, setRevealed] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(0)
+  const [gateInfo, setGateInfo] = useState<any>({ constructs: [], response_rate_info: null, reliability_info: null })
 
   useEffect(() => {
     init()
@@ -63,6 +81,11 @@ export default function ResultsPage() {
       let finalInterpretation = session?.interpretation
       let finalDiscussion = session?.discussion
       let readyAt = session?.results_ready_at
+      setGateInfo({
+        constructs: session?.constructs || [],
+        response_rate_info: session?.response_rate_info || null,
+        reliability_info: session?.reliability_info || null
+      })
 
       // 2. If not computed yet, compute now and persist to the session row
       if (!finalResults) {
