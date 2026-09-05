@@ -154,7 +154,17 @@ export default function ResultsPage() {
       const freeReRunsUsed = (siblings || []).length - 1
 
       if (freeReRunsUsed >= 2) {
-        setErrorMsg('You have used your 2 free re-runs for this dataset within the last 7 days. A paid re-run option is coming soon.')
+        const { data: pricing } = await supabase
+          .from('feature_pricing')
+          .select('price')
+          .eq('feature_name', 'quant_rerun_unlock')
+          .single()
+
+        const priceText = pricing?.price
+          ? `for ₦${pricing.price.toLocaleString()}`
+          : ''
+
+        setErrorMsg(`You have used your 2 free re-runs for this dataset within the last 7 days. You can unlock another re-run ${priceText}.`.trim())
         setReRunLoading(false)
         return
       }
