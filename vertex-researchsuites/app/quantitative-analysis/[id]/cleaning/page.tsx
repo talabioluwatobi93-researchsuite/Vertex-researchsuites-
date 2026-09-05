@@ -28,6 +28,7 @@ export default function CleaningPage() {
     detected_row_indexes: [],
     action: 'excluded'
   })
+  const [chartPrefs, setChartPrefs] = useState<{ bar: boolean; pie: boolean }>({ bar: true, pie: true })
 
   useEffect(() => {
     loadSession()
@@ -166,8 +167,6 @@ export default function CleaningPage() {
       })
     })
 
-    const chartPrefs = { bar: true, pie: true }
-
     const cleaning_config = {
       missing_values: missingConfig,
       duplicates: duplicateInfo,
@@ -294,6 +293,21 @@ export default function CleaningPage() {
             </button>
           </div>
         )}
+      </div>
+
+      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Chart Types to Include</h2>
+        <p style={{ fontSize: '13px', color: '#333333', marginBottom: '12px' }}>
+          Choose which chart types should be generated for this report.
+        </p>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => setChartPrefs((prev) => ({ ...prev, bar: !prev.bar }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: chartPrefs.bar ? '1px solid #D4AF37' : '1px solid #EEEEEE', backgroundColor: chartPrefs.bar ? '#FFF8E7' : '#ffffff', color: '#333333', cursor: 'pointer' }}>
+            Bar Charts
+          </button>
+          <button onClick={() => setChartPrefs((prev) => ({ ...prev, pie: !prev.pie }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: chartPrefs.pie ? '1px solid #D4AF37' : '1px solid #EEEEEE', backgroundColor: chartPrefs.pie ? '#FFF8E7' : '#ffffff', color: '#333333', cursor: 'pointer' }}>
+            Pie Charts
+          </button>
+        </div>
       </div>
 
       {errorMsg && (
