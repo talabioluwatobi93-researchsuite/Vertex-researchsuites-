@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -50,6 +50,7 @@ function checkInterpretationGate(gateInfo: any) {
 
 export default function ResultsPage() {
   const { id } = useParams()
+  const router = useRouter()
   const [status, setStatus] = useState('Calculating results...')
   const [results, setResults] = useState<any>(null)
   const [interpretation, setInterpretation] = useState('')
@@ -128,6 +129,60 @@ export default function ResultsPage() {
 
     } catch (e: any) {
       setErrorMsg(e.message || 'Something went wrong.')
+    }
+  }
+
+  async function handleReRun() {
+    setReRunLoading(true)
+    setErrorMsg('')
+    try {
+      const rootId = reRunInfo.parent_session_id || id
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+      const { data: siblings, error: siblingsErr } = await supabase
+        .from('quantitative_analysis_sessions')
+        .select('id, created_at')
+        .or(`id.eq.${rootId},parent_session_id.eq.${rootId}`)
+        .gte('created_at', sevenDaysAgo)
+
+      if (siblingsErr) {
+        setErrorMsg('Could not check re-run eligibility. Please try again.')
+        setReRunLoading(false)
+        return
+      }
+
+      const freeReRunsUsed = (siblings || []).length - 1
+
+      if (freeReRunsUsed >= 2) {
+        setErrorMsg('You have used your 2 free re-runs for this dataset within the last 7 days. A paid re-run option is coming soon.')
+        setReRunLoading(false)
+        return
+      }
+
+      const { data: newSession, error: createErr } = await supabase
+        .from('quantitative_analysis_sessions')
+        .insert({
+          user_id: reRunInfo.user_id,
+          status: 'uploaded',
+          column_headers: reRunInfo.column_headers,
+          raw_data: reRunInfo.raw_data,
+          research_framework: reRunInfo.research_framework,
+          file_fingerprint: reRunInfo.file_fingerprint,
+          parent_session_id: rootId
+        })
+        .select('id')
+        .single()
+
+      if (createErr || !newSession) {
+        setErrorMsg('Could not start a re-run. Please try again.')
+        setReRunLoading(false)
+        return
+      }
+
+      router.push(`/quantitative-analysis/${newSession.id}/response-rate`)
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Something went wrong starting the re-run.')
+      setReRunLoading(false)
     }
   }
 
@@ -332,6 +387,24 @@ export default function ResultsPage() {
       <p style={{ fontSize: '13px', color: '#777777', marginBottom: '24px' }}>
         N = {results.sampleSize} (excluded {results.excludedRows} row{results.excludedRows !== 1 ? 's' : ''} during cleaning)
       </p>
+
+        <button
+          onClick={handleReRun}
+          disabled={reRunLoading}
+          style={{
+            backgroundColor: '#ffffff',
+            color: '#333333',
+            border: '1px solid #D4AF37',
+            borderRadius: '10px',
+            padding: '10px 16px',
+            fontSize: '13px',
+            fontWeight: 600,
+            cursor: reRunLoading ? 'not-allowed' : 'pointer',
+            marginBottom: '24px'
+          }}
+        >
+          {reRunLoading ? 'Starting re-run...' : 'Re-run Analysis'}
+        </button>
 
       {results.descriptives?.length > 0 && (
         <div style={tableWrap}>
