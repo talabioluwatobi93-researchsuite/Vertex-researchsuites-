@@ -36,8 +36,10 @@ export default function QuantPricingPage() {
       setLoading(false)
       return
     }
+    // TEMP: pricing gate bypassed while feature_pricing table is still empty (see handoff doc).
+    // Original check preserved below, disabled via `false &&` — flip back on when pricing is real.
     const access = await checkFeatureAccess('quant_new_analysis', user.id)
-    if (!access.allowed) {
+    if (false && !access.allowed) {
       setErrorMsg(access.message || 'Your balance is not enough, kindly top up.')
       setLoading(false)
       return
