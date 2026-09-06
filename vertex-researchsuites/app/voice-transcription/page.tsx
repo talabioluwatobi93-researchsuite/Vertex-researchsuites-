@@ -53,6 +53,8 @@ export default function VoiceTranscription() {
 
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [audioUrl, setAudioUrl] = useState("");
+  const [transcribingUrl, setTranscribingUrl] = useState(false);
   const [sessionId, setSessionId] = useState("");
   const [processingMsg, setProcessingMsg] = useState("");
 
@@ -142,6 +144,56 @@ export default function VoiceTranscription() {
     }
 
     return accumulated;
+  };
+
+  const handleTranscribeFromUrl = async () => {
+    if (!audioUrl.trim()) return;
+    setTranscribingUrl(true);
+    setErrorMsg("");
+    try {
+      const uploadRes = await fetch("/api/voice-transcription/transcribe-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, audioUrl: audioUrl.trim() }),
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) {
+        setErrorMsg(uploadData.error || "Could not process that link. Please try again.");
+        setTranscribingUrl(false);
+        return;
+      }
+
+      setSessionId(uploadData.sessionId);
+      setTranscribingUrl(false);
+      setStage("transcribing");
+      setProcessingMsg("Please be patient, as we process your transcript.");
+
+      const probeRes = await fetch("/api/voice-transcription/probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioPath: uploadData.path }),
+      });
+      const probeData = await probeRes.json();
+
+      let finalTranscript = "";
+      if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > CHUNK_LENGTH_SECONDS) {
+        finalTranscript = await runChunkedTranscription(uploadData.path, probeData.durationSeconds);
+      } else {
+        finalTranscript = await runOneShotTranscription(uploadData.sessionId, uploadData.path);
+      }
+
+      await supabase
+        .from("voice_transcription_sessions")
+        .update({ raw_transcript: finalTranscript, status: "transcribed", updated_at: new Date().toISOString() })
+        .eq("id", uploadData.sessionId);
+
+      setTranscript(finalTranscript);
+      setStage("review-transcript");
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Something went wrong. Please try again.");
+      setStage("upload");
+      setTranscribingUrl(false);
+    }
   };
 
   const handleUploadAndTranscribe = async () => {
