@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, pearson, olsRegression, independentTTest, oneWayAnova, chiSquareTest } from '@/lib/stats'
+import { mean, sd, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -165,22 +165,28 @@ export async function POST(req: NextRequest) {
     let correlation: any = null
     if (analysisTypes.includes('correlation') && scaleConstructsList.length >= 2) {
       const matrix: any[] = []
+      const spearmanMatrix: any[] = []
       for (const rowC of scaleConstructsList) {
         const rowResult: any = { name: rowC.name, cells: [] }
+        const spearmanRowResult: any = { name: rowC.name, cells: [] }
         for (const colC of scaleConstructsList) {
           if (rowC.id === colC.id) {
-            rowResult.cells.push({ r: 1, p: null, n: constructScores[rowC.id].length })
+            rowResult.cells.push({ r: 1, p: null, pOneTailed: null, n: constructScores[rowC.id].length })
+            spearmanRowResult.cells.push({ r: 1, p: null, pOneTailed: null, n: constructScores[rowC.id].length })
             continue
           }
           const n = Math.min(constructScores[rowC.id].length, constructScores[colC.id].length)
           const x = constructScores[rowC.id].slice(0, n)
           const y = constructScores[colC.id].slice(0, n)
           const result = pearson(x, y)
-          rowResult.cells.push({ r: r3(result.r), p: r3(result.p), n: result.n })
+          rowResult.cells.push({ r: r3(result.r), p: r3(result.p), pOneTailed: r3(result.pOneTailed), n: result.n })
+          const spearmanResult = spearman(x, y)
+          spearmanRowResult.cells.push({ r: r3(spearmanResult.r), p: r3(spearmanResult.p), pOneTailed: r3(spearmanResult.pOneTailed), n: spearmanResult.n })
         }
         matrix.push(rowResult)
+        spearmanMatrix.push(spearmanRowResult)
       }
-      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix }
+      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix }
     }
 
     let regression: any = null

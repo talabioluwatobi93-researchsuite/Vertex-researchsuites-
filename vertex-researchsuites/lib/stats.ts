@@ -70,7 +70,32 @@ export function pearson(x: number[], y: number[]) {
   const df = n - 2
   const t = r * Math.sqrt(df / (1 - r * r))
   const p = tTestPValue(t, df)
-  return { r, p, n, df }
+  const pOneTailed = p / 2
+  return { r, p, pOneTailed, n, df }
+}
+
+// Assigns average ranks to values, handling ties (standard rank method used by Spearman).
+function rank(arr: number[]): number[] {
+  const indexed = arr.map((v, i) => ({ v, i }))
+  indexed.sort((a, b) => a.v - b.v)
+  const ranks = new Array(arr.length)
+  let idx = 0
+  while (idx < indexed.length) {
+    let j = idx
+    while (j + 1 < indexed.length && indexed[j + 1].v === indexed[idx].v) j++
+    const avgRank = (idx + j) / 2 + 1
+    for (let k = idx; k <= j; k++) ranks[indexed[k].i] = avgRank
+    idx = j + 1
+  }
+  return ranks
+}
+
+// Spearman's rank correlation - ranks both variables, then applies the same Pearson
+// math to the ranks. Standard, correct approach; reuses existing tested logic.
+export function spearman(x: number[], y: number[]) {
+  const rx = rank(x)
+  const ry = rank(y)
+  return pearson(rx, ry)
 }
 
 function invertMatrix(M: number[][]): number[][] {
