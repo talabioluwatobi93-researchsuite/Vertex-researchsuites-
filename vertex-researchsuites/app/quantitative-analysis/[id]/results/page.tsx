@@ -624,6 +624,42 @@ export default function ResultsPage() {
         </div>
       )}
 
+      {results.correlation && (
+        <div style={{ backgroundColor: '#FFF8E7', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px', border: '1px solid #D4AF37' }}>
+          <p style={{ color: '#333333', fontSize: '13px', margin: 0 }}>{results.correlation.recommendation}</p>
+        </div>
+      )}
+
+      {results.correlation?.spearmanMatrix && (
+        <div style={tableWrap}>
+          <p style={tableTitle}>Table {nextTable()}. Spearman's Rank Correlation Matrix Among Study Variables</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Variable</th>
+                {results.correlation.labels.map((l: string, i: number) => (
+                  <th style={thStyle} key={i}>{i + 1}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {results.correlation.spearmanMatrix.map((row: any, i: number) => (
+                <tr key={i}>
+                  <td style={tdStyle}>{i + 1}. {row.name}</td>
+                  {row.cells.map((cell: any, j: number) => (
+                    <td style={tdStyle} key={j}>
+                      {cell.r.toFixed(3)}
+                      {cell.p !== null && cell.p < 0.05 ? '*' : ''}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p style={noteStyle}>* p &lt; .05. Spearman reported alongside Pearson for robustness.</p>
+        </div>
+      )}
+
       {results.regression && (
         <>
           <div style={tableWrap}>
