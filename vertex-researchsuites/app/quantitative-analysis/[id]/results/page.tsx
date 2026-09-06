@@ -561,6 +561,39 @@ export default function ResultsPage() {
         </div>
       ))}
 
+      {results.itemDescriptives?.map((c: any, ci: number) => (
+        <div key={ci} style={tableWrap}>
+          <p style={tableTitle}>Table {nextTable()}. Item Descriptive Statistics for {c.constructName}</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Items</th>
+                {Array.from({ length: c.scaleMax - c.scaleMin + 1 }, (_, i) => c.scaleMin + i).map((p: number) => (
+                  <th key={p} style={thStyle}>{p}</th>
+                ))}
+                <th style={thStyle}>M</th>
+                <th style={thStyle}>SD</th>
+                <th style={thStyle}>Overall %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {c.items.map((it: any, ii: number) => (
+                <tr key={ii}>
+                  <td style={tdStyle}>{it.label}</td>
+                  {Array.from({ length: c.scaleMax - c.scaleMin + 1 }, (_, i) => c.scaleMin + i).map((p: number) => (
+                    <td key={p} style={tdStyle}>{it.pointPercents[p]?.toFixed(1)}%</td>
+                  ))}
+                  <td style={tdStyle}>{it.mean !== null ? it.mean.toFixed(2) : '—'}</td>
+                  <td style={tdStyle}>{it.sd !== null ? it.sd.toFixed(2) : '—'}</td>
+                  <td style={tdStyle}>{it.overallPercent !== null ? `${it.overallPercent.toFixed(1)}%` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p style={noteStyle}>Scale: {c.scaleMin} = lowest point, {c.scaleMax} = highest point.</p>
+        </div>
+      ))}
+
       {results.correlation && (
         <div style={tableWrap}>
           <p style={tableTitle}>Table {nextTable()}. Correlation Matrix Among Study Variables</p>
