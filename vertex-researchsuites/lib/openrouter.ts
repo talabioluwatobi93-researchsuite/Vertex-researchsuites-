@@ -78,3 +78,37 @@ export async function callQuantInterpretChain(prompt: string): Promise<OpenRoute
     return { content, providerUsed: 'gpt4o-mini-fallback' };
   }
 }
+
+export const QUANT_CHAPTER5_MODEL_ROUTES = {
+  primary: 'google/gemini-2.5-flash',
+  fallback: 'deepseek/deepseek-v4-pro',
+};
+
+export async function callQuantChapter5Chain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUANT_CHAPTER5_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'gemini25flash-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Quant Chapter 5 primary failed, falling back:', err);
+    const content = await callOpenRouterStreaming(QUANT_CHAPTER5_MODEL_ROUTES.fallback, prompt);
+    return { content, providerUsed: 'deepseek-fallback' };
+  }
+}
+
+export const QUAL_CHAPTER5_MODEL_ROUTES = {
+  primary: 'google/gemini-2.5-flash',
+  fallback: 'deepseek/deepseek-v4-pro',
+};
+
+export async function callQualChapter5Chain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUAL_CHAPTER5_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'gemini25flash-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Qual Chapter 5 primary failed, falling back:', err);
+    const content = await callOpenRouterStreaming(QUAL_CHAPTER5_MODEL_ROUTES.fallback, prompt);
+    return { content, providerUsed: 'deepseek-fallback' };
+  }
+}

@@ -2,6 +2,7 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { callQuantChapter5Chain } from '@/lib/openrouter'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,26 +36,19 @@ export async function POST(req: NextRequest) {
 
     const prompt = `You are a research methodology expert writing Chapter 5 (Summary, Conclusion, and Recommendations) of a student's academic thesis/dissertation, following the standard Mass Communication department format. Use strict APA ${apaVersion} style, formal academic tone, no first person, no AI-sounding phrases.
 
-RESEARCH FRAMEWORK:
-Topic: ${framework.topic || 'N/A'}
-Research Questions: ${JSON.stringify(framework.researchQuestions || [])}
-Hypotheses: ${JSON.stringify(framework.hypotheses || [])}
-Objectives: ${JSON.stringify(framework.objectives || [])}
+RESEARCH TOPIC: ${framework.topic || 'N/A'}
+RESEARCH QUESTIONS: ${JSON.stringify(framework.researchQuestions || [])}
+OBJECTIVES: ${JSON.stringify(framework.objectives || [])}
 
-PROBLEM STATEMENT (student-provided):
-${inputs.problemStatement}
+PROBLEM STATEMENT (student-provided): ${inputs.problemStatement}
 
-METHODOLOGY (student-provided):
-${inputs.methodology}
+METHODOLOGY (student-provided): ${inputs.methodology}
 
-LIMITATIONS (student-provided, may be lightly edited from a suggested draft):
-${inputs.limitations}
+LIMITATIONS (student-provided, may be lightly edited from a suggested draft): ${inputs.limitations}
 
-CHAPTER 4 RESULTS (already computed and interpreted, use as the factual basis \u2014 do not recalculate or invent numbers):
-${JSON.stringify(session.results, null, 2)}
+CHAPTER 4 RESULTS (already computed and interpreted, use as the factual basis \u2014 do not recalculate or invent numbers): ${JSON.stringify(session.results, null, 2)}
 
-CHAPTER 4 DISCUSSION (already written):
-${session.discussion || 'Not available'}
+CHAPTER 4 DISCUSSION (already written): ${session.discussion || 'Not available'}
 
 Write Chapter 5 with exactly these five numbered sections, each with a clear heading on its own line exactly as written below:
 
@@ -76,36 +70,19 @@ Present the Limitations provided above in polished academic prose, expanding onl
 
 Rules: Do not invent any numbers not present in the Chapter 4 results above. Do not use decorative language. Output plain text only, with each of the five section headings written exactly as shown above on their own line, followed by the section's prose paragraphs. No markdown formatting, no bullet points.`
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 3000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      return NextResponse.json({ error: data.error?.message || 'Chapter 5 generation failed' }, { status: 500 })
+    let chapter5_content: string
+    try {
+      const result = await callQuantChapter5Chain(prompt)
+      chapter5_content = result.content
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message || 'Chapter 5 generation failed' }, { status: 500 })
     }
-
-    const chapter5_content = data.content
-      .map((block: any) => (block.type === 'text' ? block.text : ''))
-      .filter(Boolean)
-      .join('\n')
 
     const chapter5ReadyAt = new Date().toISOString()
 
-      await supabase
-        .from('quantitative_analysis_sessions')
-        .update({ chapter5_content, chapter5_paid: true, chapter5_ready_at: chapter5ReadyAt, chapter5_revealed: false })
+    await supabase
+      .from('quantitative_analysis_sessions')
+      .update({ chapter5_content, chapter5_paid: true, chapter5_ready_at: chapter5ReadyAt, chapter5_revealed: false })
       .eq('id', sessionId)
 
     return NextResponse.json({ chapter5_content, chapter5_ready_at: chapter5ReadyAt })
