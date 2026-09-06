@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
 
     const rawData: any[][] = session.raw_data || []
     const constructs: any[] = session.constructs || []
+    const columnHeaders: string[] = session.column_headers || []
     const cleaningConfig: any = session.cleaning_config || {}
     const analysisTypes: string[] = session.analysis_type || []
     const missingConfig = cleaningConfig.missing_values || {}
@@ -124,38 +125,41 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    const frequencyTables = demoConstructs.map((c) => {
-      const col = (c.columnIndexes || [])[0]
-      const counts: Record<string, number> = {}
-      let validTotal = 0
-      let missingCount = 0
+    const frequencyTables = demoConstructs.flatMap((c) => {
+      const cols: number[] = c.columnIndexes || []
+      return cols.map((col) => {
+        const tableLabel = columnHeaders[col] || c.name
+        const counts: Record<string, number> = {}
+        let validTotal = 0
+        let missingCount = 0
 
-      cleanedRows.forEach((row) => {
-        const val = row[col]
-        if (val === null || val === undefined || String(val).trim() === '') {
-          missingCount++
-          return
-        }
-        const key = String(val).trim()
-        counts[key] = (counts[key] || 0) + 1
-        validTotal++
+        cleanedRows.forEach((row) => {
+          const val = row[col]
+          if (val === null || val === undefined || String(val).trim() === '') {
+            missingCount++
+            return
+          }
+          const key = String(val).trim()
+          counts[key] = (counts[key] || 0) + 1
+          validTotal++
+        })
+
+        const allTotal = validTotal + missingCount
+        let cumulative = 0
+        const rows = Object.entries(counts).map(([label, count]) => {
+          const validPercent = validTotal > 0 ? (count / validTotal) * 100 : 0
+          cumulative += validPercent
+          return {
+            label,
+            frequency: count,
+            percent: r1(allTotal > 0 ? (count / allTotal) * 100 : 0),
+            validPercent: r1(validPercent),
+            cumulativePercent: r1(cumulative)
+          }
+        })
+
+        return { name: tableLabel, nValid: validTotal, nMissing: missingCount, rows }
       })
-
-      const allTotal = validTotal + missingCount
-      let cumulative = 0
-      const rows = Object.entries(counts).map(([label, count]) => {
-        const validPercent = validTotal > 0 ? (count / validTotal) * 100 : 0
-        cumulative += validPercent
-        return {
-          label,
-          frequency: count,
-          percent: r1(allTotal > 0 ? (count / allTotal) * 100 : 0),
-          validPercent: r1(validPercent),
-          cumulativePercent: r1(cumulative)
-        }
-      })
-
-      return { name: c.name, nValid: validTotal, nMissing: missingCount, rows }
     })
 
     let correlation: any = null
