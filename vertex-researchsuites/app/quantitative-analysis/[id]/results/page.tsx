@@ -479,37 +479,6 @@ export default function ResultsPage() {
           Download Results
         </button>
 
-      {results.descriptives?.length > 0 && (
-        <div style={tableWrap}>
-          <p style={tableTitle}>Table {nextTable()}. Descriptive Statistics for Study Variables</p>
-          <table style={table}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Variable</th>
-                <th style={thStyle}>N</th>
-                <th style={thStyle}>M</th>
-                <th style={thStyle}>SD</th>
-                <th style={thStyle}>Min</th>
-                <th style={thStyle}>Max</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.descriptives.map((d: any, i: number) => (
-                <tr key={i}>
-                  <td style={tdStyle}>{d.name}</td>
-                  <td style={tdStyle}>{d.n}</td>
-                  <td style={tdStyle}>{d.mean.toFixed(2)}</td>
-                  <td style={tdStyle}>{d.sd.toFixed(2)}</td>
-                  <td style={tdStyle}>{d.min.toFixed(2)}</td>
-                  <td style={tdStyle}>{d.max.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p style={noteStyle}>Note. M = Mean, SD = Standard Deviation.</p>
-        </div>
-      )}
-
       {results.frequencyTables?.map((f: any, idx: number) => (
         <div key={idx}>
           <div style={tableWrap}>
@@ -593,6 +562,37 @@ export default function ResultsPage() {
           <p style={noteStyle}>Scale: {c.scaleMin} = lowest point, {c.scaleMax} = highest point.</p>
         </div>
       ))}
+
+      {results.descriptives?.length > 0 && (
+        <div style={tableWrap}>
+          <p style={tableTitle}>Table {nextTable()}. Descriptive Statistics for Study Variables</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Variable</th>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>M</th>
+                <th style={thStyle}>SD</th>
+                <th style={thStyle}>Min</th>
+                <th style={thStyle}>Max</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.descriptives.map((d: any, i: number) => (
+                <tr key={i}>
+                  <td style={tdStyle}>{d.name}</td>
+                  <td style={tdStyle}>{d.n}</td>
+                  <td style={tdStyle}>{d.mean.toFixed(2)}</td>
+                  <td style={tdStyle}>{d.sd.toFixed(2)}</td>
+                  <td style={tdStyle}>{d.min.toFixed(2)}</td>
+                  <td style={tdStyle}>{d.max.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. M = Mean, SD = Standard Deviation.</p>
+        </div>
+      )}
 
       {results.correlation && (
         <div style={tableWrap}>
