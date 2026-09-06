@@ -45,7 +45,7 @@ async function callOpenRouterStreaming(model: string, prompt: string): Promise<s
 
 export const MODEL_ROUTES = {
   pilotStudy: {
-    primary: 'anthropic/claude-sonnet-4.5', // ⚠ verify exact slug on openrouter.ai/models
+    primary: 'anthropic/claude-sonnet-4.6',
     fallback: 'openai/gpt-4o-mini',
   },
 };
@@ -63,7 +63,7 @@ export async function callPilotStudyChain(prompt: string): Promise<OpenRouterRes
 }
 
 export const QUANT_INTERPRET_MODEL_ROUTES = {
-  primary: 'anthropic/claude-sonnet-4.5', // ⚠verify exact slug on openrouter.ai/models
+  primary: 'anthropic/claude-sonnet-4.6',
   fallback: 'openai/gpt-4o-mini',
 };
 
@@ -131,8 +131,8 @@ export async function callQualStep1Chain(prompt: string): Promise<OpenRouterResu
 }
 
 export const QUAL_STEP2_MODEL_ROUTES = {
-  primary: 'moonshotai/kimi-k2', // TODO: verify exact "Kimi K3" slug on openrouter.ai/models before deploying
-  fallback: 'anthropic/claude-sonnet-4.5',
+  primary: 'moonshotai/kimi-k3',
+  fallback: 'anthropic/claude-sonnet-4.6',
 };
 
 export async function callQualStep2Chain(prompt: string): Promise<OpenRouterResult> {
@@ -149,8 +149,8 @@ export async function callQualStep2Chain(prompt: string): Promise<OpenRouterResu
 
 export const VOICE_INTERPRET_MODEL_ROUTES = {
   primary: 'deepseek/deepseek-v4-pro',
-  fallbackA: 'moonshotai/kimi-k2', // TODO: verify exact "Kimi K3" slug on openrouter.ai/models before deploying
-  fallbackB: 'anthropic/claude-sonnet-4.5',
+  fallbackA: 'moonshotai/kimi-k3',
+  fallbackB: 'anthropic/claude-sonnet-4.6',
 };
 
 export async function callVoiceInterpretChain(prompt: string): Promise<OpenRouterResult> {
