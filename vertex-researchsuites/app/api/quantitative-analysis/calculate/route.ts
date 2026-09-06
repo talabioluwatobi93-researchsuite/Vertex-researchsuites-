@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest } from '@/lib/stats'
+import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -186,7 +186,20 @@ export async function POST(req: NextRequest) {
         matrix.push(rowResult)
         spearmanMatrix.push(spearmanRowResult)
       }
-      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix }
+      // Flag constructs with notably skewed distributions (|skew| > 1 is a common rule of
+      // thumb for "substantial" skew) - used to recommend Spearman as more appropriate
+      // for that construct's correlations, without hiding either result.
+      const skewFlags: Record<string, boolean> = {}
+      scaleConstructsList.forEach((c) => {
+        const skew = constructScores[c.id].length >= 3 ? skewness(constructScores[c.id]) : 0
+        skewFlags[c.id] = Math.abs(skew) > 1
+      })
+      const anySkewed = scaleConstructsList.some((c) => skewFlags[c.id])
+      const recommendation = anySkewed
+        ? 'Some variables show notable skew - Spearman may be more robust for those correlations. Both are reported below.'
+        : 'Data distributions appear reasonably normal - Pearson is appropriate here. Spearman is also reported for reference.'
+
+      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation }
     }
 
     let regression: any = null

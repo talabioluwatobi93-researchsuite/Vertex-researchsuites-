@@ -7,6 +7,18 @@ export function sd(arr: number[]): number {
   return Math.sqrt(variance)
 }
 
+// Sample skewness (Fisher-Pearson standardized moment coefficient). Used to flag whether
+// a variable's distribution is notably non-normal - guides the Pearson vs Spearman
+// recommendation without hiding either result from the user.
+export function skewness(arr: number[]): number {
+  const n = arr.length
+  const m = mean(arr)
+  const s = sd(arr)
+  if (s === 0 || n < 3) return 0
+  const cubedSum = arr.reduce((a, v) => a + ((v - m) / s) ** 3, 0)
+  return (n / ((n - 1) * (n - 2))) * cubedSum
+}
+
 function betacf(x: number, a: number, b: number): number {
   const MAXIT = 200, EPS = 3e-9, FPMIN = 1e-30
   const qab = a + b, qap = a + 1, qam = a - 1
