@@ -146,3 +146,28 @@ export async function callQualStep2Chain(prompt: string): Promise<OpenRouterResu
     return { content, providerUsed: 'sonnet5-fallback' };
   }
 }
+
+export const VOICE_INTERPRET_MODEL_ROUTES = {
+  primary: 'deepseek/deepseek-v4-pro',
+  fallbackA: 'moonshotai/kimi-k2', // TODO: verify exact "Kimi K3" slug on openrouter.ai/models before deploying
+  fallbackB: 'anthropic/claude-sonnet-4.5',
+};
+
+export async function callVoiceInterpretChain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(VOICE_INTERPRET_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'deepseek-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Voice Interpret primary failed, falling back to Kimi:', err);
+    try {
+      const content = await callOpenRouterStreaming(VOICE_INTERPRET_MODEL_ROUTES.fallbackA, prompt);
+      return { content, providerUsed: 'kimi-fallback' };
+    } catch (err2: any) {
+      if (String(err2.message).startsWith('CONFIG_ERROR')) throw err2;
+      console.error('Voice Interpret Kimi fallback failed, falling back to Sonnet:', err2);
+      const content = await callOpenRouterStreaming(VOICE_INTERPRET_MODEL_ROUTES.fallbackB, prompt);
+      return { content, providerUsed: 'sonnet5-fallback' };
+    }
+  }
+}

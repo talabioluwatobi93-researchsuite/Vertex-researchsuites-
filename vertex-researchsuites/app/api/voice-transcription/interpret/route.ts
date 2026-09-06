@@ -1,6 +1,7 @@
 export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
+import { callVoiceInterpretChain } from "@/lib/openrouter"
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,22 +18,13 @@ Do not omit any theme present in the transcript, however minor. Write in clear, 
 Transcript:
 ${transcript}`;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY!,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-5",
-        max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-
-    const data = await response.json();
-    const notes = data.content?.[0]?.text || "Could not generate interpretive notes at this time.";
+    let notes: string
+    try {
+      const result = await callVoiceInterpretChain(prompt)
+      notes = result.content
+    } catch (err: any) {
+      return NextResponse.json({ notes: err.message || "Something went wrong generating interpretive notes. Please try again." }, { status: 500 });
+    }
 
     return NextResponse.json({ notes });
   } catch {
