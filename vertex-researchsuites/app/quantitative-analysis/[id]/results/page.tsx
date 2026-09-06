@@ -62,6 +62,7 @@ export default function ResultsPage() {
   const [gateInfo, setGateInfo] = useState<any>({ constructs: [], response_rate_info: null, reliability_info: null })
   const [reRunInfo, setReRunInfo] = useState<any>({ file_fingerprint: null, raw_data: null, column_headers: null, research_framework: null, parent_session_id: null, user_id: null })
   const [reRunLoading, setReRunLoading] = useState(false)
+  const [tailType, setTailType] = useState<'two' | 'one'>('two')
 
   useEffect(() => {
     init()
@@ -613,7 +614,7 @@ export default function ResultsPage() {
                   {row.cells.map((cell: any, j: number) => (
                     <td style={tdStyle} key={j}>
                       {cell.r.toFixed(3)}
-                      {cell.p !== null && cell.p < 0.05 ? '*' : ''}
+                      {cell.p !== null && (tailType === 'one' ? cell.pOneTailed : cell.p) < 0.05 ? '*' : ''}
                     </td>
                   ))}
                 </tr>
@@ -626,7 +627,16 @@ export default function ResultsPage() {
 
       {results.correlation && (
         <div style={{ backgroundColor: '#FFF8E7', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px', border: '1px solid #D4AF37' }}>
-          <p style={{ color: '#333333', fontSize: '13px', margin: 0 }}>{results.correlation.recommendation}</p>
+          <p style={{ color: '#333333', fontSize: '13px', margin: '0 0 10px 0' }}>{results.correlation.recommendation}</p>
+          <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginRight: '8px' }}>Significance test:</label>
+          <select
+            value={tailType}
+            onChange={(e) => setTailType(e.target.value as 'two' | 'one')}
+            style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #EEEEEE', fontSize: '12px' }}
+          >
+            <option value="two">Two-tailed (default)</option>
+            <option value="one">One-tailed (only if hypothesis is directional)</option>
+          </select>
         </div>
       )}
 
