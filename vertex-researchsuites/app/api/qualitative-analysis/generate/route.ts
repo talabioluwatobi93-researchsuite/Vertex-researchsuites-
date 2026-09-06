@@ -2,6 +2,7 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { callQualStep2Chain } from '@/lib/openrouter'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -68,30 +69,13 @@ ${analysisTypes.includes('content') ? '- A Content Analysis section: present the
 
 Rules: Do not invent any quotes not provided above. Do not invent frequency numbers not provided above. Output plain text only, structured in short academic paragraphs, no markdown formatting, no bullet points.`
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 3000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      return NextResponse.json({ error: data.error?.message || 'Report generation failed' }, { status: 500 })
+    let narrative: string
+    try {
+      const result = await callQualStep2Chain(prompt)
+      narrative = result.content
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message || 'Report generation failed' }, { status: 500 })
     }
-
-    const narrative = data.content
-      .map((block: any) => (block.type === 'text' ? block.text : ''))
-      .filter(Boolean)
-      .join('\n')
 
     const results = {
       themeCount: themes.length,

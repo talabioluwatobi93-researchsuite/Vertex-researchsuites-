@@ -2,6 +2,7 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { callQualStep1Chain } from '@/lib/openrouter'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,31 +43,13 @@ Respond with ONLY a valid JSON array, no other text, no markdown code fences, in
   { "theme": "Theme name exactly as given above", "quote": "exact quote from the transcript" }
 ]`
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-8',
-        max_tokens: 3000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      return NextResponse.json({ error: data.error?.message || 'Quote assignment failed' }, { status: 500 })
+    let rawText: string
+    try {
+      const result = await callQualStep1Chain(prompt)
+      rawText = result.content
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message || 'Quote assignment failed' }, { status: 500 })
     }
-
-    const rawText = data.content
-      .map((block: any) => (block.type === 'text' ? block.text : ''))
-      .filter(Boolean)
-      .join('\n')
-      .trim()
 
     let assignments
     try {

@@ -112,3 +112,37 @@ export async function callQualChapter5Chain(prompt: string): Promise<OpenRouterR
     return { content, providerUsed: 'deepseek-fallback' };
   }
 }
+
+export const QUAL_STEP1_MODEL_ROUTES = {
+  primary: 'deepseek/deepseek-v4-pro',
+  fallback: 'openai/gpt-4o-mini',
+};
+
+export async function callQualStep1Chain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUAL_STEP1_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'deepseek-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Qual Step 1 primary failed, falling back:', err);
+    const content = await callOpenRouterStreaming(QUAL_STEP1_MODEL_ROUTES.fallback, prompt);
+    return { content, providerUsed: 'gpt4o-mini-fallback' };
+  }
+}
+
+export const QUAL_STEP2_MODEL_ROUTES = {
+  primary: 'moonshotai/kimi-k2', // TODO: verify exact "Kimi K3" slug on openrouter.ai/models before deploying
+  fallback: 'anthropic/claude-sonnet-4.5',
+};
+
+export async function callQualStep2Chain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUAL_STEP2_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'kimi-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Qual Step 2 primary failed, falling back:', err);
+    const content = await callOpenRouterStreaming(QUAL_STEP2_MODEL_ROUTES.fallback, prompt);
+    return { content, providerUsed: 'sonnet5-fallback' };
+  }
+}
