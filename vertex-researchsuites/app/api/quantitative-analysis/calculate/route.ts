@@ -389,11 +389,57 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // NEW: item-level descriptive table for each scale construct (IV/DV) - one row per
+    // question ITEM (not the whole construct). Matches the fully-expanded Likert breakdown
+    // format (per-point %, Mean, SD, Overall %). Fully dynamic - works for any scale range
+    // and any number of items, nothing hardcoded.
+    const itemDescriptives = scaleConstructsList.map((c) => {
+      const cols: number[] = c.columnIndexes || []
+      const reverseIdx: number[] = c.reverseIndexes || []
+      const scaleMin = c.scaleMin ?? 1
+      const scaleMax = c.scaleMax ?? 5
+
+      const items = cols.map((col) => {
+        const values: number[] = []
+        const rawCounts: Record<number, number> = {}
+
+        cleanedRows.forEach((row) => {
+          let num = resolveNumeric(row[col], c.id)
+          if (num === null) return
+          if (reverseIdx.includes(col)) num = (scaleMin + scaleMax) - num
+          values.push(num)
+          rawCounts[num] = (rawCounts[num] || 0) + 1
+        })
+
+        const n = values.length
+        const pointPercents: Record<number, number> = {}
+        for (let p = scaleMin; p <= scaleMax; p++) {
+          pointPercents[p] = n > 0 ? r1(((rawCounts[p] || 0) / n) * 100) : 0
+        }
+
+        const m = n > 0 ? mean(values) : null
+        const s = n > 0 ? sd(values) : null
+        const overallPercent = m !== null ? r1((m / scaleMax) * 100) : null
+
+        return {
+          label: columnHeaders[col] || `Item ${col}`,
+          n,
+          pointPercents,
+          mean: m !== null ? r2(m) : null,
+          sd: s !== null ? r2(s) : null,
+          overallPercent
+        }
+      })
+
+      return { constructName: c.name, scaleMin, scaleMax, items }
+    })
+
     const results = {
       sampleSize: cleanedRows.length,
       excludedRows: rawData.length - cleanedRows.length,
       descriptives: analysisTypes.includes('descriptive') ? descriptives : undefined,
       frequencyTables: analysisTypes.includes('descriptive') ? frequencyTables : undefined,
+      itemDescriptives: analysisTypes.includes('descriptive') ? itemDescriptives : undefined,
       correlation,
       regression,
       ttest,
