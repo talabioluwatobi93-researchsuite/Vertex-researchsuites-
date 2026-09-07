@@ -211,14 +211,7 @@ export default function ResultsPage() {
 
       const freeReRunsUsed = (siblings || []).length - 1
 
-      if (freeReRunsUsed >= 2) {
-        const access = await checkFeatureAccess('quant_rerun_unlock', reRunInfo.user_id)
-        if (!access.allowed) {
-          setErrorMsg(access.message || 'You have used your 2 free re-runs for this dataset within the last 7 days.')
-          setReRunLoading(false)
-          return
-        }
-      }
+      // Re-run limit temporarily disabled - unlimited reruns allowed during testing
 
       const { data: newSession, error: createErr } = await supabase
         .from('quantitative_analysis_sessions')
