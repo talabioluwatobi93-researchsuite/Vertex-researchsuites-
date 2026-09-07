@@ -62,6 +62,7 @@ export default function ResultsPage() {
   const [gateInfo, setGateInfo] = useState<any>({ constructs: [], response_rate_info: null, reliability_info: null })
   const [reRunInfo, setReRunInfo] = useState<any>({ file_fingerprint: null, raw_data: null, column_headers: null, research_framework: null, parent_session_id: null, user_id: null })
   const [reRunLoading, setReRunLoading] = useState(false)
+  const [chartPrefs, setChartPrefs] = useState<{ bar: boolean, pie: boolean }>({ bar: true, pie: true })
   const [tailType, setTailType] = useState<'two' | 'one'>('two')
 
   useEffect(() => {
@@ -73,7 +74,7 @@ export default function ResultsPage() {
       // 1. Check if this session already has computed results stored
       const { data: session, error: sessionErr } = await supabase
         .from('quantitative_analysis_sessions')
-        .select('results_json, interpretation, discussion, results_ready_at, results_revealed, constructs, response_rate_info, reliability_info, file_fingerprint, raw_data, column_headers, research_framework, parent_session_id, user_id')
+        .select('results_json, interpretation, discussion, results_ready_at, results_revealed, constructs, response_rate_info, reliability_info, file_fingerprint, raw_data, column_headers, research_framework, parent_session_id, user_id, cleaning_config')
         .eq('id', id)
         .single()
 
@@ -91,6 +92,10 @@ export default function ResultsPage() {
         response_rate_info: session?.response_rate_info || null,
         reliability_info: session?.reliability_info || null
       })
+      const savedChartPrefs = session?.cleaning_config?.chart_preferences
+      if (savedChartPrefs) {
+        setChartPrefs({ bar: savedChartPrefs.bar ?? true, pie: savedChartPrefs.pie ?? true })
+      }
       setReRunInfo({
         file_fingerprint: session?.file_fingerprint || null,
         raw_data: session?.raw_data || null,

@@ -316,7 +316,7 @@ export default function Dashboard() {
         {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/new'), flags['proposals'] === false)}
         {featureCard('✍️', 'Writing Check & Polish', 'Check your writing for originality and clarity', () => router.push('/writing-check'), flags['writing-check'] === false)}
             {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study'), flags['pilot-study'] === false)}
-                {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis/pricing'), flags['quantitative-analysis'] === false)}
+                {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis'), flags['quantitative-analysis'] === false)}
                 {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis'), flags['qualitative-analysis'] === false)}
         {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true, bunkerUnreadCount, flags['bunker'] === false)}
         {featureCard('🎙️', 'Voice Transcription & Analysis', 'Upload interview audio, get transcript + notes', () => router.push('/voice-transcription'), false, 0, flags['voice-transcription'] === false)}
