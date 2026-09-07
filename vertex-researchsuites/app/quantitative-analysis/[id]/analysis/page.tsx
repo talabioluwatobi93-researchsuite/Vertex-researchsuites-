@@ -58,6 +58,8 @@ export default function AnalysisTypePage() {
   const [anovaOutcomeId, setAnovaOutcomeId] = useState('')
   const [chisquareRowId, setChisquareRowId] = useState('')
   const [chisquareColId, setChisquareColId] = useState('')
+  const [includeSpearman, setIncludeSpearman] = useState(false)
+  const [tailType, setTailType] = useState<'two' | 'one'>('two')
 
   useEffect(() => {
     const load = async () => {
@@ -234,6 +236,9 @@ export default function AnalysisTypePage() {
         chisquare_config: selected.includes('chisquare')
           ? { rowConstructId: chisquareRowId, colConstructId: chisquareColId }
           : null,
+        correlation_config: selected.includes('correlation')
+          ? { includeSpearman, tailType }
+          : null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', sessionId)
@@ -306,10 +311,35 @@ export default function AnalysisTypePage() {
             </p>
 
             {type === 'correlation' && isSelected && avail.available && (
-              <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '10px 12px', marginTop: '10px' }}>
+              <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '10px 12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
                 <p style={{ color: '#333333', fontSize: '12px', margin: 0 }}>
                   We'll correlate: {[...ivConstructs, ...dvConstructs].map((c) => c.name).join(', ')}
                 </p>
+                  <p style={{ color: '#333333', fontSize: '12px', margin: '10px 0 4px 0' }}>
+                    Pearson correlation runs by default. Only turn on Spearman if your data is ranked/ordinal or you specifically need a non-parametric test.
+                  </p>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <input
+                      type="checkbox"
+                      checked={includeSpearman}
+                      onChange={(e) => setIncludeSpearman(e.target.checked)}
+                    />
+                    <span style={{ color: '#555555', fontSize: '12px' }}>Also run Spearman's rank correlation (optional)</span>
+                  </label>
+                  <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                    Significance test
+                  </label>
+                  <select
+                    value={tailType}
+                    onChange={(e) => setTailType(e.target.value as 'two' | 'one')}
+                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}
+                  >
+                    <option value="two">Two-tailed (default - use this unless you're sure)</option>
+                    <option value="one">One-tailed (only if your hypothesis predicts a direction, e.g. "X increases Y")</option>
+                  </select>
+                  <p style={{ color: '#777777', fontSize: '11px', margin: '6px 0 0 0' }}>
+                    Not sure? Stick with two-tailed - it's the safer, standard choice for most student research and doesn't assume a direction of effect.
+                  </p>
               </div>
             )}
 

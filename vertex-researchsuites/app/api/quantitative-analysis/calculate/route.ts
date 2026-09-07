@@ -164,15 +164,18 @@ export async function POST(req: NextRequest) {
 
     let correlation: any = null
     if (analysisTypes.includes('correlation') && scaleConstructsList.length >= 2) {
+      const includeSpearman = session.correlation_config?.includeSpearman === true
       const matrix: any[] = []
-      const spearmanMatrix: any[] = []
+      const spearmanMatrix: any[] | null = includeSpearman ? [] : null
       for (const rowC of scaleConstructsList) {
         const rowResult: any = { name: rowC.name, cells: [] }
-        const spearmanRowResult: any = { name: rowC.name, cells: [] }
+        const spearmanRowResult: any = includeSpearman ? { name: rowC.name, cells: [] } : null
         for (const colC of scaleConstructsList) {
           if (rowC.id === colC.id) {
             rowResult.cells.push({ r: 1, p: null, pOneTailed: null, n: constructScores[rowC.id].length })
-            spearmanRowResult.cells.push({ r: 1, p: null, pOneTailed: null, n: constructScores[rowC.id].length })
+            if (includeSpearman) {
+              spearmanRowResult.cells.push({ r: 1, p: null, pOneTailed: null, n: constructScores[rowC.id].length })
+            }
             continue
           }
           const n = Math.min(constructScores[rowC.id].length, constructScores[colC.id].length)
@@ -180,11 +183,15 @@ export async function POST(req: NextRequest) {
           const y = constructScores[colC.id].slice(0, n)
           const result = pearson(x, y)
           rowResult.cells.push({ r: r3(result.r), p: r3(result.p), pOneTailed: r3(result.pOneTailed), n: result.n })
-          const spearmanResult = spearman(x, y)
-          spearmanRowResult.cells.push({ r: r3(spearmanResult.r), p: r3(spearmanResult.p), pOneTailed: r3(spearmanResult.pOneTailed), n: spearmanResult.n })
+          if (includeSpearman) {
+            const spearmanResult = spearman(x, y)
+            spearmanRowResult.cells.push({ r: r3(spearmanResult.r), p: r3(spearmanResult.p), pOneTailed: r3(spearmanResult.pOneTailed), n: spearmanResult.n })
+          }
         }
         matrix.push(rowResult)
-        spearmanMatrix.push(spearmanRowResult)
+        if (spearmanMatrix) {
+          spearmanMatrix.push(spearmanRowResult)
+        }
       }
       // Flag constructs with notably skewed distributions (|skew| > 1 is a common rule of
       // thumb for "substantial" skew) - used to recommend Spearman as more appropriate
@@ -196,8 +203,10 @@ export async function POST(req: NextRequest) {
       })
       const anySkewed = scaleConstructsList.some((c) => skewFlags[c.id])
       const recommendation = anySkewed
-        ? 'Some variables show notable skew - Spearman may be more robust for those correlations. Both are reported below.'
-        : 'Data distributions appear reasonably normal - Pearson is appropriate here. Spearman is also reported for reference.'
+        ? (includeSpearman
+            ? 'Some variables show notable skew - Spearman may be more robust for those correlations. Both are reported below.'
+            : "Some variables show notable skew - consider also requesting Spearman's rank correlation for more robust results.")
+        : 'Data distributions appear reasonably normal - Pearson (the default correlation) is appropriate here.'
 
       correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation }
     }
