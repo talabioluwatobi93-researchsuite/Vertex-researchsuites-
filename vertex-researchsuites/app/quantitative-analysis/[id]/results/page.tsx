@@ -478,56 +478,34 @@ export default function ResultsPage() {
           Download Results
         </button>
 
-      {results.frequencyTables?.map((f: any, idx: number) => (
-        <div key={idx}>
-          <div style={tableWrap}>
-            <p style={tableTitle}>Table {nextTable()}. Statistics for {f.name}</p>
-            <table style={table}>
-              <thead>
-                <tr>
-                  <th style={thStyle}></th>
-                  <th style={thStyle}>N Valid</th>
-                  <th style={thStyle}>N Missing</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={tdStyle}>{f.name}</td>
-                  <td style={tdStyle}>{f.nValid}</td>
-                  <td style={tdStyle}>{f.nMissing}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div style={tableWrap}>
-            <p style={tableTitle}>Table {nextTable()}. Frequency Distribution for {f.name}</p>
-            <table style={table}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>{f.name}</th>
-                  <th style={thStyle}>Frequency</th>
-                  <th style={thStyle}>Percent</th>
-                  <th style={thStyle}>Valid Percent</th>
-                  <th style={thStyle}>Cumulative Percent</th>
-                </tr>
-              </thead>
-              <tbody>
-                {f.rows.map((r: any, i: number) => (
-                  <tr key={i}>
-                    <td style={tdStyle}>{r.label}</td>
-                    <td style={tdStyle}>{r.frequency}</td>
-                    <td style={tdStyle}>{r.percent.toFixed(2)}</td>
-                    <td style={tdStyle}>{r.validPercent.toFixed(2)}</td>
-                    <td style={tdStyle}>{r.cumulativePercent.toFixed(2)}</td>
+          {results.frequencyTables?.map((f: any, idx: number) => (
+            <div key={idx} style={tableWrap}>
+              <p style={tableTitle}>Table {nextTable()}. Frequency Distribution for {f.name}</p>
+              <table style={table}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>{f.name}</th>
+                    <th style={thStyle}>Frequency</th>
+                    <th style={thStyle}>Percent</th>
+                    <th style={thStyle}>Valid Percent</th>
+                    <th style={thStyle}>Cumulative Percent</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <p style={noteStyle}>Note. N = {f.nValid + f.nMissing}.</p>
-          </div>
-        </div>
-      ))}
+                </thead>
+                <tbody>
+                  {f.rows.map((r: any, i: number) => (
+                    <tr key={i}>
+                      <td style={tdStyle}>{r.label}</td>
+                      <td style={tdStyle}>{r.frequency}</td>
+                      <td style={tdStyle}>{r.percent.toFixed(2)}</td>
+                      <td style={tdStyle}>{r.validPercent.toFixed(2)}</td>
+                      <td style={tdStyle}>{r.cumulativePercent.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p style={noteStyle}>Note. N = {f.nValid + f.nMissing} ({f.nValid} valid, {f.nMissing} missing).</p>
+            </div>
+          ))}
 
       {results.itemDescriptives?.map((c: any, ci: number) => (
         <div key={ci} style={tableWrap}>
