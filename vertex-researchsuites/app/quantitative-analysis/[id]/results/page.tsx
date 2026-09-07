@@ -573,31 +573,47 @@ export default function ResultsPage() {
 
       {results.correlation && (
         <div style={tableWrap}>
-          <p style={tableTitle}>Table {nextTable()}. Correlation Matrix Among Study Variables</p>
+          <p style={tableTitle}>Table {nextTable()}. Pearson Correlations Among Study Variables (Default)</p>
           <table style={table}>
             <thead>
               <tr>
                 <th style={thStyle}>Variable</th>
+                <th style={thStyle}></th>
                 {results.correlation.labels.map((l: string, i: number) => (
-                  <th style={thStyle} key={i}>{i + 1}</th>
+                  <th style={thStyle} key={i}>{i + 1}. {l}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {results.correlation.matrix.map((row: any, i: number) => (
-                <tr key={i}>
-                  <td style={tdStyle}>{i + 1}. {row.name}</td>
+              {results.correlation.matrix.flatMap((row: any, i: number) => ([
+                <tr key={`${i}-r`}>
+                  <td style={tdStyle} rowSpan={3}>{i + 1}. {row.name}</td>
+                  <td style={tdStyle}>Pearson Correlation</td>
                   {row.cells.map((cell: any, j: number) => (
                     <td style={tdStyle} key={j}>
                       {cell.r.toFixed(3)}
                       {cell.p !== null && (tailType === 'one' ? cell.pOneTailed : cell.p) < 0.05 ? '*' : ''}
                     </td>
                   ))}
+                </tr>,
+                <tr key={`${i}-p`}>
+                  <td style={tdStyle}>Sig. ({tailType === 'one' ? '1-tailed' : '2-tailed'})</td>
+                  {row.cells.map((cell: any, j: number) => (
+                    <td style={tdStyle} key={j}>
+                      {cell.p === null ? '' : (tailType === 'one' ? cell.pOneTailed : cell.p).toFixed(3)}
+                    </td>
+                  ))}
+                </tr>,
+                <tr key={`${i}-n`}>
+                  <td style={tdStyle}>N</td>
+                  {row.cells.map((cell: any, j: number) => (
+                    <td style={tdStyle} key={j}>{cell.n}</td>
+                  ))}
                 </tr>
-              ))}
+              ]))}
             </tbody>
           </table>
-          <p style={noteStyle}>* p &lt; .05</p>
+          <p style={noteStyle}>* p &lt; .05. Pearson is the default correlation reported.</p>
         </div>
       )}
 
@@ -618,31 +634,47 @@ export default function ResultsPage() {
 
       {results.correlation?.spearmanMatrix && (
         <div style={tableWrap}>
-          <p style={tableTitle}>Table {nextTable()}. Spearman's Rank Correlation Matrix Among Study Variables</p>
+          <p style={tableTitle}>Table {nextTable()}. Spearman's Rank Correlations Among Study Variables (Supplementary)</p>
           <table style={table}>
             <thead>
               <tr>
                 <th style={thStyle}>Variable</th>
+                <th style={thStyle}></th>
                 {results.correlation.labels.map((l: string, i: number) => (
-                  <th style={thStyle} key={i}>{i + 1}</th>
+                  <th style={thStyle} key={i}>{i + 1}. {l}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {results.correlation.spearmanMatrix.map((row: any, i: number) => (
-                <tr key={i}>
-                  <td style={tdStyle}>{i + 1}. {row.name}</td>
+              {results.correlation.spearmanMatrix.flatMap((row: any, i: number) => ([
+                <tr key={`${i}-r`}>
+                  <td style={tdStyle} rowSpan={3}>{i + 1}. {row.name}</td>
+                  <td style={tdStyle}>Spearman's rho</td>
                   {row.cells.map((cell: any, j: number) => (
                     <td style={tdStyle} key={j}>
                       {cell.r.toFixed(3)}
                       {cell.p !== null && cell.p < 0.05 ? '*' : ''}
                     </td>
                   ))}
+                </tr>,
+                <tr key={`${i}-p`}>
+                  <td style={tdStyle}>Sig. (2-tailed)</td>
+                  {row.cells.map((cell: any, j: number) => (
+                    <td style={tdStyle} key={j}>
+                      {cell.p === null ? '' : cell.p.toFixed(3)}
+                    </td>
+                  ))}
+                </tr>,
+                <tr key={`${i}-n`}>
+                  <td style={tdStyle}>N</td>
+                  {row.cells.map((cell: any, j: number) => (
+                    <td style={tdStyle} key={j}>{cell.n}</td>
+                  ))}
                 </tr>
-              ))}
+              ]))}
             </tbody>
           </table>
-          <p style={noteStyle}>* p &lt; .05. Spearman reported alongside Pearson for robustness.</p>
+          <p style={noteStyle}>* p &lt; .05. Spearman reported alongside Pearson (the default) for robustness.</p>
         </div>
       )}
 
