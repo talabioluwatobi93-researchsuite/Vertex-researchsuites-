@@ -534,6 +534,15 @@ export default function ResultsPage() {
                   <td style={tdStyle}>{it.overallPercent !== null ? `${it.overallPercent.toFixed(1)}%` : '—'}</td>
                 </tr>
               ))}
+                <tr style={{ fontWeight: 700, borderTop: '2px solid #333333' }}>
+                  <td style={tdStyle}>Total / Composite</td>
+                  {Array.from({ length: c.scaleMax - c.scaleMin + 1 }, (_, i) => c.scaleMin + i).map((p: number) => (
+                    <td key={p} style={tdStyle}></td>
+                  ))}
+                  <td style={tdStyle}>{c.totalMean !== null ? c.totalMean.toFixed(2) : '-'}</td>
+                  <td style={tdStyle}>{c.totalSD !== null ? c.totalSD.toFixed(2) : '-'}</td>
+                  <td style={tdStyle}>{c.totalOverallPercent !== null ? `${c.totalOverallPercent.toFixed(1)}%` : '-'}</td>
+                </tr>
             </tbody>
           </table>
           <p style={noteStyle}>Scale: {c.scaleMin} = lowest point, {c.scaleMax} = highest point.</p>
