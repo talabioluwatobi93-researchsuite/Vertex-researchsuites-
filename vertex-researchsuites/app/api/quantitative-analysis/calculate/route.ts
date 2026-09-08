@@ -101,18 +101,19 @@ export async function POST(req: NextRequest) {
     const dvConstructs = constructs.filter((c) => c.role === 'DV')
     const demoConstructs = constructs.filter((c) => c.role === 'Demographic')
     const scaleConstructsList = constructs.filter((c) => c.role === 'IV' || c.role === 'DV')
+    const allScaleConstructs = constructs.filter((c) => c.role !== 'Demographic')
 
     const constructScores: Record<string, number[]> = {}
-    scaleConstructsList.forEach((c) => { constructScores[c.id] = [] })
+    allScaleConstructs.forEach((c) => { constructScores[c.id] = [] })
 
     cleanedRows.forEach((row) => {
-      scaleConstructsList.forEach((c) => {
+      allScaleConstructs.forEach((c) => {
         const score = getConstructScore(row, c)
         if (score !== null) constructScores[c.id].push(score)
       })
     })
 
-    const descriptives = scaleConstructsList.map((c) => {
+    const descriptives = allScaleConstructs.map((c) => {
       const scores = constructScores[c.id]
       return {
         name: c.name,
@@ -421,7 +422,7 @@ export async function POST(req: NextRequest) {
     // question ITEM (not the whole construct). Matches the fully-expanded Likert breakdown
     // format (per-point %, Mean, SD, Overall %). Fully dynamic - works for any scale range
     // and any number of items, nothing hardcoded.
-    const itemDescriptives = scaleConstructsList.map((c) => {
+    const itemDescriptives = allScaleConstructs.map((c) => {
       const cols: number[] = c.columnIndexes || []
       const reverseIdx: number[] = c.reverseIndexes || []
       const scaleMin = c.scaleMin ?? 1
@@ -459,7 +460,17 @@ export async function POST(req: NextRequest) {
         }
       })
 
-      return { constructName: c.name, scaleMin, scaleMax, items }
+      const totalMean = items.length > 0
+        ? r2(mean(items.filter((it) => it.mean !== null).map((it) => it.mean as number)))
+        : null
+      const totalSD = items.length > 0
+        ? r2(mean(items.filter((it) => it.sd !== null).map((it) => it.sd as number)))
+        : null
+      const totalOverallPercent = items.length > 0
+        ? r1(mean(items.filter((it) => it.overallPercent !== null).map((it) => it.overallPercent as number)))
+        : null
+
+      return { constructName: c.name, scaleMin, scaleMax, items, totalMean, totalSD, totalOverallPercent }
     })
 
     const results = {
