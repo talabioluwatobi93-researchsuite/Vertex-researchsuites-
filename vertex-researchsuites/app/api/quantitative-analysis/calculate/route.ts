@@ -127,6 +127,13 @@ export async function POST(req: NextRequest) {
     })
 
     const frequencyTables = demoConstructs.flatMap((c) => {
+      const mapping = textMappings[c.id]
+      const reverseMap: Record<string, string> = {}
+      if (mapping) {
+        Object.entries(mapping).forEach(([text, num]) => {
+          reverseMap[String(num)] = text
+        })
+      }
       const cols: number[] = c.columnIndexes || []
       return cols.map((col) => {
         const tableLabel = columnHeaders[col] || c.name
@@ -147,11 +154,11 @@ export async function POST(req: NextRequest) {
 
         const allTotal = validTotal + missingCount
         let cumulative = 0
-        const rows = Object.entries(counts).map(([label, count]) => {
+        const rows = Object.entries(counts).map(([rawLabel, count]) => {
           const validPercent = validTotal > 0 ? (count / validTotal) * 100 : 0
           cumulative += validPercent
           return {
-            label,
+            label: reverseMap[rawLabel] || rawLabel,
             frequency: count,
             percent: r1(allTotal > 0 ? (count / allTotal) * 100 : 0),
             validPercent: r1(validPercent),
