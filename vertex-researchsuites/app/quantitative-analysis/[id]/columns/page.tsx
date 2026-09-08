@@ -300,19 +300,29 @@ export default function ColumnsPage() {
                     <p style={{ color: '#777777', fontSize: '11px', marginBottom: '6px' }}>
                       Numbers used: {c.scaleMin} to {c.scaleMax}
                     </p>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <input type="checkbox" checked={c.scaleReversed} onChange={() => toggleScaleReversed(c.id)} />
-                      <span style={{ color: '#777777', fontSize: '11px' }}>Reverse this scale (e.g. my questionnaire uses 1 = Agree, not 1 = Disagree)</span>
-                    </label>
+                    <details style={{ marginTop: '6px' }}>
+                      <summary style={{ color: '#777777', fontSize: '11px', cursor: 'pointer' }}>Advanced: reverse-code this scale (optional - skip if unsure)</summary>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <input type="checkbox" checked={c.scaleReversed} onChange={() => toggleScaleReversed(c.id)} />
+                        <span style={{ color: '#777777', fontSize: '11px' }}>Reverse this scale (e.g. my questionnaire uses 1 = Agree, not 1 = Disagree)</span>
+                      </label>
+                    </details>
                   </div>
                 )}
 
-                {c.role !== 'Demographic' && c.columnIndexes.map((idx) => (
-                  <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', paddingLeft: '4px' }}>
-                    <input type="checkbox" checked={c.reverseIndexes.includes(idx)} onChange={() => toggleReverse(idx, c.id)} />
-                    <span style={{ color: '#777777', fontSize: '11px' }}>{columnHeaders[idx]} &mdash; reverse-worded item?</span>
-                  </label>
-                ))}
+                {c.role !== 'Demographic' && c.columnIndexes.length > 0 && (
+                  <details style={{ marginTop: '6px' }}>
+                    <summary style={{ color: '#777777', fontSize: '11px', cursor: 'pointer' }}>Advanced: mark reverse-worded items (optional - skip if unsure)</summary>
+                    <div style={{ marginTop: '4px' }}>
+                      {c.columnIndexes.map((idx) => (
+                        <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', paddingLeft: '4px' }}>
+                          <input type="checkbox" checked={c.reverseIndexes.includes(idx)} onChange={() => toggleReverse(idx, c.id)} />
+                          <span style={{ color: '#777777', fontSize: '11px' }}>{columnHeaders[idx]} &mdash; reverse-worded item?</span>
+                        </label>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </div>
             )
           })}
