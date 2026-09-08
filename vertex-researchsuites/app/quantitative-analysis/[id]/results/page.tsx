@@ -628,7 +628,7 @@ export default function ResultsPage() {
 
       {results.correlation && (
         <div style={{ backgroundColor: '#FFF8E7', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px', border: '1px solid #D4AF37' }}>
-          <p style={{ color: '#333333', fontSize: '13px', margin: '0 0 10px 0' }}>{results.correlation.recommendation}</p>
+          <p style={{ color: '#333333', fontSize: '13px', margin: '0 0 10px 0' }}>{results.correlation?.spearmanMatrix && results.correlation.spearmanMatrix.length > 0 && results.correlation.recommendation}</p>
           <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginRight: '8px' }}>Significance test:</label>
           <select
             value={tailType}
