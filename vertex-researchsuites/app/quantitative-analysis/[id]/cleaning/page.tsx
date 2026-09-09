@@ -105,6 +105,33 @@ export default function CleaningPage() {
         }
       }
     })
+
+    // 3b. Optional label assignment for numeric-coded Demographic columns
+    // (any demographic construct, any labels, any number of categories -- fully generic)
+    const demoConstructsForLabels = constructs.filter((c: any) => c.role === 'Demographic')
+    demoConstructsForLabels.forEach((c: any) => {
+      if (mappingsNeeded[c.id]) return // already flagged above, don't overwrite
+      const cols: number[] = c.columnIndexes || []
+      const uniqueNumericCodes = new Set<string>()
+      rawData.forEach((row: any[]) => {
+        cols.forEach((ci) => {
+          const val = row[ci]
+          if (val === null || val === undefined || String(val).trim() === '') return
+          if (!isNaN(Number(val))) uniqueNumericCodes.add(String(val).trim())
+        })
+      })
+      if (uniqueNumericCodes.size > 0) {
+        mappingsNeeded[c.id] = {
+          constructName: c.name,
+          optional: true,
+          values: Array.from(uniqueNumericCodes).reduce((acc: any, code: string) => {
+            acc[code] = ''
+            return acc
+          }, {})
+        }
+      }
+    })
+
     setTextMappings(mappingsNeeded)
 
     // 4. Straight-lining detection (same value across every item in a construct with 3+ items)
@@ -146,9 +173,10 @@ export default function CleaningPage() {
     }))
   }
 
-  const textMappingIncomplete = Object.values(textMappings).some((m: any) =>
-    Object.values(m.values).some((v: any) => v === '' || v === null)
-  )
+  const textMappingIncomplete = Object.values(textMappings).some((m: any) => {
+      if (m.optional) return false // optional demographic labels don't block continuing
+      return Object.values(m.values).some((v: any) => v === '' || v === null)
+    })
 
   async function handleContinue() {
     if (textMappingIncomplete) {
