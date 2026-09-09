@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { checkFeatureAccess } from '@/lib/checkFeatureAccess'
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -504,8 +505,47 @@ export default function ResultsPage() {
                 </tbody>
               </table>
               <p style={noteStyle}>Note. N = {f.nValid + f.nMissing} ({f.nValid} valid, {f.nMissing} missing).</p>
+              {chartPrefs.pie && (
+                <div style={{ width: '100%', height: 260, marginTop: '16px' }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={f.rows}
+                        dataKey="frequency"
+                        nameKey="label"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={90}
+                        label={(entry: any) => entry.label}
+                      >
+                        {f.rows.map((_r: any, ri: number) => (
+                          <Cell key={`cell-${ri}`} fill={['#4A6FA5', '#D4AF37', '#8E8E8E', '#5C8A5C', '#B85C5C', '#7A6FA5'][ri % 6]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           ))}
+
+          {chartPrefs.bar && results.descriptives && results.descriptives.length > 0 && (
+            <div style={tableWrap}>
+              <p style={tableTitle}>Construct Mean Comparison</p>
+              <div style={{ width: '100%', height: Math.max(260, results.descriptives.length * 40), marginTop: '8px' }}>
+                <ResponsiveContainer>
+                  <BarChart data={results.descriptives} layout="vertical" margin={{ left: 20, right: 20 }}>
+                    <XAxis type="number" />
+                    <YAxis type="category" dataKey="name" width={150} />
+                    <Tooltip />
+                    <Bar dataKey="mean" fill="#4A6FA5" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
       {results.itemDescriptives?.map((c: any, ci: number) => (
         <div key={ci} style={tableWrap}>
