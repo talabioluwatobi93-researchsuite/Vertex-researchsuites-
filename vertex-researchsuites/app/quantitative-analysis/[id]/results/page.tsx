@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { checkFeatureAccess } from '@/lib/checkFeatureAccess'
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine } from 'recharts'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -531,22 +531,6 @@ export default function ResultsPage() {
             </div>
           ))}
 
-          {chartPrefs.bar && results.descriptives && results.descriptives.length > 0 && (
-            <div style={tableWrap}>
-              <p style={tableTitle}>Construct Mean Comparison</p>
-              <div style={{ width: '100%', height: Math.max(260, results.descriptives.length * 40), marginTop: '8px' }}>
-                <ResponsiveContainer>
-                  <BarChart data={results.descriptives} layout="vertical" margin={{ left: 20, right: 20 }}>
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="name" width={150} />
-                    <Tooltip />
-                    <Bar dataKey="mean" fill="#4A6FA5" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
       {results.itemDescriptives?.map((c: any, ci: number) => (
         <div key={ci} style={tableWrap}>
           <p style={tableTitle}>Table {nextTable()}. Item Descriptive Statistics for {c.constructName}</p>
@@ -586,6 +570,23 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Scale: {c.scaleMin} = lowest point, {c.scaleMax} = highest point.</p>
+          {chartPrefs.bar && c.items && c.items.length > 0 && (
+            <div style={{ width: '100%', height: Math.max(260, c.items.length * 50), marginTop: '12px' }}>
+              <ResponsiveContainer>
+                <BarChart data={c.items} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
+                  <XAxis dataKey="label" />
+                  <YAxis domain={[c.scaleMin, c.scaleMax]} />
+                  <Tooltip />
+                  <Bar dataKey="mean" fill="#4A6FA5">
+                    <LabelList dataKey="mean" position="top" formatter={(v: any) => Number(v).toFixed(2)} />
+                  </Bar>
+                  {c.totalMean !== null && (
+                    <ReferenceLine y={c.totalMean} stroke="#888" strokeDasharray="4 4" label={{ value: 'Construct Mean: ' + c.totalMean.toFixed(2), position: 'insideTopRight', fontSize: 11 }} />
+                  )}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       ))}
 

@@ -123,7 +123,6 @@ export default function CleaningPage() {
       if (uniqueNumericCodes.size > 0) {
         mappingsNeeded[c.id] = {
           constructName: c.name,
-          optional: true,
           values: Array.from(uniqueNumericCodes).reduce((acc: any, code: string) => {
             acc[code] = ''
             return acc
@@ -174,7 +173,6 @@ export default function CleaningPage() {
   }
 
   const textMappingIncomplete = Object.values(textMappings).some((m: any) => {
-      if (m.optional) return false // optional demographic labels don't block continuing
       return Object.values(m.values).some((v: any) => v === '' || v === null)
     })
 
