@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import * as XLSX from 'xlsx'
+import { CITATION_STYLES } from '@/lib/citationStyles'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,7 +22,7 @@ export default function QuantitativeAnalysisUploadPage() {
   const [researchQuestions, setResearchQuestions] = useState('')
   const [hypotheses, setHypotheses] = useState('')
   const [objectives, setObjectives] = useState('')
-  const [apaVersion, setApaVersion] = useState('APA 7')
+  const [apaVersion, setApaVersion] = useState('APA7')
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -184,8 +185,9 @@ export default function QuantitativeAnalysisUploadPage() {
 
         <label style={labelStyle}>Citation Style</label>
         <select style={inputStyle} value={apaVersion} onChange={(e) => setApaVersion(e.target.value)}>
-          <option value="APA 7">APA 7</option>
-          <option value="APA 6">APA 6</option>
+          {CITATION_STYLES.map((style) => (
+            <option key={style.value} value={style.value}>{style.label}</option>
+          ))}
         </select>
       </div>
 
