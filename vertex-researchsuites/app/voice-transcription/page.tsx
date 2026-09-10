@@ -204,7 +204,7 @@ export default function VoiceTranscription() {
       const path = `${userId}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage.from("interview-audio").upload(path, file);
       if (uploadError) {
-        setErrorMsg("Could not upload audio. Please try again.");
+        setErrorMsg("Upload failed: " + (uploadError.message || JSON.stringify(uploadError)));
         setUploading(false);
         return;
       }
