@@ -216,7 +216,7 @@ export default function VoiceTranscription() {
         .single();
 
       if (sessionError || !session) {
-        setErrorMsg("Could not create transcription session. Please try again.");
+        setErrorMsg("Session error: " + (sessionError?.message || JSON.stringify(sessionError)));
         setUploading(false);
         return;
       }
