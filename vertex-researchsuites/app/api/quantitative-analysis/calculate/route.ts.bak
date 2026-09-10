@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, pearson, olsRegression } from '@/lib/stats'
+import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,6 +9,7 @@ const supabase = createClient(
 
 function r3(n: number): number { return Math.round(n * 1000) / 1000 }
 function r2(n: number): number { return Math.round(n * 100) / 100 }
+function r1(n: number): number { return Math.round(n * 10) / 10 }
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
 
     const rawData: any[][] = session.raw_data || []
     const constructs: any[] = session.constructs || []
+    const columnHeaders: string[] = session.column_headers || []
     const cleaningConfig: any = session.cleaning_config || {}
     const analysisTypes: string[] = session.analysis_type || []
     const missingConfig = cleaningConfig.missing_values || {}
@@ -99,18 +101,19 @@ export async function POST(req: NextRequest) {
     const dvConstructs = constructs.filter((c) => c.role === 'DV')
     const demoConstructs = constructs.filter((c) => c.role === 'Demographic')
     const scaleConstructsList = constructs.filter((c) => c.role === 'IV' || c.role === 'DV')
+    const allScaleConstructs = constructs.filter((c) => c.role !== 'Demographic')
 
     const constructScores: Record<string, number[]> = {}
-    scaleConstructsList.forEach((c) => { constructScores[c.id] = [] })
+    allScaleConstructs.forEach((c) => { constructScores[c.id] = [] })
 
     cleanedRows.forEach((row) => {
-      scaleConstructsList.forEach((c) => {
+      allScaleConstructs.forEach((c) => {
         const score = getConstructScore(row, c)
         if (score !== null) constructScores[c.id].push(score)
       })
     })
 
-    const descriptives = scaleConstructsList.map((c) => {
+    const descriptives = allScaleConstructs.map((c) => {
       const scores = constructScores[c.id]
       return {
         name: c.name,
@@ -123,59 +126,97 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    const frequencyTables = demoConstructs.map((c) => {
-      const col = (c.columnIndexes || [])[0]
-      const counts: Record<string, number> = {}
-      let validTotal = 0
-      let missingCount = 0
+    const frequencyTables = demoConstructs.flatMap((c) => {
+      const mapping = textMappings[c.id]
+      const reverseMap: Record<string, string> = {}
+      if (mapping) {
+        Object.entries(mapping).forEach(([text, num]) => {
+          reverseMap[String(num)] = text
+        })
+      }
+      const cols: number[] = c.columnIndexes || []
+      return cols.map((col) => {
+        const tableLabel = columnHeaders[col] || c.name
+        const counts: Record<string, number> = {}
+        let validTotal = 0
+        let missingCount = 0
 
-      cleanedRows.forEach((row) => {
-        const val = row[col]
-        if (val === null || val === undefined || String(val).trim() === '') {
-          missingCount++
-          return
-        }
-        const key = String(val).trim()
-        counts[key] = (counts[key] || 0) + 1
-        validTotal++
+        cleanedRows.forEach((row) => {
+          const val = row[col]
+          if (val === null || val === undefined || String(val).trim() === '') {
+            missingCount++
+            return
+          }
+          const key = String(val).trim()
+          counts[key] = (counts[key] || 0) + 1
+          validTotal++
+        })
+
+        const allTotal = validTotal + missingCount
+        let cumulative = 0
+        const rows = Object.entries(counts).map(([rawLabel, count]) => {
+          const validPercent = validTotal > 0 ? (count / validTotal) * 100 : 0
+          cumulative += validPercent
+          return {
+            label: reverseMap[rawLabel] || rawLabel,
+            frequency: count,
+            percent: r1(allTotal > 0 ? (count / allTotal) * 100 : 0),
+            validPercent: r1(validPercent),
+            cumulativePercent: r1(cumulative)
+          }
+        })
+
+        return { name: tableLabel, nValid: validTotal, nMissing: missingCount, rows }
       })
-
-      const allTotal = validTotal + missingCount
-      let cumulative = 0
-      const rows = Object.entries(counts).map(([label, count]) => {
-        const validPercent = validTotal > 0 ? (count / validTotal) * 100 : 0
-        cumulative += validPercent
-        return {
-          label,
-          frequency: count,
-          percent: r2(allTotal > 0 ? (count / allTotal) * 100 : 0),
-          validPercent: r2(validPercent),
-          cumulativePercent: r2(cumulative)
-        }
-      })
-
-      return { name: c.name, nValid: validTotal, nMissing: missingCount, rows }
     })
 
     let correlation: any = null
     if (analysisTypes.includes('correlation') && scaleConstructsList.length >= 2) {
+      const includeSpearman = session.correlation_config?.includeSpearman === true
       const matrix: any[] = []
+      const spearmanMatrix: any[] | null = includeSpearman ? [] : null
       for (const rowC of scaleConstructsList) {
         const rowResult: any = { name: rowC.name, cells: [] }
+        const spearmanRowResult: any = includeSpearman ? { name: rowC.name, cells: [] } : null
         for (const colC of scaleConstructsList) {
           if (rowC.id === colC.id) {
-            rowResult.cells.push({ r: 1, p: null, n: constructScores[rowC.id].length })
+            rowResult.cells.push({ r: 1, p: null, pOneTailed: null, n: constructScores[rowC.id].length })
+            if (includeSpearman) {
+              spearmanRowResult.cells.push({ r: 1, p: null, pOneTailed: null, n: constructScores[rowC.id].length })
+            }
             continue
           }
           const n = Math.min(constructScores[rowC.id].length, constructScores[colC.id].length)
           const x = constructScores[rowC.id].slice(0, n)
           const y = constructScores[colC.id].slice(0, n)
           const result = pearson(x, y)
-          rowResult.cells.push({ r: r3(result.r), p: r3(result.p), n: result.n })
+          rowResult.cells.push({ r: r3(result.r), p: r3(result.p), pOneTailed: r3(result.pOneTailed), n: result.n })
+          if (includeSpearman) {
+            const spearmanResult = spearman(x, y)
+            spearmanRowResult.cells.push({ r: r3(spearmanResult.r), p: r3(spearmanResult.p), pOneTailed: r3(spearmanResult.pOneTailed), n: spearmanResult.n })
+          }
         }
         matrix.push(rowResult)
+        if (spearmanMatrix) {
+          spearmanMatrix.push(spearmanRowResult)
+        }
       }
-      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix }
+      // Flag constructs with notably skewed distributions (|skew| > 1 is a common rule of
+      // thumb for "substantial" skew) - used to recommend Spearman as more appropriate
+      // for that construct's correlations, without hiding either result.
+      const skewFlags: Record<string, boolean> = {}
+      scaleConstructsList.forEach((c) => {
+        const skew = constructScores[c.id].length >= 3 ? skewness(constructScores[c.id]) : 0
+        skewFlags[c.id] = Math.abs(skew) > 1
+      })
+      const anySkewed = scaleConstructsList.some((c) => skewFlags[c.id])
+      const recommendation = anySkewed
+        ? (includeSpearman
+            ? 'Some variables show notable skew - Spearman may be more robust for those correlations. Both are reported below.'
+            : "Some variables show notable skew - consider also requesting Spearman's rank correlation for more robust results.")
+        : 'Data distributions appear reasonably normal - Pearson (the default correlation) is appropriate here.'
+
+      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation }
     }
 
     let regression: any = null
@@ -224,13 +265,232 @@ export async function POST(req: NextRequest) {
       }
     }
 
+
+    let ttest: any = null
+    if (analysisTypes.includes('ttest') && session.ttest_config) {
+      const { groupConstructId, outcomeConstructId } = session.ttest_config
+      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
+      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const group1Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[0]
+        const group2Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[1]
+
+        const group1Scores: number[] = []
+        const group2Scores: number[] = []
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct)
+          if (score === null) return
+          if (label === group1Label) group1Scores.push(score)
+          else if (label === group2Label) group2Scores.push(score)
+        })
+
+        if (group1Scores.length >= 2 && group2Scores.length >= 2) {
+          const ttestResult = independentTTest(group1Scores, group2Scores)
+          ttest = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            group1Label, group2Label,
+            ...ttestResult,
+          }
+        }
+      }
+    }
+    let anova: any = null
+    if (analysisTypes.includes('anova') && session.anova_config) {
+      const { groupConstructId, outcomeConstructId } = session.anova_config
+      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
+      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const groupLabels = Array.from(new Set(
+          cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)
+        )) as string[]
+
+        const groupedScores: Record<string, number[]> = {}
+        groupLabels.forEach((label) => { groupedScores[label] = [] })
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct)
+          if (score === null) return
+          if (groupedScores[label] !== undefined) groupedScores[label].push(score)
+        })
+
+        const validLabels = groupLabels.filter((label) => groupedScores[label].length >= 2)
+
+        if (validLabels.length >= 3) {
+          const groups = validLabels.map((label) => groupedScores[label])
+          const a = oneWayAnova(groups)
+          anova = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            groupLabels: validLabels,
+            k: a.k,
+            n: a.n,
+            grandMean: r3(a.grandMean),
+            ssBetween: r3(a.ssBetween),
+            ssWithin: r3(a.ssWithin),
+            ssTotal: r3(a.ssTotal),
+            dfBetween: a.dfBetween,
+            dfWithin: a.dfWithin,
+            msBetween: r3(a.msBetween),
+            msWithin: r3(a.msWithin),
+            F: r3(a.f),
+            p: r3(a.p),
+            groupStats: a.groupStats.map((g, i) => ({
+              label: validLabels[i],
+              n: g.n,
+              mean: r2(g.mean),
+              sd: r2(g.sd),
+              sem: r2(g.sem),
+              ciLower: r2(g.ciLower),
+              ciUpper: r2(g.ciUpper),
+              min: r2(g.min),
+              max: r2(g.max),
+            })),
+            tukey: a.tukey.map((t) => ({
+              groupA: validLabels[t.i],
+              groupB: validLabels[t.j],
+              meanDiff: r3(t.meanDiff),
+              seDiff: r3(t.seDiff),
+              p: r3(t.p),
+              ciLower: r3(t.ciLower),
+              ciUpper: r3(t.ciUpper),
+            })),
+          }
+        }
+      }
+    }
+
+    let chisquare: any = null
+    if (analysisTypes.includes('chisquare') && session.chisquare_config) {
+      const { rowConstructId, colConstructId } = session.chisquare_config
+      const rowConstruct = constructs.find((c: any) => c.id === rowConstructId)
+      const colConstruct = constructs.find((c: any) => c.id === colConstructId)
+
+      if (rowConstruct && colConstruct) {
+        const rowCol = rowConstruct.columnIndexes[0]
+        const colCol = colConstruct.columnIndexes[0]
+
+        const rowLabels = Array.from(new Set(
+          cleanedRows.map((r: any[]) => String(r[rowCol]).trim()).filter(Boolean)
+        )) as string[]
+        const colLabels = Array.from(new Set(
+          cleanedRows.map((r: any[]) => String(r[colCol]).trim()).filter(Boolean)
+        )) as string[]
+
+        const table: number[][] = rowLabels.map(() => colLabels.map(() => 0))
+        const rowIndex: Record<string, number> = {}
+        rowLabels.forEach((l, i) => { rowIndex[l] = i })
+        const colIndex: Record<string, number> = {}
+        colLabels.forEach((l, j) => { colIndex[l] = j })
+
+        cleanedRows.forEach((row: any[]) => {
+          const rLabel = String(row[rowCol]).trim()
+          const cLabel = String(row[colCol]).trim()
+          if (!rLabel || !cLabel) return
+          if (rowIndex[rLabel] === undefined || colIndex[cLabel] === undefined) return
+          table[rowIndex[rLabel]][colIndex[cLabel]]++
+        })
+
+        if (rowLabels.length >= 2 && colLabels.length >= 2) {
+          const cs = chiSquareTest(rowLabels, colLabels, table)
+          chisquare = {
+            rowVariableName: rowConstruct.name,
+            colVariableName: colConstruct.name,
+            rowLabels: cs.rowLabels,
+            colLabels: cs.colLabels,
+            colTotals: cs.colTotals,
+            grandTotal: cs.grandTotal,
+            crosstab: cs.crosstab,
+            df: cs.df,
+            pearsonChiSq: r3(cs.pearsonChiSq),
+            pearsonP: r3(cs.pearsonP),
+            likelihoodRatio: r3(cs.likelihoodRatio),
+            likelihoodP: r3(cs.likelihoodP),
+            linearByLinear: r3(cs.linearByLinear),
+            linearP: r3(cs.linearP),
+            cramersV: r3(cs.cramersV),
+            minExpected: r2(cs.minExpected),
+            cellsUnderFive: cs.cellsUnderFive,
+            totalCells: cs.totalCells,
+            pctCellsUnderFive: r2(cs.pctCellsUnderFive),
+          }
+        }
+      }
+    }
+
+    // NEW: item-level descriptive table for each scale construct (IV/DV) - one row per
+    // question ITEM (not the whole construct). Matches the fully-expanded Likert breakdown
+    // format (per-point %, Mean, SD, Overall %). Fully dynamic - works for any scale range
+    // and any number of items, nothing hardcoded.
+    const itemDescriptives = allScaleConstructs.map((c) => {
+      const cols: number[] = c.columnIndexes || []
+      const reverseIdx: number[] = c.reverseIndexes || []
+      const scaleMin = c.scaleMin ?? 1
+      const scaleMax = c.scaleMax ?? 5
+
+      const items = cols.map((col) => {
+        const values: number[] = []
+        const rawCounts: Record<number, number> = {}
+
+        cleanedRows.forEach((row) => {
+          let num = resolveNumeric(row[col], c.id)
+          if (num === null) return
+          if (reverseIdx.includes(col)) num = (scaleMin + scaleMax) - num
+          values.push(num)
+          rawCounts[num] = (rawCounts[num] || 0) + 1
+        })
+
+        const n = values.length
+        const pointPercents: Record<number, number> = {}
+        for (let p = scaleMin; p <= scaleMax; p++) {
+          pointPercents[p] = n > 0 ? r1(((rawCounts[p] || 0) / n) * 100) : 0
+        }
+
+        const m = n > 0 ? mean(values) : null
+        const s = n > 0 ? sd(values) : null
+        const overallPercent = m !== null ? r1((m / scaleMax) * 100) : null
+
+        return {
+          label: columnHeaders[col] || `Item ${col}`,
+          n,
+          pointPercents,
+          mean: m !== null ? r2(m) : null,
+          sd: s !== null ? r2(s) : null,
+          overallPercent
+        }
+      })
+
+      const totalMean = items.length > 0
+        ? r2(mean(items.filter((it) => it.mean !== null).map((it) => it.mean as number)))
+        : null
+      const totalSD = items.length > 0
+        ? r2(mean(items.filter((it) => it.sd !== null).map((it) => it.sd as number)))
+        : null
+      const totalOverallPercent = items.length > 0
+        ? r1(mean(items.filter((it) => it.overallPercent !== null).map((it) => it.overallPercent as number)))
+        : null
+
+      return { constructName: c.name, scaleMin, scaleMax, items, totalMean, totalSD, totalOverallPercent }
+    })
+
     const results = {
       sampleSize: cleanedRows.length,
       excludedRows: rawData.length - cleanedRows.length,
-      descriptives,
-      frequencyTables,
+      descriptives: analysisTypes.includes('descriptive') ? descriptives : undefined,
+      frequencyTables: analysisTypes.includes('descriptive') ? frequencyTables : undefined,
+      itemDescriptives: analysisTypes.includes('descriptive') ? itemDescriptives : undefined,
       correlation,
       regression,
+      ttest,
+      anova,
+      chisquare,
       computedAt: new Date().toISOString()
     }
 
