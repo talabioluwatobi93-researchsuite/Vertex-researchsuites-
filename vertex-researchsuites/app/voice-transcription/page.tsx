@@ -114,7 +114,7 @@ export default function VoiceTranscription() {
       body: JSON.stringify({ sessionId: currentSessionId, audioPath }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error((data.error || "Transcription failed.") + " " + (data.detail || ""));
+    if (!res.ok) throw new Error(data.error || "Transcription failed. Please try again.");
     return data.transcript as string;
   };
 
@@ -137,7 +137,7 @@ export default function VoiceTranscription() {
         body: JSON.stringify({ audioPath, startSeconds: start, durationSeconds: chunkDuration }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error((data.error || `Transcription failed on part ${chunkIndex}.`) + " " + (data.detail || ""));
+      if (!res.ok) throw new Error(data.error || `Transcription failed on part ${chunkIndex}. Please try again.`);
 
       accumulated = mergeTranscriptChunks(accumulated, data.text || "");
       start += step;
@@ -204,7 +204,7 @@ export default function VoiceTranscription() {
       const path = `${userId}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage.from("interview-audio").upload(path, file);
       if (uploadError) {
-        setErrorMsg("Upload failed: " + (uploadError.message || JSON.stringify(uploadError)));
+        setErrorMsg("Could not upload audio. Please try again.");
         setUploading(false);
         return;
       }
@@ -216,7 +216,7 @@ export default function VoiceTranscription() {
         .single();
 
       if (sessionError || !session) {
-        setErrorMsg("Session error: " + (sessionError?.message || JSON.stringify(sessionError)));
+        setErrorMsg("Could not create transcription session. Please try again.");
         setUploading(false);
         return;
       }
@@ -321,7 +321,20 @@ export default function VoiceTranscription() {
           <p style={{ color: MUTED, fontSize: 14, marginBottom: "16px" }}>Upload your interview recording. We'll transcribe it and generate detailed interpretive notes.</p>
           <label style={{ display: "block", width: "100%", padding: "14px", marginBottom: "16px", backgroundColor: "#F5F5F5", border: "2px dashed #CCCCCC", borderRadius: "10px", textAlign: "center", fontSize: "14px", color: "#333333", fontWeight: 600, cursor: "pointer" }}>
             {file ? file.name : "Tap here to choose an audio file"}
-            <input type="file" accept="audio/*" onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
+            <input type="file" accept="audio/*" onChange={(e) => {
+              const selected = e.target.files?.[0] || null
+              if (selected) {
+                const allowedExt = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm"]
+                const ext = selected.name.split(".").pop()?.toLowerCase() || ""
+                if (allowedExt.indexOf(ext) === -1) {
+                  setErrorMsg("That file type (." + ext + ") isn't supported. Please choose an mp3, m4a, wav, or similar audio file.")
+                  setFile(null)
+                  return
+                }
+              }
+              setErrorMsg("")
+              setFile(selected)
+            }} style={{ display: "none" }} />
           </label>
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           <button onClick={handleUploadAndTranscribe} disabled={!file || uploading} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
