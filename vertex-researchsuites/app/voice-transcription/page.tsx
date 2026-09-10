@@ -319,7 +319,10 @@ export default function VoiceTranscription() {
       {stage === "upload" && (
         <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}` }}>
           <p style={{ color: MUTED, fontSize: 14, marginBottom: "16px" }}>Upload your interview recording. We'll transcribe it and generate detailed interpretive notes.</p>
-          <input type="file" accept="audio/*" onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ marginBottom: "16px", fontSize: "13px" }} />
+          <label style={{ display: "block", width: "100%", padding: "14px", marginBottom: "16px", backgroundColor: "#F5F5F5", border: "2px dashed #CCCCCC", borderRadius: "10px", textAlign: "center", fontSize: "14px", color: "#333333", fontWeight: 600, cursor: "pointer" }}>
+            {file ? file.name : "Tap here to choose an audio file"}
+            <input type="file" accept="audio/*" onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
+          </label>
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           <button onClick={handleUploadAndTranscribe} disabled={!file || uploading} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
             {uploading ? "Uploading..." : "Upload & Transcribe"}
