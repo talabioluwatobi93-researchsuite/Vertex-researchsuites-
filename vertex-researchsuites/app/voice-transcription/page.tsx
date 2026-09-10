@@ -114,7 +114,7 @@ export default function VoiceTranscription() {
       body: JSON.stringify({ sessionId: currentSessionId, audioPath }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Transcription failed. Please try again.");
+    if (!res.ok) throw new Error((data.error || "Transcription failed.") + " " + (data.detail || ""));
     return data.transcript as string;
   };
 
@@ -137,7 +137,7 @@ export default function VoiceTranscription() {
         body: JSON.stringify({ audioPath, startSeconds: start, durationSeconds: chunkDuration }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `Transcription failed on part ${chunkIndex}. Please try again.`);
+      if (!res.ok) throw new Error((data.error || `Transcription failed on part ${chunkIndex}.`) + " " + (data.detail || ""));
 
       accumulated = mergeTranscriptChunks(accumulated, data.text || "");
       start += step;
