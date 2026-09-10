@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
     const missingConfig = cleaningConfig.missing_values || {}
     const duplicateInfo = cleaningConfig.duplicates || { row_indexes: [], action: 'excluded' }
     const textMappings = cleaningConfig.text_mappings || {}
+    const demographicMappings = cleaningConfig.demographic_mappings || {}
     const straightLining = cleaningConfig.straight_lining || { detected_row_indexes: [], action: 'excluded' }
 
     const excludedRowIndexes = new Set<number>()
@@ -158,7 +159,7 @@ export async function POST(req: NextRequest) {
           const validPercent = validTotal > 0 ? (count / validTotal) * 100 : 0
           cumulative += validPercent
           return {
-            label: reverseMap[rawLabel] || rawLabel,
+            label: (demographicMappings[col] || demographicMappings[String(col)] || {})[rawLabel] || reverseMap[rawLabel] || rawLabel,
             frequency: count,
             percent: r1(allTotal > 0 ? (count / allTotal) * 100 : 0),
             validPercent: r1(validPercent),
