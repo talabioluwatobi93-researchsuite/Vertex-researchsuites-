@@ -161,6 +161,34 @@ export default function QualResultsPage() {
         {results.themeCount} theme{results.themeCount !== 1 ? 's' : ''} &middot; {results.quoteCount} confirmed quote{results.quoteCount !== 1 ? 's' : ''}
       </p>
 
+        {results.frequencyTable && (
+          <div style={{ marginBottom: '16px' }}>
+            <button
+              onClick={() => {
+                const rows = [['Theme', 'Frequency', 'Percent']]
+                results.frequencyTable.forEach((r: any) => {
+                  rows.push([r.theme, String(r.count), r.percent.toFixed(2) + '%'])
+                })
+                const csvContent = rows.map((row) =>
+                  row.map((cell) => '"' + String(cell).replace(/"/g, '""') + '"').join(',')
+                ).join('\n')
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                const url = URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.setAttribute('download', 'qualitative-analysis-coded-data.csv')
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                URL.revokeObjectURL(url)
+              }}
+              style={{ backgroundColor: '#F9F9F9', color: '#333333', border: '1px solid #D4AF37', borderRadius: '10px', padding: '10px 18px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+            >
+              Export Coded Data as CSV
+            </button>
+          </div>
+        )}
+
       {results.frequencyTable && (
         <div style={tableWrap}>
           <p style={tableTitle}>Table 1. Theme Frequency Distribution</p>
