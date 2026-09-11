@@ -549,3 +549,28 @@ export function chiSquareTest(rowLabels: string[], colLabels: string[], table: n
     pctCellsUnderFive: (cellsUnderFive / totalCells) * 100,
   }
 }
+
+export function moderatedRegression(
+  y: number[],
+  predictor: number[],
+  moderator: number[]
+): { ss: any; ms: any; centeredPredictor: number[]; centeredModerator: number[]; interaction: number[] } {
+  const predMean = mean(predictor)
+  const modMean = mean(moderator)
+  const centeredPredictor = predictor.map((v) => v - predMean)
+  const centeredModerator = moderator.map((v) => v - modMean)
+  const interaction = centeredPredictor.map((v, i) => v * centeredModerator[i])
+
+  const X: number[][] = centeredPredictor.map((v, i) => [v, centeredModerator[i], interaction[i]])
+  const ivNames = ["Predictor", "Moderator", "Interaction"]
+
+  const reg = olsRegression(y, X, ivNames)
+
+  return {
+    ss: reg,
+    ms: reg,
+    centeredPredictor,
+    centeredModerator,
+    interaction
+  }
+}
