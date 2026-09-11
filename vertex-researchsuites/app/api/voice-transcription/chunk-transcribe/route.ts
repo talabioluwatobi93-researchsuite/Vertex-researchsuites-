@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   let inputTmp = "";
   let outputTmp = "";
   try {
-    const { audioPath, startSeconds, durationSeconds } = await req.json();
+    const { audioPath, startSeconds, durationSeconds, language } = await req.json();
 
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage.from("interview-audio").download(audioPath);
     if (downloadError || !fileData) {
@@ -53,6 +53,9 @@ export async function POST(req: NextRequest) {
     form.append("file", chunkBlob, "chunk.mp3");
     form.append("model", "whisper-large-v3");
     form.append("response_format", "text");
+    if (language && language !== "auto") {
+      form.append("language", language);
+    }
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
       method: "POST",

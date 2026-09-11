@@ -52,7 +52,6 @@ export default function VoiceTranscription() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const [file, setFile] = useState<File | null>(null);
-  const [language, setLanguage] = useState<string>("auto");
   const [uploading, setUploading] = useState(false);
   const [audioUrl, setAudioUrl] = useState("");
   const [transcribingUrl, setTranscribingUrl] = useState(false);
@@ -108,18 +107,18 @@ export default function VoiceTranscription() {
     setPaying(false);
   };
 
-  const runOneShotTranscription = async (currentSessionId: string, audioPath: string, lang: string) => {
+  const runOneShotTranscription = async (currentSessionId: string, audioPath: string) => {
     const res = await fetch("/api/voice-transcription/transcribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: currentSessionId, audioPath, language: lang }),
+      body: JSON.stringify({ sessionId: currentSessionId, audioPath }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Transcription failed. Please try again.");
     return data.transcript as string;
   };
 
-  const runChunkedTranscription = async (audioPath: string, durationSeconds: number, lang: string) => {
+  const runChunkedTranscription = async (audioPath: string, durationSeconds: number) => {
     let accumulated = "";
     let start = 0;
     const step = CHUNK_LENGTH_SECONDS - CHUNK_OVERLAP_SECONDS;
@@ -135,7 +134,7 @@ export default function VoiceTranscription() {
       const res = await fetch("/api/voice-transcription/chunk-transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audioPath, startSeconds: start, durationSeconds: chunkDuration, language: lang }),
+        body: JSON.stringify({ audioPath, startSeconds: start, durationSeconds: chunkDuration }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Transcription failed on part ${chunkIndex}. Please try again.`);
@@ -178,9 +177,9 @@ export default function VoiceTranscription() {
 
       let finalTranscript = "";
       if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > CHUNK_LENGTH_SECONDS) {
-        finalTranscript = await runChunkedTranscription(uploadData.path, probeData.durationSeconds, language);
+        finalTranscript = await runChunkedTranscription(uploadData.path, probeData.durationSeconds);
       } else {
-        finalTranscript = await runOneShotTranscription(uploadData.sessionId, uploadData.path, language);
+        finalTranscript = await runOneShotTranscription(uploadData.sessionId, uploadData.path);
       }
 
       await supabase
@@ -237,9 +236,9 @@ export default function VoiceTranscription() {
       let finalTranscript = "";
 
       if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > CHUNK_LENGTH_SECONDS) {
-        finalTranscript = await runChunkedTranscription(path, probeData.durationSeconds, language);
+        finalTranscript = await runChunkedTranscription(path, probeData.durationSeconds);
       } else {
-        finalTranscript = await runOneShotTranscription(session.id, path, language);
+        finalTranscript = await runOneShotTranscription(session.id, path);
       }
 
       await supabase
@@ -337,17 +336,6 @@ export default function VoiceTranscription() {
               setFile(selected)
             }} style={{ display: "none" }} />
           </label>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#333333", marginBottom: "6px" }}>Audio language</label>
-            <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ width: "100%", padding: "10px 12px", fontSize: "14px", borderRadius: "10px", border: "1px solid #CCCCCC", color: "#333333", marginBottom: "12px" }}>
-              <option value="auto">Auto-detect</option>
-              <option value="en">English</option>
-              <option value="yo">Yoruba</option>
-              <option value="ha">Hausa</option>
-              <option value="fr">French</option>
-              <option value="de">German</option>
-              <option value="ig">Igbo (not officially supported - accuracy may be poor)</option>
-            </select>
-            <p style={{ color: "#888888", fontSize: 12, marginBottom: "12px" }}>Built for spoken interviews and voice notes. Songs or music will likely transcribe poorly.</p>
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           <button onClick={handleUploadAndTranscribe} disabled={!file || uploading} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
             {uploading ? "Uploading..." : "Upload & Transcribe"}
