@@ -147,6 +147,23 @@ export async function callQualStep2Chain(prompt: string): Promise<OpenRouterResu
   }
 }
 
+
+export const QUAL_INTERPRET_MODEL_ROUTES = {
+  primary: 'anthropic/claude-sonnet-4.6',
+  fallback: 'openai/gpt-4o-mini',
+};
+
+export async function callQualInterpretChain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUAL_INTERPRET_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'sonnet5-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Qual Interpret primary failed, falling back:', err);
+    const content = await callOpenRouterStreaming(QUAL_INTERPRET_MODEL_ROUTES.fallback, prompt);
+    return { content, providerUsed: 'gpt4o-mini-fallback' };
+  }
+}
 export const VOICE_INTERPRET_MODEL_ROUTES = {
   primary: 'deepseek/deepseek-v4-pro',
   fallbackA: 'moonshotai/kimi-k3',
