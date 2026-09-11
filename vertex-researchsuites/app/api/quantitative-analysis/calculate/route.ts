@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression } from '@/lib/stats'
+import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -344,6 +344,28 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    let paired: any = null
+    if (analysisTypes.includes('paired') && session.paired_config) {
+      const { group1ConstructId, group2ConstructId, group1Label, group2Label } = session.paired_config
+      const group1Scores = constructScores[group1ConstructId]
+      const group2Scores = constructScores[group2ConstructId]
+      if (group1Scores && group2Scores) {
+        const n = Math.min(group1Scores.length, group2Scores.length)
+        if (n >= 2) {
+          const before = group1Scores.slice(0, n)
+          const after = group2Scores.slice(0, n)
+          const pairedResult = pairedTTest(before, after)
+          const group1Name = group1Label || (constructs.find((c: any) => c.id === group1ConstructId) || {}).name || 'Group 1'
+          const group2Name = group2Label || (constructs.find((c: any) => c.id === group2ConstructId) || {}).name || 'Group 2'
+          paired = {
+            group1Name,
+            group2Name,
+            ...pairedResult
+          }
+        }
+      }
+    }
+
     let anova: any = null
     if (analysisTypes.includes('anova') && session.anova_config) {
       const { groupConstructId, outcomeConstructId } = session.anova_config
@@ -537,6 +559,7 @@ export async function POST(req: NextRequest) {
       anova,
       chisquare,
       moderation,
+      paired,
       computedAt: new Date().toISOString()
     }
 
