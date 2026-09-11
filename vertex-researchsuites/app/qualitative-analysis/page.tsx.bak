@@ -37,88 +37,79 @@ export default function QualitativeUploadPage() {
       return await file.text()
     }
 
-      if (file.name.toLowerCase().endsWith('.docx')) {
-        setExtracting(true)
-        try {
-          const formData = new FormData()
-          formData.append('file', file)
-          const res = await fetch('/api/qualitative-analysis/parse-docx', {
-            method: 'POST',
-            body: formData
-          })
-          const data = await res.json()
-          if (!res.ok) {
-            setErrorMsg(data.error || 'Could not read this .docx file.')
-            return null
-          }
-          return data.text
-        } catch (err: any) {
-          setErrorMsg(err?.message || 'Something went wrong reading this .docx file. Please try again.')
-          return null
-        } finally {
-          setExtracting(false)
-        }
+    if (file.name.toLowerCase().endsWith('.docx')) {
+      setExtracting(true)
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/qualitative-analysis/parse-docx', {
+        method: 'POST',
+        body: formData
+      })
+      const data = await res.json()
+      setExtracting(false)
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Could not read this .docx file.')
+        return null
       }
+      return data.text
+    }
 
     setErrorMsg('Please upload a .txt or .docx file.')
     return null
   }
 
   const handleSubmit = async () => {
-    try {
-      if (!file) {
-        setErrorMsg('Please upload your transcript file first.')
-        return
-      }
-      if (!topic.trim() || !researchQuestions.trim() || !objectives.trim()) {
-        setErrorMsg('Please fill in your Topic, Research Questions, and Objectives.')
-        return
-      }
-
-      setErrorMsg('')
-      const transcriptText = await extractText()
-      if (!transcriptText) return
-
-      if (transcriptText.trim().length < 50) {
-        setErrorMsg('This transcript looks too short. Please check your file and try again.')
-        return
-      }
-
-      setSaving(true)
-
-      const { data: userData } = await supabase.auth.getUser()
-
-      const research_framework = {
-        topic: topic.trim(),
-        researchQuestions: researchQuestions.split('\n').map(s => s.trim()).filter(Boolean),
-        objectives: objectives.split('\n').map(s => s.trim()).filter(Boolean),
-        apaVersion
-      }
-
-      const { data, error } = await supabase
-        .from('qualitative_analysis_sessions')
-        .insert({
-          user_id: userData?.user?.id,
-          status: 'uploaded',
-          file_name: fileName,
-          raw_transcript: transcriptText,
-          research_framework
-        })
-        .select('id')
-        .single()
-
-      if (error || !data) {
-        setErrorMsg('Something went wrong saving your submission. Please try again.')
-        return
-      }
-
-      router.push(`/qualitative-analysis/${data.id}/review`)
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Something unexpected went wrong. Please try again.')
-    } finally {
-      setSaving(false)
+    if (!file) {
+      setErrorMsg('Please upload your transcript file first.')
+      return
     }
+    if (!topic.trim() || !researchQuestions.trim() || !objectives.trim()) {
+      setErrorMsg('Please fill in your Topic, Research Questions, and Objectives.')
+      return
+    }
+
+    setErrorMsg('')
+    const transcriptText = await extractText()
+    if (!transcriptText) return
+
+    if (transcriptText.trim().length < 50) {
+      setErrorMsg('This transcript looks too short. Please check your file and try again.')
+      return
+    }
+
+    setSaving(true)
+
+    const { data: userData } = await supabase.auth.getUser()
+
+    const research_framework = {
+      topic: topic.trim(),
+      researchQuestions: researchQuestions.split('\n').map((s) => s.trim()).filter(Boolean),
+      objectives: objectives.split('\n').map((s) => s.trim()).filter(Boolean),
+      apaVersion
+    }
+
+    const { data, error } = await supabase
+      .from('qualitative_analysis_sessions')
+      .insert({
+        user_id: userData?.user?.id,
+        status: 'uploaded',
+        file_name: fileName,
+        raw_transcript: transcriptText,
+        research_framework
+      })
+      .select('id')
+      .single()
+
+    setSaving(false)
+
+    if (error || !data) {
+      setErrorMsg('Something went wrong saving your submission. Please try again.')
+      return
+    }
+
+    router.push(`/qualitative-analysis/${data.id}/review`)
   }
+
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '10px 12px',
