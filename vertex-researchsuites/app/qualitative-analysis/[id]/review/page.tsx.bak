@@ -76,7 +76,7 @@ export default function ReviewPage() {
     setSaving(false)
 
     if (error) {
-        console.error('cross_checks update error:', error); setErrorMsg(`Something went wrong saving this step: ${error.message || error.code || 'unknown error'}`)
+      setErrorMsg('Something went wrong saving this step. Please try again.')
       return
     }
 
