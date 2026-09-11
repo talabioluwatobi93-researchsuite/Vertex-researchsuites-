@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression } from '@/lib/stats'
+import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -300,50 +300,6 @@ export async function POST(req: NextRequest) {
         }
       }
     }
-    let moderation: any = null
-    if (analysisTypes.includes('moderation') && session.moderation_config) {
-      const { predictorConstructId, moderatorConstructId, outcomeConstructId } = session.moderation_config
-      const predictorScores = constructScores[predictorConstructId]
-      const moderatorScores = constructScores[moderatorConstructId]
-      const outcomeScores = constructScores[outcomeConstructId]
-      if (predictorScores && moderatorScores && outcomeScores) {
-        const n = Math.min(predictorScores.length, moderatorScores.length, outcomeScores.length)
-        if (n >= 4) {
-          const y = outcomeScores.slice(0, n)
-          const predictor = predictorScores.slice(0, n)
-          const moderatorArr = moderatorScores.slice(0, n)
-          const modResult = moderatedRegression(y, predictor, moderatorArr)
-          const predictorName = (constructs.find((c: any) => c.id === predictorConstructId) || {}).name || 'Predictor'
-          const moderatorName = (constructs.find((c: any) => c.id === moderatorConstructId) || {}).name || 'Moderator'
-          const outcomeName = (constructs.find((c: any) => c.id === outcomeConstructId) || {}).name || 'Outcome'
-          const reg = modResult.ss
-          moderation = {
-            predictorName,
-            moderatorName,
-            outcomeName,
-            modelSummary: {
-              r: r3(reg.multipleR),
-              rSquared: r3(reg.rSquared),
-              adjRSquared: r3(reg.adjRSquared),
-              stdError: r3(reg.stdErrEstimate)
-            },
-            anova: {
-              regression: { ss: r3(reg.ssRegression), df: reg.dfRegression, ms: r3(reg.msRegression) },
-              residual: { ss: r3(reg.ssResidual), df: reg.dfResidual, ms: r3(reg.msResidual) },
-              total: { ss: r3(reg.ssTotal), df: reg.dfRegression + reg.dfResidual }
-            },
-            F: r3(reg.F),
-            p: r3(reg.pF),
-            coefficients: [
-              { name: '(Constant)', B: r3(reg.coefficients[0]), SE: r3(reg.standardErrors[0]), beta: null, t: r3(reg.tStats[0]), p: r3(reg.pValues[0]) },
-              { name: predictorName, B: r3(reg.coefficients[1]), SE: r3(reg.standardErrors[1]), beta: r3(reg.betas[0]), t: r3(reg.tStats[1]), p: r3(reg.pValues[1]) },
-              { name: moderatorName, B: r3(reg.coefficients[2]), SE: r3(reg.standardErrors[2]), beta: r3(reg.betas[1]), t: r3(reg.tStats[2]), p: r3(reg.pValues[2]) },
-              { name: `${predictorName} x ${moderatorName} (Interaction)`, B: r3(reg.coefficients[3]), SE: r3(reg.standardErrors[3]), beta: r3(reg.betas[2]), t: r3(reg.tStats[3]), p: r3(reg.pValues[3]) }
-            ]
-          }
-        }
-      }
-    }
     let anova: any = null
     if (analysisTypes.includes('anova') && session.anova_config) {
       const { groupConstructId, outcomeConstructId } = session.anova_config
@@ -536,7 +492,6 @@ export async function POST(req: NextRequest) {
       ttest,
       anova,
       chisquare,
-      moderation,
       computedAt: new Date().toISOString()
     }
 
