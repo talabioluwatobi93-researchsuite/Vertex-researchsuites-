@@ -574,3 +574,31 @@ export function moderatedRegression(
     interaction
   }
 }
+
+export function pairedTTest(before: number[], after: number[]): any {
+  const n = before.length
+  const differences = before.map((v, i) => after[i] - v)
+  const meanDiff = mean(differences)
+  const sdDiff = sd(differences)
+  const semDiff = sdDiff / Math.sqrt(n)
+  const df = n - 1
+  const tValue = meanDiff / semDiff
+  const pValue = tTestPValue(tValue, df)
+  const tCritical = tCriticalValue(df, 0.05)
+  const ciLower = meanDiff - tCritical * semDiff
+  const ciUpper = meanDiff + tCritical * semDiff
+
+  return {
+    n,
+    before: { mean: mean(before), sd: sd(before) },
+    after: { mean: mean(after), sd: sd(after) },
+    meanDiff,
+    sdDiff,
+    semDiff,
+    df,
+    t: tValue,
+    p: pValue,
+    ciLower,
+    ciUpper
+  }
+}
