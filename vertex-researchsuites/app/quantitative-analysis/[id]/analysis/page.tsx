@@ -8,7 +8,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 )
 
-type AnalysisType = 'descriptive' | 'correlation' | 'regression' | 'ttest' | 'anova' | 'chisquare'
+type AnalysisType = 'descriptive' | 'correlation' | 'regression' | 'ttest' | 'anova' | 'chisquare' | 'paired' | 'mannwhitney' | 'wilcoxon' | 'kruskalwallis' | 'twowayanova' | 'mediation' | 'moderation' | 'logistic'
 type Construct = { id: string; name: string; role: string; columnIndexes: number[] }
 
 const ANALYSIS_INFO: Record<AnalysisType, { label: string; description: string }> = {
@@ -35,6 +35,38 @@ const ANALYSIS_INFO: Record<AnalysisType, { label: string; description: string }
   chisquare: {
     label: 'Chi-Square Test of Independence',
     description: 'Tests whether two categorical variables are related (e.g., Gender vs Preferred Study Mode), with a full Crosstab and Chi-Square Tests table.',
+  },
+  paired: {
+    label: 'Paired-Samples T-Test',
+    description: 'Compares two measurements taken from the SAME people (e.g., a before score and an after score), to see if there was a real change.',
+  },
+  mannwhitney: {
+    label: 'Mann-Whitney U Test',
+    description: 'Compares two independent groups when your data is not normally distributed - a safer alternative to the T-Test for ranked or skewed scores.',
+  },
+  wilcoxon: {
+    label: 'Wilcoxon Signed-Rank Test',
+    description: 'Compares two measurements from the SAME people when your data is not normally distributed - a safer alternative to the Paired T-Test.',
+  },
+  kruskalwallis: {
+    label: 'Kruskal-Wallis Test',
+    description: 'Compares three or more independent groups when your data is not normally distributed - a safer alternative to One-Way ANOVA.',
+  },
+  twowayanova: {
+    label: 'Two-Way ANOVA',
+    description: 'Tests the effect of TWO grouping variables on an outcome at once (e.g., Gender AND Year Level on Exam Score), plus whether they interact.',
+  },
+  mediation: {
+    label: 'Mediation Analysis (Sobel Test)',
+    description: 'Tests whether the effect of one variable on another happens THROUGH a third, in-between variable (e.g., does Study Habits explain why Motivation affects Grades?).',
+  },
+  moderation: {
+    label: 'Moderation Analysis',
+    description: 'Tests whether the strength of the relationship between two variables CHANGES depending on a third variable (e.g., does the Motivation-to-Grades link get stronger or weaker depending on Age?).',
+  },
+  logistic: {
+    label: 'Logistic Regression',
+    description: 'Predicts a YES/NO outcome (e.g., Pass vs Fail) from one or more variables, rather than a numeric score.',
   },
 }
 
@@ -167,6 +199,14 @@ export default function AnalysisTypePage() {
       available: chisquareEligibleConstructs.length >= 2,
       reason: 'Need at least 2 categorical, single-column variables with 2 or more distinct values each.',
     },
+    paired: { available: false, reason: 'Not yet available.' },
+    mannwhitney: { available: false, reason: 'Not yet available.' },
+    wilcoxon: { available: false, reason: 'Not yet available.' },
+    kruskalwallis: { available: false, reason: 'Not yet available.' },
+    twowayanova: { available: false, reason: 'Not yet available.' },
+    mediation: { available: false, reason: 'Not yet available.' },
+    moderation: { available: false, reason: 'Not yet available.' },
+    logistic: { available: false, reason: 'Not yet available.' },
   }
 
   function toggleType(type: AnalysisType) {
