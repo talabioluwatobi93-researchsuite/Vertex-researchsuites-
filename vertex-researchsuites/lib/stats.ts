@@ -964,3 +964,128 @@ export function sobelMediation(predictor: number[], mediator: number[], outcome:
     proportionMediated
   }
 }
+
+// Logistic regression via Iteratively Reweighted Least Squares (IRLS).
+// Unlike moderatedRegression/twoWayAnova/sobelMediation, this cannot be built
+// as a thin wrapper around olsRegression - the binary outcome and log-odds
+// link function require an iterative solve. Reuses the same matrix helpers
+// (transpose, matMul, invertMatrix, matMulVec) already used inside olsRegression.
+// Includes a max-iteration cap and convergence tolerance to avoid divergence
+// or hanging on messy real-world data.
+export function logisticRegression(y: number[], X: number[][], ivNames: string[]): any {
+  const n = y.length
+  const k = X[0].length + 1 // +1 for intercept
+
+  y.forEach(v => {
+    if (v !== 0 && v !== 1) throw new Error('logisticRegression requires a binary (0/1) outcome variable')
+  })
+
+  const Xi = X.map(row => [1, ...row])
+
+  let beta = new Array(k).fill(0)
+  const maxIterations = 50
+  const tolerance = 1e-8
+  let converged = false
+  let iterations = 0
+
+  for (let iter = 0; iter < maxIterations; iter++) {
+    iterations = iter + 1
+    const eta = Xi.map(row => row.reduce((s, val, j) => s + val * beta[j], 0))
+    const p = eta.map(e => 1 / (1 + Math.exp(-e)))
+
+    const W = p.map(pi => Math.max(pi * (1 - pi), 1e-8))
+
+    const z = eta.map((e, i) => e + (y[i] - p[i]) / W[i])
+
+    const Xt = transpose(Xi)
+    const XtW: number[][] = Xt.map(row => row.map((val, i) => val * W[i]))
+    const XtWX = matMul(XtW, Xi)
+    const XtWz = matMulVec(XtW, z)
+
+    let XtWXinv: number[][]
+    try {
+      XtWXinv = invertMatrix(XtWX)
+    } catch (e) {
+      break
+    }
+
+    const newBeta = matMulVec(XtWXinv, XtWz)
+
+    const maxDelta = Math.max(...newBeta.map((b, i) => Math.abs(b - beta[i])))
+    beta = newBeta
+
+    if (maxDelta < tolerance) {
+      converged = true
+      break
+    }
+  }
+
+  const eta = Xi.map(row => row.reduce((s, val, j) => s + val * beta[j], 0))
+  const pFinal = eta.map(e => 1 / (1 + Math.exp(-e)))
+  const WFinal = pFinal.map(pi => Math.max(pi * (1 - pi), 1e-8))
+
+  const Xt = transpose(Xi)
+  const XtW: number[][] = Xt.map(row => row.map((val, i) => val * WFinal[i]))
+  const XtWX = matMul(XtW, Xi)
+  const covMatrix = invertMatrix(XtWX)
+  const seCoef = covMatrix.map((row, i) => Math.sqrt(Math.max(row[i], 0)))
+
+  const zStats = beta.map((b, i) => seCoef[i] > 0 ? b / seCoef[i] : 0)
+  const pValues = zStats.map(z => 2 * (1 - normalCDF(Math.abs(z))))
+  const oddsRatios = beta.map(b => Math.exp(b))
+
+  const logLikelihood = y.reduce((sum, yi, i) => {
+    const pi = Math.min(Math.max(pFinal[i], 1e-10), 1 - 1e-10)
+    return sum + (yi * Math.log(pi) + (1 - yi) * Math.log(1 - pi))
+  }, 0)
+
+  const yMean = mean(y)
+  const nullLogLikelihood = y.reduce((sum, yi) => {
+    const pi = Math.min(Math.max(yMean, 1e-10), 1 - 1e-10)
+    return sum + (yi * Math.log(pi) + (1 - yi) * Math.log(1 - pi))
+  }, 0)
+
+  const deviance = -2 * logLikelihood
+  const nullDeviance = -2 * nullLogLikelihood
+  const mcFaddenR2 = nullLogLikelihood !== 0 ? 1 - (logLikelihood / nullLogLikelihood) : 0
+
+  const chiSq = nullDeviance - deviance
+  const df = k - 1
+  const overallP = chiSquarePValue(chiSq, df)
+
+  const predicted = pFinal.map(p => p >= 0.5 ? 1 : 0)
+  let truePos = 0, trueNeg = 0, falsePos = 0, falseNeg = 0
+  for (let i = 0; i < n; i++) {
+    if (y[i] === 1 && predicted[i] === 1) truePos++
+    else if (y[i] === 0 && predicted[i] === 0) trueNeg++
+    else if (y[i] === 0 && predicted[i] === 1) falsePos++
+    else if (y[i] === 1 && predicted[i] === 0) falseNeg++
+  }
+  const accuracy = (truePos + trueNeg) / n
+
+  const names = ['(Constant)', ...ivNames]
+
+  return {
+    n,
+    k,
+    converged,
+    iterations,
+    coefficients: names.map((name, i) => ({
+      name,
+      B: beta[i],
+      SE: seCoef[i],
+      z: zStats[i],
+      p: pValues[i],
+      oddsRatio: oddsRatios[i]
+    })),
+    logLikelihood,
+    nullLogLikelihood,
+    deviance,
+    nullDeviance,
+    mcFaddenR2,
+    chiSq,
+    df,
+    p: overallP,
+    classification: { truePos, trueNeg, falsePos, falseNeg, accuracy }
+  }
+}
