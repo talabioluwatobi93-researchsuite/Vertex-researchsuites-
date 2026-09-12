@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU } from '@/lib/stats'
+import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -401,6 +401,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let wilcoxon: any = null
+    if (analysisTypes.includes('wilcoxon') && session.wilcoxon_config) {
+      const { group1ConstructId, group2ConstructId, group1Label, group2Label } = session.wilcoxon_config
+      const group1Scores = constructScores[group1ConstructId]
+      const group2Scores = constructScores[group2ConstructId]
+      if (group1Scores && group2Scores) {
+        const n = Math.min(group1Scores.length, group2Scores.length)
+        if (n >= 2) {
+          const before = group1Scores.slice(0, n)
+          const after = group2Scores.slice(0, n)
+          const wilcoxonResult = wilcoxonSignedRank(before, after)
+          const group1Name = group1Label || (constructs.find((c: any) => c.id === group1ConstructId) || {}).name || 'Group 1'
+          const group2Name = group2Label || (constructs.find((c: any) => c.id === group2ConstructId) || {}).name || 'Group 2'
+          wilcoxon = {
+            group1Name,
+            group2Name,
+            ...wilcoxonResult
+          }
+        }
+      }
+    }
+
     let anova: any = null
     if (analysisTypes.includes('anova') && session.anova_config) {
       const { groupConstructId, outcomeConstructId } = session.anova_config
@@ -596,6 +618,7 @@ export async function POST(req: NextRequest) {
       moderation,
       paired,
       mannwhitney,
+      wilcoxon,
       computedAt: new Date().toISOString()
     }
 
