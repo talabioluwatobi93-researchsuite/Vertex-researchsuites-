@@ -667,3 +667,59 @@ export function mannWhitneyU(group1: number[], group2: number[]): any {
     p: pValue
   }
 }
+
+// Wilcoxon signed-rank test - non-parametric alternative to pairedTTest.
+// Ranks absolute differences (excluding zero differences), sums signed ranks,
+// uses normal approximation with tie correction for the p-value.
+export function wilcoxonSignedRank(before: number[], after: number[]): any {
+  const n = before.length
+  const diffs: number[] = []
+  for (let i = 0; i < n; i++) {
+    const d = after[i] - before[i]
+    if (d !== 0) diffs.push(d)
+  }
+
+  const nr = diffs.length
+  const absDiffs = diffs.map(d => Math.abs(d))
+  const ranks = rank(absDiffs)
+
+  let wPlus = 0
+  let wMinus = 0
+  for (let i = 0; i < nr; i++) {
+    if (diffs[i] > 0) wPlus += ranks[i]
+    else wMinus += ranks[i]
+  }
+
+  const w = Math.min(wPlus, wMinus)
+  const meanW = (nr * (nr + 1)) / 4
+
+  const sortedAbs = [...absDiffs].sort((a, b) => a - b)
+  const tieGroups: number[] = []
+  let i = 0
+  while (i < sortedAbs.length) {
+    let j = i
+    while (j + 1 < sortedAbs.length && sortedAbs[j + 1] === sortedAbs[i]) j++
+    tieGroups.push(j - i + 1)
+    i = j + 1
+  }
+  const tieCorrection = tieGroups.reduce((sum, t) => sum + (t ** 3 - t), 0)
+  const sigmaW = Math.sqrt(
+    (nr * (nr + 1) * (2 * nr + 1)) / 24 - tieCorrection / 48
+  )
+
+  const continuityCorrection = 0.5
+  const z = sigmaW > 0 ? (w - meanW + continuityCorrection) / sigmaW : 0
+  const pValue = 2 * (1 - normalCDF(Math.abs(z)))
+
+  return {
+    n: nr,
+    nExcludedZero: n - nr,
+    wPlus,
+    wMinus,
+    w,
+    meanW,
+    sigmaW,
+    z,
+    p: pValue
+  }
+}
