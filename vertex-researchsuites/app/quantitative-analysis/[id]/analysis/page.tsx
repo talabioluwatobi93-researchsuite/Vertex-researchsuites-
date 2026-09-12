@@ -339,6 +339,49 @@ export default function AnalysisTypePage() {
       }
     }
 
+    if (selected.includes('paired')) {
+      if (!pairedGroup1Id || !pairedGroup2Id) {
+        setErrorMsg('Please choose both measurements for the Paired T-Test.')
+        return
+      }
+    }
+    if (selected.includes('mannwhitney')) {
+      if (!mannwhitneyGroupId || !mannwhitneyOutcomeId) {
+        setErrorMsg('Please choose a grouping and outcome variable for the Mann-Whitney U Test.')
+        return
+      }
+    }
+    if (selected.includes('wilcoxon')) {
+      if (!wilcoxonGroup1Id || !wilcoxonGroup2Id) {
+        setErrorMsg('Please choose both measurements for the Wilcoxon Signed-Rank Test.')
+        return
+      }
+    }
+    if (selected.includes('kruskalwallis')) {
+      if (!kruskalGroupId || !kruskalOutcomeId) {
+        setErrorMsg('Please choose a grouping and outcome variable for the Kruskal-Wallis Test.')
+        return
+      }
+    }
+    if (selected.includes('twowayanova')) {
+      if (!twowayFactorAId || !twowayFactorBId || !twowayOutcomeId) {
+        setErrorMsg('Please choose both grouping variables and an outcome for the Two-Way ANOVA.')
+        return
+      }
+    }
+    if (selected.includes('mediation')) {
+      if (!mediationPredictorId || !mediationMediatorId || !mediationOutcomeId) {
+        setErrorMsg('Please choose the Predictor, Mediator, and Outcome for the Mediation Analysis.')
+        return
+      }
+    }
+    if (selected.includes('moderation')) {
+      if (!moderationPredictorId || !moderationModeratorId || !moderationOutcomeId) {
+        setErrorMsg('Please choose the Predictor, Moderator, and Outcome for the Moderation Analysis.')
+        return
+      }
+    }
+
     setSaving(true)
     setErrorMsg('')
 
@@ -357,6 +400,27 @@ export default function AnalysisTypePage() {
           : null,
         correlation_config: selected.includes('correlation')
           ? { includeSpearman, tailType }
+          : null,
+        paired_config: selected.includes('paired')
+          ? { group1ConstructId: pairedGroup1Id, group2ConstructId: pairedGroup2Id }
+          : null,
+        mannwhitney_config: selected.includes('mannwhitney')
+          ? { groupConstructId: mannwhitneyGroupId, outcomeConstructId: mannwhitneyOutcomeId }
+          : null,
+        wilcoxon_config: selected.includes('wilcoxon')
+          ? { group1ConstructId: wilcoxonGroup1Id, group2ConstructId: wilcoxonGroup2Id }
+          : null,
+        kruskalwallis_config: selected.includes('kruskalwallis')
+          ? { groupConstructId: kruskalGroupId, outcomeConstructId: kruskalOutcomeId }
+          : null,
+        twowayanova_config: selected.includes('twowayanova')
+          ? { factorAConstructId: twowayFactorAId, factorBConstructId: twowayFactorBId, outcomeConstructId: twowayOutcomeId }
+          : null,
+        mediation_config: selected.includes('mediation')
+          ? { predictorConstructId: mediationPredictorId, mediatorConstructId: mediationMediatorId, outcomeConstructId: mediationOutcomeId }
+          : null,
+        moderation_config: selected.includes('moderation')
+          ? { predictorConstructId: moderationPredictorId, moderatorConstructId: moderationModeratorId, outcomeConstructId: moderationOutcomeId }
           : null,
         updated_at: new Date().toISOString(),
       })
