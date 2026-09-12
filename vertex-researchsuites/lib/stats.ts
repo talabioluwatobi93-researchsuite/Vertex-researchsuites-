@@ -602,3 +602,68 @@ export function pairedTTest(before: number[], after: number[]): any {
     ciUpper
   }
 }
+
+// Mann-Whitney U test - non-parametric alternative to independentTTest.
+// Ranks the pooled sample, sums ranks per group, uses normal approximation
+// with tie correction for the p-value. Reuses existing rank() and normalCDF().
+export function mannWhitneyU(group1: number[], group2: number[]): any {
+  const n1 = group1.length
+  const n2 = group2.length
+  const pooled = [...group1, ...group2]
+  const ranks = rank(pooled)
+
+  const ranks1 = ranks.slice(0, n1)
+  const ranks2 = ranks.slice(n1)
+
+  const rankSum1 = ranks1.reduce((a, b) => a + b, 0)
+  const rankSum2 = ranks2.reduce((a, b) => a + b, 0)
+
+  const u1 = rankSum1 - (n1 * (n1 + 1)) / 2
+  const u2 = rankSum2 - (n2 * (n2 + 1)) / 2
+  const u = Math.min(u1, u2)
+
+  const meanU = (n1 * n2) / 2
+
+  const sortedPooled = [...pooled].sort((a, b) => a - b)
+  const tieGroups: number[] = []
+  let i = 0
+  while (i < sortedPooled.length) {
+    let j = i
+    while (j + 1 < sortedPooled.length && sortedPooled[j + 1] === sortedPooled[i]) j++
+    tieGroups.push(j - i + 1)
+    i = j + 1
+  }
+  const n = n1 + n2
+  const tieCorrection = tieGroups.reduce((sum, t) => sum + (t ** 3 - t), 0)
+  const sigmaU = Math.sqrt(
+    (n1 * n2 / 12) * ((n + 1) - tieCorrection / (n * (n - 1)))
+  )
+
+  const continuityCorrection = 0.5
+  const zRaw = sigmaU > 0 ? (u - meanU + continuityCorrection) / sigmaU : 0
+  const z = zRaw
+  const pValue = 2 * (1 - normalCDF(Math.abs(z)))
+
+  const sortedGroup1 = [...group1].sort((a, b) => a - b)
+  const sortedGroup2 = [...group2].sort((a, b) => a - b)
+  const median1 = sortedGroup1.length % 2 === 0
+    ? (sortedGroup1[sortedGroup1.length / 2 - 1] + sortedGroup1[sortedGroup1.length / 2]) / 2
+    : sortedGroup1[Math.floor(sortedGroup1.length / 2)]
+  const median2 = sortedGroup2.length % 2 === 0
+    ? (sortedGroup2[sortedGroup2.length / 2 - 1] + sortedGroup2[sortedGroup2.length / 2]) / 2
+    : sortedGroup2[Math.floor(sortedGroup2.length / 2)]
+
+  return {
+    n1,
+    n2,
+    group1: { n: n1, median: median1, rankSum: rankSum1 },
+    group2: { n: n2, median: median2, rankSum: rankSum2 },
+    u1,
+    u2,
+    u,
+    meanU,
+    sigmaU,
+    z,
+    p: pValue
+  }
+}
