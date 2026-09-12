@@ -915,3 +915,52 @@ export function twoWayAnova(factorA: string[], factorB: string[], outcome: numbe
     marginalB
   }
 }
+
+// Mediation analysis via Sobel test. DISTINCT from moderatedRegression:
+// moderation asks whether the X->Y relationship's STRENGTH depends on a
+// third variable (interaction term). Mediation asks whether X affects Y
+// THROUGH an intermediate variable M (indirect pathway X->M->Y).
+// Path a: regress M on X. Path b: regress Y on M and X together.
+// Indirect effect = a * b, tested via the Sobel standard error formula.
+// Reuses existing olsRegression for both paths - no new regression engine.
+export function sobelMediation(predictor: number[], mediator: number[], outcome: number[]): any {
+  const n = predictor.length
+
+  // Path a: M ~ X
+  const pathAModel = olsRegression(mediator, predictor.map(x => [x]), ['Predictor'])
+  const a = pathAModel.coefficients[1]
+  const seA = pathAModel.standardErrors[1]
+
+  // Path b and path c': Y ~ M + X (mediator effect controlling for predictor)
+  const pathBModel = olsRegression(outcome, predictor.map((x, i) => [mediator[i], x]), ['Mediator', 'Predictor'])
+  const b = pathBModel.coefficients[1]
+  const seB = pathBModel.standardErrors[1]
+  const cPrime = pathBModel.coefficients[2]
+  const seCPrime = pathBModel.standardErrors[2]
+
+  // Total effect (path c): Y ~ X alone (no mediator)
+  const pathCModel = olsRegression(outcome, predictor.map(x => [x]), ['Predictor'])
+  const c = pathCModel.coefficients[1]
+  const seC = pathCModel.standardErrors[1]
+
+  // Indirect effect and Sobel standard error
+  const indirectEffect = a * b
+  const sobelSE = Math.sqrt((b ** 2) * (seA ** 2) + (a ** 2) * (seB ** 2))
+  const sobelZ = sobelSE > 0 ? indirectEffect / sobelSE : 0
+  const sobelP = 2 * (1 - normalCDF(Math.abs(sobelZ)))
+
+  const proportionMediated = c !== 0 ? indirectEffect / c : null
+
+  return {
+    n,
+    pathA: { coefficient: a, se: seA, t: pathAModel.tStats[1], p: pathAModel.pValues[1] },
+    pathB: { coefficient: b, se: seB, t: pathBModel.tStats[1], p: pathBModel.pValues[1] },
+    pathCPrime: { coefficient: cPrime, se: seCPrime, t: pathBModel.tStats[2], p: pathBModel.pValues[2] },
+    totalEffect: { coefficient: c, se: seC, t: pathCModel.tStats[1], p: pathCModel.pValues[1] },
+    indirectEffect,
+    sobelSE,
+    sobelZ,
+    sobelP,
+    proportionMediated
+  }
+}
