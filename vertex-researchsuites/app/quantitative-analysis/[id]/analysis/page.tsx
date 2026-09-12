@@ -92,6 +92,23 @@ export default function AnalysisTypePage() {
   const [chisquareColId, setChisquareColId] = useState('')
   const [includeSpearman, setIncludeSpearman] = useState(false)
   const [tailType, setTailType] = useState<'two' | 'one'>('two')
+  const [pairedGroup1Id, setPairedGroup1Id] = useState('')
+  const [pairedGroup2Id, setPairedGroup2Id] = useState('')
+  const [mannwhitneyGroupId, setMannwhitneyGroupId] = useState('')
+  const [mannwhitneyOutcomeId, setMannwhitneyOutcomeId] = useState('')
+  const [wilcoxonGroup1Id, setWilcoxonGroup1Id] = useState('')
+  const [wilcoxonGroup2Id, setWilcoxonGroup2Id] = useState('')
+  const [kruskalGroupId, setKruskalGroupId] = useState('')
+  const [kruskalOutcomeId, setKruskalOutcomeId] = useState('')
+  const [twowayFactorAId, setTwowayFactorAId] = useState('')
+  const [twowayFactorBId, setTwowayFactorBId] = useState('')
+  const [twowayOutcomeId, setTwowayOutcomeId] = useState('')
+  const [mediationPredictorId, setMediationPredictorId] = useState('')
+  const [mediationMediatorId, setMediationMediatorId] = useState('')
+  const [mediationOutcomeId, setMediationOutcomeId] = useState('')
+  const [moderationPredictorId, setModerationPredictorId] = useState('')
+  const [moderationModeratorId, setModerationModeratorId] = useState('')
+  const [moderationOutcomeId, setModerationOutcomeId] = useState('')
 
   useEffect(() => {
     const load = async () => {
