@@ -723,3 +723,69 @@ export function wilcoxonSignedRank(before: number[], after: number[]): any {
     p: pValue
   }
 }
+
+// Kruskal-Wallis test - non-parametric alternative to oneWayAnova (3+ groups).
+// Pools and ranks all values, computes tie-corrected H statistic,
+// reuses existing rank() and chiSquarePValue() (H ~ chi-square, df = k - 1).
+export function kruskalWallis(groups: number[][]): any {
+  const k = groups.length
+  const groupSizes = groups.map(g => g.length)
+  const N = groupSizes.reduce((a, b) => a + b, 0)
+
+  const pooled: number[] = []
+  groups.forEach(g => pooled.push(...g))
+  const ranks = rank(pooled)
+
+  const groupRankSums: number[] = []
+  let offset = 0
+  for (let i = 0; i < k; i++) {
+    const size = groupSizes[i]
+    const rankSlice = ranks.slice(offset, offset + size)
+    groupRankSums.push(rankSlice.reduce((a, b) => a + b, 0))
+    offset += size
+  }
+
+  let hRaw = 0
+  for (let i = 0; i < k; i++) {
+    hRaw += (groupRankSums[i] ** 2) / groupSizes[i]
+  }
+  hRaw = (12 / (N * (N + 1))) * hRaw - 3 * (N + 1)
+
+  const sortedPooled = [...pooled].sort((a, b) => a - b)
+  const tieGroups: number[] = []
+  let i = 0
+  while (i < sortedPooled.length) {
+    let j = i
+    while (j + 1 < sortedPooled.length && sortedPooled[j + 1] === sortedPooled[i]) j++
+    tieGroups.push(j - i + 1)
+    i = j + 1
+  }
+  const tieCorrection = tieGroups.reduce((sum, t) => sum + (t ** 3 - t), 0)
+  const denom = 1 - tieCorrection / (N ** 3 - N)
+  const h = denom > 0 ? hRaw / denom : hRaw
+
+  const df = k - 1
+  const pValue = chiSquarePValue(h, df)
+
+  const groupStats = groups.map((g, idx) => {
+    const sorted = [...g].sort((a, b) => a - b)
+    const median = sorted.length % 2 === 0
+      ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+      : sorted[Math.floor(sorted.length / 2)]
+    return {
+      n: groupSizes[idx],
+      median,
+      rankSum: groupRankSums[idx],
+      meanRank: groupRankSums[idx] / groupSizes[idx]
+    }
+  })
+
+  return {
+    k,
+    N,
+    df,
+    h,
+    p: pValue,
+    groups: groupStats
+  }
+}
