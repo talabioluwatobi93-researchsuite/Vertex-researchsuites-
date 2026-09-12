@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis, twoWayAnova, sobelMediation } from '@/lib/stats'
+import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis, twoWayAnova, sobelMediation, logisticRegression } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -266,6 +266,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
+
+    let logistic: any = null
+    if (analysisTypes.includes('logistic') && ivConstructs.length >= 1 && dvConstructs.length >= 1) {
+      const dv = dvConstructs[0]
+      const dvScores: number[] | undefined = constructScores[dv.id]
+      const n = dvScores ? Math.min(dvScores.length, ...ivConstructs.map((c: any) => constructScores[c.id].length)) : 0
+
+      if (n >= ivConstructs.length + 2 && dvScores) {
+        const yFull = dvScores.slice(0, n)
+        const isBinary = yFull.every((v: number) => v === 0 || v === 1)
+        const uniqueVals = new Set(yFull)
+
+        if (isBinary && uniqueVals.size === 2) {
+          const X = Array.from({ length: n }, (_, i) => [
+            ...ivConstructs.map((c: any) => constructScores[c.id][i])
+          ])
+          const ivNames = ivConstructs.map((c: any) => c.name)
+          const logResult = logisticRegression(yFull, X, ivNames)
+          logistic = {
+            dvName: dv.name,
+            ivNames,
+            ...logResult
+          }
+        }
+      }
+    }
 
     let ttest: any = null
     if (analysisTypes.includes('ttest') && session.ttest_config) {
@@ -737,6 +763,7 @@ export async function POST(req: NextRequest) {
       kruskalwallis,
       twowayanova,
       mediation,
+      logistic,
       computedAt: new Date().toISOString()
     }
 
