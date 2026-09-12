@@ -789,3 +789,129 @@ export function kruskalWallis(groups: number[][]): any {
     groups: groupStats
   }
 }
+
+// Two-way ANOVA (two independent factors + interaction), built on top of
+// olsRegression using effect-coded dummy variables and Type III sums of
+// squares (SS_term = SS_residual(model without term) - SS_residual(full model)).
+// This correctly handles both balanced AND unbalanced designs.
+export function twoWayAnova(factorA: string[], factorB: string[], outcome: number[]): any {
+  const n = outcome.length
+  const levelsA = Array.from(new Set(factorA))
+  const levelsB = Array.from(new Set(factorB))
+  const I = levelsA.length
+  const J = levelsB.length
+
+  function effectCode(labels: string[], levels: string[]): number[][] {
+    const baseline = levels[levels.length - 1]
+    return labels.map(label => {
+      const row = new Array(levels.length - 1).fill(0)
+      if (label === baseline) {
+        for (let i = 0; i < row.length; i++) row[i] = -1
+      } else {
+        const idx = levels.indexOf(label)
+        row[idx] = 1
+      }
+      return row
+    })
+  }
+
+  const aDummies = effectCode(factorA, levelsA)
+  const bDummies = effectCode(factorB, levelsB)
+  const abDummies: number[][] = []
+  for (let r = 0; r < n; r++) {
+    const row: number[] = []
+    for (let i = 0; i < aDummies[r].length; i++) {
+      for (let j = 0; j < bDummies[r].length; j++) {
+        row.push(aDummies[r][i] * bDummies[r][j])
+      }
+    }
+    abDummies.push(row)
+  }
+
+  function buildX(includeA: boolean, includeB: boolean, includeAB: boolean): number[][] {
+    return outcome.map((_, r) => {
+      const row: number[] = [1]
+      if (includeA) row.push(...aDummies[r])
+      if (includeB) row.push(...bDummies[r])
+      if (includeAB) row.push(...abDummies[r])
+      return row
+    })
+  }
+
+  const namesFor = (includeA: boolean, includeB: boolean, includeAB: boolean): string[] => {
+    const names: string[] = []
+    if (includeA) for (let i = 0; i < I - 1; i++) names.push(`A${i + 1}`)
+    if (includeB) for (let j = 0; j < J - 1; j++) names.push(`B${j + 1}`)
+    if (includeAB) for (let i = 0; i < I - 1; i++) for (let j = 0; j < J - 1; j++) names.push(`A${i + 1}xB${j + 1}`)
+    return names
+  }
+
+  const fullModel = olsRegression(outcome, buildX(true, true, true), namesFor(true, true, true))
+  const noAModel = olsRegression(outcome, buildX(false, true, true), namesFor(false, true, true))
+  const noBModel = olsRegression(outcome, buildX(true, false, true), namesFor(true, false, true))
+  const noABModel = olsRegression(outcome, buildX(true, true, false), namesFor(true, true, false))
+
+  const dfA = I - 1
+  const dfB = J - 1
+  const dfAB = (I - 1) * (J - 1)
+  const dfError = fullModel.dfResidual
+
+  const ssA = noAModel.ssResidual - fullModel.ssResidual
+  const ssB = noBModel.ssResidual - fullModel.ssResidual
+  const ssAB = noABModel.ssResidual - fullModel.ssResidual
+  const ssError = fullModel.ssResidual
+  const ssTotal = fullModel.ssTotal
+
+  const msA = ssA / dfA
+  const msB = ssB / dfB
+  const msAB = ssAB / dfAB
+  const msError = ssError / dfError
+
+  const fA = msA / msError
+  const fB = msB / msError
+  const fAB = msAB / msError
+
+  const pA = fTestPValue(fA, dfA, dfError)
+  const pB = fTestPValue(fB, dfB, dfError)
+  const pAB = fTestPValue(fAB, dfAB, dfError)
+
+  const cellStats: any[] = []
+  levelsA.forEach(la => {
+    levelsB.forEach(lb => {
+      const vals: number[] = []
+      for (let r = 0; r < n; r++) {
+        if (factorA[r] === la && factorB[r] === lb) vals.push(outcome[r])
+      }
+      cellStats.push({
+        factorALevel: la,
+        factorBLevel: lb,
+        n: vals.length,
+        mean: vals.length > 0 ? mean(vals) : null,
+        sd: vals.length > 1 ? sd(vals) : null
+      })
+    })
+  })
+
+  const marginalA = levelsA.map(la => {
+    const vals = outcome.filter((_, r) => factorA[r] === la)
+    return { level: la, n: vals.length, mean: mean(vals), sd: sd(vals) }
+  })
+  const marginalB = levelsB.map(lb => {
+    const vals = outcome.filter((_, r) => factorB[r] === lb)
+    return { level: lb, n: vals.length, mean: mean(vals), sd: sd(vals) }
+  })
+
+  return {
+    n,
+    levelsA,
+    levelsB,
+    factorA: { ss: ssA, df: dfA, ms: msA, f: fA, p: pA },
+    factorB: { ss: ssB, df: dfB, ms: msB, f: fB, p: pB },
+    interaction: { ss: ssAB, df: dfAB, ms: msAB, f: fAB, p: pAB },
+    error: { ss: ssError, df: dfError, ms: msError },
+    total: { ss: ssTotal, df: dfError + dfA + dfB + dfAB },
+    cellStats,
+    marginalA,
+    marginalB
+  }
+}
