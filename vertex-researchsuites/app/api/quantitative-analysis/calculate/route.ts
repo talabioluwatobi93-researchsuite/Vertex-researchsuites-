@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank } from '@/lib/stats'
+import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -491,6 +491,43 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let kruskalwallis: any = null
+    if (analysisTypes.includes('kruskalwallis') && session.kruskalwallis_config) {
+      const { groupConstructId, outcomeConstructId } = session.kruskalwallis_config
+      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
+      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const groupLabels = Array.from(new Set(
+          cleanedRows.map((r: any[]) => String(r[groupCol]).trim())
+        )).filter(Boolean) as string[]
+
+        const groupedScores: Record<string, number[]> = {}
+        groupLabels.forEach((label) => { groupedScores[label] = [] })
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct)
+          if (score === null) return
+          if (groupedScores[label] !== undefined) groupedScores[label].push(score)
+        })
+
+        const validLabels = groupLabels.filter((label) => groupedScores[label].length >= 2)
+
+        if (validLabels.length >= 3) {
+          const groups = validLabels.map((label) => groupedScores[label])
+          const kwResult = kruskalWallis(groups)
+          kruskalwallis = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            groupLabels: validLabels,
+            ...kwResult
+          }
+        }
+      }
+    }
+
     let chisquare: any = null
     if (analysisTypes.includes('chisquare') && session.chisquare_config) {
       const { rowConstructId, colConstructId } = session.chisquare_config
@@ -619,6 +656,7 @@ export async function POST(req: NextRequest) {
       paired,
       mannwhitney,
       wilcoxon,
+      kruskalwallis,
       computedAt: new Date().toISOString()
     }
 
