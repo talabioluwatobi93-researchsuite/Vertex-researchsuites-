@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest } from '@/lib/stats'
+import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -366,6 +366,41 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let mannwhitney: any = null
+    if (analysisTypes.includes('mannwhitney') && session.mannwhitney_config) {
+      const { groupConstructId, outcomeConstructId } = session.mannwhitney_config
+      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
+      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const group1Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[0]
+        const group2Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[1]
+
+        const group1Scores: number[] = []
+        const group2Scores: number[] = []
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct)
+          if (score === null) return
+          if (label === group1Label) group1Scores.push(score)
+          else if (label === group2Label) group2Scores.push(score)
+        })
+
+        if (group1Scores.length >= 2 && group2Scores.length >= 2) {
+          const mwResult = mannWhitneyU(group1Scores, group2Scores)
+          mannwhitney = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            group1Label,
+            group2Label,
+            ...mwResult
+          }
+        }
+      }
+    }
+
     let anova: any = null
     if (analysisTypes.includes('anova') && session.anova_config) {
       const { groupConstructId, outcomeConstructId } = session.anova_config
@@ -560,6 +595,7 @@ export async function POST(req: NextRequest) {
       chisquare,
       moderation,
       paired,
+      mannwhitney,
       computedAt: new Date().toISOString()
     }
 
