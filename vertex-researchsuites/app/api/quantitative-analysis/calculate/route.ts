@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis } from '@/lib/stats'
+import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis, twoWayAnova } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -528,6 +528,55 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let twowayanova: any = null
+    if (analysisTypes.includes('twowayanova') && session.twowayanova_config) {
+      const { factorAConstructId, factorBConstructId, outcomeConstructId } = session.twowayanova_config
+      const factorAConstruct = constructs.find((c: any) => c.id === factorAConstructId)
+      const factorBConstruct = constructs.find((c: any) => c.id === factorBConstructId)
+      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+
+      if (factorAConstruct && factorBConstruct && outcomeConstruct) {
+        const colA = factorAConstruct.columnIndexes[0]
+        const colB = factorBConstruct.columnIndexes[0]
+
+        const factorAValues: string[] = []
+        const factorBValues: string[] = []
+        const outcomeValues: number[] = []
+
+        cleanedRows.forEach((row: any[]) => {
+          const labelA = String(row[colA]).trim()
+          const labelB = String(row[colB]).trim()
+          const score = getConstructScore(row, outcomeConstruct)
+          if (!labelA || !labelB || score === null) return
+          factorAValues.push(labelA)
+          factorBValues.push(labelB)
+          outcomeValues.push(score)
+        })
+
+        const levelsACheck = Array.from(new Set(factorAValues))
+        const levelsBCheck = Array.from(new Set(factorBValues))
+
+        if (levelsACheck.length >= 2 && levelsBCheck.length >= 2 && outcomeValues.length >= (levelsACheck.length * levelsBCheck.length) + 1) {
+          const twaResult = twoWayAnova(factorAValues, factorBValues, outcomeValues)
+          twowayanova = {
+            factorAName: factorAConstruct.name,
+            factorBName: factorBConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            anovaTable: [
+              { source: factorAConstruct.name, ss: r3(twaResult.factorA.ss), df: twaResult.factorA.df, ms: r3(twaResult.factorA.ms), F: r3(twaResult.factorA.f), p: r3(twaResult.factorA.p) },
+              { source: factorBConstruct.name, ss: r3(twaResult.factorB.ss), df: twaResult.factorB.df, ms: r3(twaResult.factorB.ms), F: r3(twaResult.factorB.f), p: r3(twaResult.factorB.p) },
+              { source: `${factorAConstruct.name} x ${factorBConstruct.name} (Interaction)`, ss: r3(twaResult.interaction.ss), df: twaResult.interaction.df, ms: r3(twaResult.interaction.ms), F: r3(twaResult.interaction.f), p: r3(twaResult.interaction.p) },
+              { source: 'Error', ss: r3(twaResult.error.ss), df: twaResult.error.df, ms: r3(twaResult.error.ms), F: null, p: null },
+              { source: 'Total', ss: r3(twaResult.total.ss), df: twaResult.total.df, ms: null, F: null, p: null }
+            ],
+            cellStats: twaResult.cellStats,
+            marginalA: twaResult.marginalA,
+            marginalB: twaResult.marginalB
+          }
+        }
+      }
+    }
+
     let chisquare: any = null
     if (analysisTypes.includes('chisquare') && session.chisquare_config) {
       const { rowConstructId, colConstructId } = session.chisquare_config
@@ -657,6 +706,7 @@ export async function POST(req: NextRequest) {
       mannwhitney,
       wilcoxon,
       kruskalwallis,
+      twowayanova,
       computedAt: new Date().toISOString()
     }
 
