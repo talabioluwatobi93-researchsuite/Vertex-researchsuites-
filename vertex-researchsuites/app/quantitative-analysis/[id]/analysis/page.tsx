@@ -141,6 +141,37 @@ export default function AnalysisTypePage() {
         setChisquareRowId(data.chisquare_config.rowConstructId || '')
         setChisquareColId(data.chisquare_config.colConstructId || '')
       }
+      if (data.paired_config) {
+        setPairedGroup1Id(data.paired_config.group1ConstructId || '')
+        setPairedGroup2Id(data.paired_config.group2ConstructId || '')
+      }
+      if (data.mannwhitney_config) {
+        setMannwhitneyGroupId(data.mannwhitney_config.groupConstructId || '')
+        setMannwhitneyOutcomeId(data.mannwhitney_config.outcomeConstructId || '')
+      }
+      if (data.wilcoxon_config) {
+        setWilcoxonGroup1Id(data.wilcoxon_config.group1ConstructId || '')
+        setWilcoxonGroup2Id(data.wilcoxon_config.group2ConstructId || '')
+      }
+      if (data.kruskalwallis_config) {
+        setKruskalGroupId(data.kruskalwallis_config.groupConstructId || '')
+        setKruskalOutcomeId(data.kruskalwallis_config.outcomeConstructId || '')
+      }
+      if (data.twowayanova_config) {
+        setTwowayFactorAId(data.twowayanova_config.factorAConstructId || '')
+        setTwowayFactorBId(data.twowayanova_config.factorBConstructId || '')
+        setTwowayOutcomeId(data.twowayanova_config.outcomeConstructId || '')
+      }
+      if (data.mediation_config) {
+        setMediationPredictorId(data.mediation_config.predictorConstructId || '')
+        setMediationMediatorId(data.mediation_config.mediatorConstructId || '')
+        setMediationOutcomeId(data.mediation_config.outcomeConstructId || '')
+      }
+      if (data.moderation_config) {
+        setModerationPredictorId(data.moderation_config.predictorConstructId || '')
+        setModerationModeratorId(data.moderation_config.moderatorConstructId || '')
+        setModerationOutcomeId(data.moderation_config.outcomeConstructId || '')
+      }
       setLoading(false)
     }
     load()
