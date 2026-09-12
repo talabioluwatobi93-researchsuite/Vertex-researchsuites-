@@ -569,11 +569,25 @@ export async function POST(req: NextRequest) {
         const factorBValues: string[] = []
         const outcomeValues: number[] = []
 
+        const mappingA = textMappings[factorAConstruct.id]
+        const reverseMapA: Record<string, string> = {}
+        if (mappingA) Object.entries(mappingA).forEach(([text, num]: [string, any]) => { reverseMapA[String(num)] = text })
+
+        const mappingB = textMappings[factorBConstruct.id]
+        const reverseMapB: Record<string, string> = {}
+        if (mappingB) Object.entries(mappingB).forEach(([text, num]: [string, any]) => { reverseMapB[String(num)] = text })
+
+        function resolveGroupLabel(raw: string, col: number, reverseMap: Record<string, string>): string {
+          return (demographicMappings[col] || demographicMappings[String(col)] || {})[raw] || reverseMap[raw] || raw
+        }
+
         cleanedRows.forEach((row: any[]) => {
-          const labelA = String(row[colA]).trim()
-          const labelB = String(row[colB]).trim()
+          const rawLabelA = String(row[colA]).trim()
+          const rawLabelB = String(row[colB]).trim()
+          const labelA = resolveGroupLabel(rawLabelA, colA, reverseMapA)
+          const labelB = resolveGroupLabel(rawLabelB, colB, reverseMapB)
           const score = getConstructScore(row, outcomeConstruct)
-          if (!labelA || !labelB || score === null) return
+          if (!rawLabelA || !rawLabelB || score === null) return
           factorAValues.push(labelA)
           factorBValues.push(labelB)
           outcomeValues.push(score)
@@ -642,11 +656,23 @@ export async function POST(req: NextRequest) {
         const rowCol = rowConstruct.columnIndexes[0]
         const colCol = colConstruct.columnIndexes[0]
 
+        const mappingRow = textMappings[rowConstruct.id]
+        const reverseMapRow: Record<string, string> = {}
+        if (mappingRow) Object.entries(mappingRow).forEach(([text, num]: [string, any]) => { reverseMapRow[String(num)] = text })
+
+        const mappingCol = textMappings[colConstruct.id]
+        const reverseMapCol: Record<string, string> = {}
+        if (mappingCol) Object.entries(mappingCol).forEach(([text, num]: [string, any]) => { reverseMapCol[String(num)] = text })
+
+        function resolveCatLabel(raw: string, col: number, reverseMap: Record<string, string>): string {
+          return (demographicMappings[col] || demographicMappings[String(col)] || {})[raw] || reverseMap[raw] || raw
+        }
+
         const rowLabels = Array.from(new Set(
-          cleanedRows.map((r: any[]) => String(r[rowCol]).trim()).filter(Boolean)
+          cleanedRows.map((r: any[]) => resolveCatLabel(String(r[rowCol]).trim(), rowCol, reverseMapRow)).filter(Boolean)
         )) as string[]
         const colLabels = Array.from(new Set(
-          cleanedRows.map((r: any[]) => String(r[colCol]).trim()).filter(Boolean)
+          cleanedRows.map((r: any[]) => resolveCatLabel(String(r[colCol]).trim(), colCol, reverseMapCol)).filter(Boolean)
         )) as string[]
 
         const table: number[][] = rowLabels.map(() => colLabels.map(() => 0))
@@ -656,8 +682,8 @@ export async function POST(req: NextRequest) {
         colLabels.forEach((l, j) => { colIndex[l] = j })
 
         cleanedRows.forEach((row: any[]) => {
-          const rLabel = String(row[rowCol]).trim()
-          const cLabel = String(row[colCol]).trim()
+          const rLabel = resolveCatLabel(String(row[rowCol]).trim(), rowCol, reverseMapRow)
+          const cLabel = resolveCatLabel(String(row[colCol]).trim(), colCol, reverseMapCol)
           if (!rLabel || !cLabel) return
           if (rowIndex[rLabel] === undefined || colIndex[cLabel] === undefined) return
           table[rowIndex[rLabel]][colIndex[cLabel]]++
