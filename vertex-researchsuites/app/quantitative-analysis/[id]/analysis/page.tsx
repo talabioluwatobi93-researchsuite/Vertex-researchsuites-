@@ -590,6 +590,41 @@ export default function AnalysisTypePage() {
                 )}
               </div>
             )}
+          {type === 'paired' && isSelected && avail.available && (
+            <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>First measurement (e.g., Pre-Test Score)</label>
+              <select value={pairedGroup1Id} onChange={(e) => { setPairedGroup1Id(e.target.value); if (pairedGroup2Id === e.target.value) setPairedGroup2Id('') }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
+                <option value="">Select a variable...</option>
+                {numericEligibleConstructs.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Second measurement (e.g., Post-Test Score)</label>
+              <select value={pairedGroup2Id} onChange={(e) => setPairedGroup2Id(e.target.value)} disabled={!pairedGroup1Id} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}>
+                <option value="">Select a variable...</option>
+                {numericEligibleConstructs.filter((c) => c.id !== pairedGroup1Id).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              {pairedGroup1Id && pairedGroup2Id && (
+                <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>We will compare {numericEligibleConstructs.find((c) => c.id === pairedGroup1Id)?.name} against {numericEligibleConstructs.find((c) => c.id === pairedGroup2Id)?.name} for the same people.</p>
+              )}
+            </div>
+          )}
+
+          {type === 'mannwhitney' && isSelected && avail.available && (
+            <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Grouping variable (must have exactly 2 groups)</label>
+              <select value={mannwhitneyGroupId} onChange={(e) => { setMannwhitneyGroupId(e.target.value); if (mannwhitneyOutcomeId === e.target.value) setMannwhitneyOutcomeId('') }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
+                <option value="">Select a grouping variable...</option>
+                {groupEligibleConstructs.map((c) => (<option key={c.id} value={c.id}>{c.name} ({c.distinctValues.join(' vs ')})</option>))}
+              </select>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Outcome variable (what you are comparing)</label>
+              <select value={mannwhitneyOutcomeId} onChange={(e) => setMannwhitneyOutcomeId(e.target.value)} disabled={!mannwhitneyGroupId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}>
+                <option value="">Select an outcome variable...</option>
+                {constructs.filter((c) => c.id !== mannwhitneyGroupId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              {mannwhitneyGroupId && mannwhitneyOutcomeId && (
+                <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>We will compare {constructs.find((c) => c.id === mannwhitneyOutcomeId)?.name} between the two groups of {groupEligibleConstructs.find((c) => c.id === mannwhitneyGroupId)?.name}.</p>
+              )}
+            </div>
+          )}
           </div>
         )
       })}
