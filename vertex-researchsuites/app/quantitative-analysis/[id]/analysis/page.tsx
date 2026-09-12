@@ -660,6 +660,74 @@ export default function AnalysisTypePage() {
               )}
             </div>
           )}
+          {type === 'twowayanova' && isSelected && avail.available && (
+            <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>First grouping variable (e.g., Gender)</label>
+              <select value={twowayFactorAId} onChange={(e) => { setTwowayFactorAId(e.target.value); if (twowayFactorBId === e.target.value) setTwowayFactorBId(''); if (twowayOutcomeId === e.target.value) setTwowayOutcomeId('') }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
+                <option value="">Select a grouping variable...</option>
+                {[...groupEligibleConstructs, ...groupEligibleConstructsAnova].map((c) => (<option key={c.id} value={c.id}>{c.name} ({c.distinctValues.join(', ')})</option>))}
+              </select>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Second grouping variable (e.g., Year Level)</label>
+              <select value={twowayFactorBId} onChange={(e) => { setTwowayFactorBId(e.target.value); if (twowayOutcomeId === e.target.value) setTwowayOutcomeId('') }} disabled={!twowayFactorAId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
+                <option value="">Select a grouping variable...</option>
+                {[...groupEligibleConstructs, ...groupEligibleConstructsAnova].filter((c) => c.id !== twowayFactorAId).map((c) => (<option key={c.id} value={c.id}>{c.name} ({c.distinctValues.join(', ')})</option>))}
+              </select>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Outcome variable (what you are measuring)</label>
+              <select value={twowayOutcomeId} onChange={(e) => setTwowayOutcomeId(e.target.value)} disabled={!twowayFactorBId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}>
+                <option value="">Select an outcome variable...</option>
+                {constructs.filter((c) => c.id !== twowayFactorAId && c.id !== twowayFactorBId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              {twowayFactorAId && twowayFactorBId && twowayOutcomeId && (
+                <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>We will test how {constructs.find((c) => c.id === twowayOutcomeId)?.name} is affected by {[...groupEligibleConstructs, ...groupEligibleConstructsAnova].find((c) => c.id === twowayFactorAId)?.name} AND {[...groupEligibleConstructs, ...groupEligibleConstructsAnova].find((c) => c.id === twowayFactorBId)?.name}, together.</p>
+              )}
+            </div>
+          )}
+
+          {type === 'mediation' && isSelected && avail.available && (
+            <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Main cause (Predictor)</label>
+              <select value={mediationPredictorId} onChange={(e) => { setMediationPredictorId(e.target.value); if (mediationMediatorId === e.target.value) setMediationMediatorId(''); if (mediationOutcomeId === e.target.value) setMediationOutcomeId('') }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
+                <option value="">Select a variable...</option>
+                {numericEligibleConstructs.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>In-between variable (Mediator) - carries the effect</label>
+              <select value={mediationMediatorId} onChange={(e) => { setMediationMediatorId(e.target.value); if (mediationOutcomeId === e.target.value) setMediationOutcomeId('') }} disabled={!mediationPredictorId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
+                <option value="">Select a variable...</option>
+                {numericEligibleConstructs.filter((c) => c.id !== mediationPredictorId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Final outcome</label>
+              <select value={mediationOutcomeId} onChange={(e) => setMediationOutcomeId(e.target.value)} disabled={!mediationMediatorId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}>
+                <option value="">Select a variable...</option>
+                {numericEligibleConstructs.filter((c) => c.id !== mediationPredictorId && c.id !== mediationMediatorId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              {mediationPredictorId && mediationMediatorId && mediationOutcomeId && (
+                <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>We will test whether {numericEligibleConstructs.find((c) => c.id === mediationPredictorId)?.name} affects {numericEligibleConstructs.find((c) => c.id === mediationOutcomeId)?.name} THROUGH {numericEligibleConstructs.find((c) => c.id === mediationMediatorId)?.name}.</p>
+              )}
+            </div>
+          )}
+
+          {type === 'moderation' && isSelected && avail.available && (
+            <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Main cause (Predictor)</label>
+              <select value={moderationPredictorId} onChange={(e) => { setModerationPredictorId(e.target.value); if (moderationModeratorId === e.target.value) setModerationModeratorId(''); if (moderationOutcomeId === e.target.value) setModerationOutcomeId('') }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
+                <option value="">Select a variable...</option>
+                {numericEligibleConstructs.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Variable that changes the relationship (Moderator)</label>
+              <select value={moderationModeratorId} onChange={(e) => { setModerationModeratorId(e.target.value); if (moderationOutcomeId === e.target.value) setModerationOutcomeId('') }} disabled={!moderationPredictorId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
+                <option value="">Select a variable...</option>
+                {numericEligibleConstructs.filter((c) => c.id !== moderationPredictorId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Final outcome</label>
+              <select value={moderationOutcomeId} onChange={(e) => setModerationOutcomeId(e.target.value)} disabled={!moderationModeratorId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}>
+                <option value="">Select a variable...</option>
+                {numericEligibleConstructs.filter((c) => c.id !== moderationPredictorId && c.id !== moderationModeratorId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              {moderationPredictorId && moderationModeratorId && moderationOutcomeId && (
+                <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>We will test whether the strength of the effect of {numericEligibleConstructs.find((c) => c.id === moderationPredictorId)?.name} on {numericEligibleConstructs.find((c) => c.id === moderationOutcomeId)?.name} changes depending on {numericEligibleConstructs.find((c) => c.id === moderationModeratorId)?.name}.</p>
+              )}
+            </div>
+          )}
           </div>
         )
       })}
