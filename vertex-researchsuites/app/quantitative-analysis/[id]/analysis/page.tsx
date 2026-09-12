@@ -114,7 +114,7 @@ export default function AnalysisTypePage() {
     const load = async () => {
       const { data, error } = await supabase
         .from('quantitative_analysis_sessions')
-        .select('constructs, analysis_type, raw_data, ttest_config, anova_config, chisquare_config')
+        .select('constructs, analysis_type, raw_data, ttest_config, anova_config, chisquare_config, paired_config, mannwhitney_config, wilcoxon_config, kruskalwallis_config, twowayanova_config, mediation_config, moderation_config')
         .eq('id', sessionId)
         .single()
 
