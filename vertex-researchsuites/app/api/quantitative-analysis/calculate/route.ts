@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis, twoWayAnova } from '@/lib/stats'
+import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis, twoWayAnova, sobelMediation } from '@/lib/stats'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -577,6 +577,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let mediation: any = null
+    if (analysisTypes.includes('mediation') && session.mediation_config) {
+      const { predictorConstructId, mediatorConstructId, outcomeConstructId } = session.mediation_config
+      const predictorScores = constructScores[predictorConstructId]
+      const mediatorScores = constructScores[mediatorConstructId]
+      const outcomeScores = constructScores[outcomeConstructId]
+
+      if (predictorScores && mediatorScores && outcomeScores) {
+        const n = Math.min(predictorScores.length, mediatorScores.length, outcomeScores.length)
+        if (n >= 4) {
+          const predictor = predictorScores.slice(0, n)
+          const mediatorArr = mediatorScores.slice(0, n)
+          const outcomeArr = outcomeScores.slice(0, n)
+          const medResult = sobelMediation(predictor, mediatorArr, outcomeArr)
+
+          const predictorName = (constructs.find((c: any) => c.id === predictorConstructId) || {}).name || 'Predictor'
+          const mediatorName = (constructs.find((c: any) => c.id === mediatorConstructId) || {}).name || 'Mediator'
+          const outcomeName = (constructs.find((c: any) => c.id === outcomeConstructId) || {}).name || 'Outcome'
+
+          mediation = {
+            predictorName,
+            mediatorName,
+            outcomeName,
+            ...medResult
+          }
+        }
+      }
+    }
+
     let chisquare: any = null
     if (analysisTypes.includes('chisquare') && session.chisquare_config) {
       const { rowConstructId, colConstructId } = session.chisquare_config
@@ -707,6 +736,7 @@ export async function POST(req: NextRequest) {
       wilcoxon,
       kruskalwallis,
       twowayanova,
+      mediation,
       computedAt: new Date().toISOString()
     }
 
