@@ -625,6 +625,41 @@ export default function AnalysisTypePage() {
               )}
             </div>
           )}
+          {type === 'wilcoxon' && isSelected && avail.available && (
+            <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>First measurement (e.g., Pre-Test Score)</label>
+              <select value={wilcoxonGroup1Id} onChange={(e) => { setWilcoxonGroup1Id(e.target.value); if (wilcoxonGroup2Id === e.target.value) setWilcoxonGroup2Id('') }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
+                <option value="">Select a variable...</option>
+                {numericEligibleConstructs.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Second measurement (e.g., Post-Test Score)</label>
+              <select value={wilcoxonGroup2Id} onChange={(e) => setWilcoxonGroup2Id(e.target.value)} disabled={!wilcoxonGroup1Id} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}>
+                <option value="">Select a variable...</option>
+                {numericEligibleConstructs.filter((c) => c.id !== wilcoxonGroup1Id).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              {wilcoxonGroup1Id && wilcoxonGroup2Id && (
+                <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>We will compare {numericEligibleConstructs.find((c) => c.id === wilcoxonGroup1Id)?.name} against {numericEligibleConstructs.find((c) => c.id === wilcoxonGroup2Id)?.name} for the same people (non-parametric).</p>
+              )}
+            </div>
+          )}
+
+          {type === 'kruskalwallis' && isSelected && avail.available && (
+            <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Grouping variable (must have 3 or more groups)</label>
+              <select value={kruskalGroupId} onChange={(e) => { setKruskalGroupId(e.target.value); if (kruskalOutcomeId === e.target.value) setKruskalOutcomeId('') }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
+                <option value="">Select a grouping variable...</option>
+                {groupEligibleConstructsAnova.map((c) => (<option key={c.id} value={c.id}>{c.name} ({c.distinctValues.join(', ')})</option>))}
+              </select>
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Outcome variable (what you are comparing)</label>
+              <select value={kruskalOutcomeId} onChange={(e) => setKruskalOutcomeId(e.target.value)} disabled={!kruskalGroupId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}>
+                <option value="">Select an outcome variable...</option>
+                {constructs.filter((c) => c.id !== kruskalGroupId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+              {kruskalGroupId && kruskalOutcomeId && (
+                <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>We will compare {constructs.find((c) => c.id === kruskalOutcomeId)?.name} across the groups of {groupEligibleConstructsAnova.find((c) => c.id === kruskalGroupId)?.name}.</p>
+              )}
+            </div>
+          )}
           </div>
         )
       })}
