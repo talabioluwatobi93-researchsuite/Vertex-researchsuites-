@@ -165,6 +165,13 @@ export default function AnalysisTypePage() {
 
   const outcomeEligibleConstructsAnova = constructs.filter((c) => c.id !== anovaGroupId)
 
+  // Scale/numeric constructs usable as a Predictor/Mediator/Moderator/Outcome/
+  // paired-measurement (anything that isn't Demographic and has data mapped to it)
+  const numericEligibleConstructs = constructs.filter((c) => c.role !== 'Demographic' && c.columnIndexes && c.columnIndexes.length > 0)
+
+  // A binary DV (exactly 2 distinct values) is required for logistic regression
+  const binaryDvConstructs = dvConstructs.filter((c) => c.columnIndexes && c.columnIndexes.length === 1 && getDistinctValues(c.columnIndexes[0]).length === 2)
+
   // A construct is eligible for Chi-Square if it uses exactly ONE column
   // AND that column has 2 or more distinct non-empty values in the data.
   const chisquareEligibleConstructs = constructs
@@ -199,14 +206,38 @@ export default function AnalysisTypePage() {
       available: chisquareEligibleConstructs.length >= 2,
       reason: 'Need at least 2 categorical, single-column variables with 2 or more distinct values each.',
     },
-    paired: { available: false, reason: 'Not yet available.' },
-    mannwhitney: { available: false, reason: 'Not yet available.' },
-    wilcoxon: { available: false, reason: 'Not yet available.' },
-    kruskalwallis: { available: false, reason: 'Not yet available.' },
-    twowayanova: { available: false, reason: 'Not yet available.' },
-    mediation: { available: false, reason: 'Not yet available.' },
-    moderation: { available: false, reason: 'Not yet available.' },
-    logistic: { available: false, reason: 'Not yet available.' },
+    paired: {
+      available: numericEligibleConstructs.length >= 2,
+      reason: 'Need at least 2 scale variables representing the same measurement taken twice (e.g., Pre-Test Score and Post-Test Score).',
+    },
+    mannwhitney: {
+      available: groupEligibleConstructs.length > 0 && constructs.length >= 2,
+      reason: 'Need a single-column variable with exactly 2 distinct values (e.g., Gender) to group by.',
+    },
+    wilcoxon: {
+      available: numericEligibleConstructs.length >= 2,
+      reason: 'Need at least 2 scale variables representing the same measurement taken twice (e.g., Pre-Test Score and Post-Test Score).',
+    },
+    kruskalwallis: {
+      available: groupEligibleConstructsAnova.length > 0 && constructs.length >= 2,
+      reason: 'Need a single-column variable with 3 or more distinct values (e.g., Year Level) to group by.',
+    },
+    twowayanova: {
+      available: groupEligibleConstructsAnova.length + groupEligibleConstructs.length >= 2 && constructs.length >= 3,
+      reason: 'Need at least 2 separate grouping variables (each with 2 or more distinct values, e.g., Gender AND Year Level) plus a numeric outcome.',
+    },
+    mediation: {
+      available: numericEligibleConstructs.length >= 3,
+      reason: 'Need at least 3 distinct scale variables: a Predictor, a Mediator (the in-between variable), and an Outcome.',
+    },
+    moderation: {
+      available: numericEligibleConstructs.length >= 3,
+      reason: 'Need at least 3 distinct scale variables: a Predictor, a Moderator (the variable that changes the relationship), and an Outcome.',
+    },
+    logistic: {
+      available: ivCount >= 1 && binaryDvConstructs.length >= 1,
+      reason: 'Need at least 1 Independent Variable and a Dependent Variable with exactly 2 outcomes (e.g., Pass/Fail).',
+    },
   }
 
   function toggleType(type: AnalysisType) {
