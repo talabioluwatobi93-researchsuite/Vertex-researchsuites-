@@ -758,15 +758,14 @@ export async function POST(req: NextRequest) {
         }
       })
 
-      const totalMean = items.length > 0
-        ? r2(mean(items.filter((it) => it.mean !== null).map((it) => it.mean as number)))
-        : null
-      const totalSD = items.length > 0
-        ? r2(mean(items.filter((it) => it.sd !== null).map((it) => it.sd as number)))
-        : null
-      const totalOverallPercent = items.length > 0
-        ? r1(mean(items.filter((it) => it.overallPercent !== null).map((it) => it.overallPercent as number)))
-        : null
+      const compositeScores: number[] = []
+        cleanedRows.forEach((row: any[]) => {
+          const score = getConstructScore(row, c)
+          if (score !== null) compositeScores.push(score)
+        })
+        const totalMean = compositeScores.length > 0 ? r2(mean(compositeScores)) : null
+        const totalSD = compositeScores.length > 0 ? r2(sd(compositeScores)) : null
+        const totalOverallPercent = totalMean !== null ? r1((totalMean / scaleMax) * 100) : null
 
       return { constructName: c.name, scaleMin, scaleMax, items, totalMean, totalSD, totalOverallPercent }
     })
