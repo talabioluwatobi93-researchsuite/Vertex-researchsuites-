@@ -1127,22 +1127,6 @@ export default function ResultsPage() {
           </div>
         )}
         
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Results Interpretation</h2>
-        {interpretation.split('\n').filter(Boolean).map((para, i) => (
-          <p key={i} style={{ fontSize: '13px', color: '#333333', lineHeight: '1.7', marginBottom: '12px' }}>{para}</p>
-        ))}
-      </div>
-
-      {discussion && (
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>General Findings & Discussion</h2>
-          {discussion.split('\n').filter(Boolean).map((para, i) => (
-            <p key={i} style={{ fontSize: '13px', color: '#333333', lineHeight: '1.7', marginBottom: '12px' }}>{para}</p>
-          ))}
-        </div>
-      )}
-
       <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '14px 16px', border: '1px solid #D4AF37', marginBottom: '16px', textAlign: 'center' }}>
         <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, margin: 0 }}>✓ Saved to your Bunker</p>
       </div>
