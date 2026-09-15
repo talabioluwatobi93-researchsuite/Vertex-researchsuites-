@@ -13,11 +13,11 @@ const supabase = createClient(
 const HOLD_MS = 3 * 60 * 1000 // 3 minutes
 
 const thStyle: React.CSSProperties = {
-  textAlign: 'left', padding: '6px 10px', fontSize: '13px', fontWeight: 400,
-  borderBottom: '1px solid #333333', color: '#333333'
+  textAlign: 'center', padding: '6px 10px', fontSize: '13px', fontWeight: 700,
+  border: '1px solid #333333', color: '#333333'
 }
 const tdStyle: React.CSSProperties = {
-  padding: '6px 10px', fontSize: '13px', color: '#333333'
+  padding: '6px 10px', fontSize: '13px', color: '#333333', border: '1px solid #333333'
 }
 const tableWrap: React.CSSProperties = {
   backgroundColor: '#ffffff', borderRadius: '12px', padding: '16px',
@@ -27,7 +27,7 @@ const tableTitle: React.CSSProperties = {
   fontSize: '13px', fontStyle: 'italic', color: '#333333', marginBottom: '10px'
 }
 const table: React.CSSProperties = {
-  width: '100%', borderCollapse: 'collapse', borderTop: '2px solid #333333', borderBottom: '2px solid #333333'
+  width: '100%', borderCollapse: 'collapse', border: '1px solid #333333'
 }
 const noteStyle: React.CSSProperties = {
   fontSize: '11px', color: '#777777', marginTop: '8px', fontStyle: 'italic'
@@ -936,7 +936,7 @@ export default function ResultsPage() {
 {results.anova && (
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
             <p style={tableTitle}>Table {nextTable()}. Descriptive Statistics for {results.anova.outcomeVariableName} by {results.anova.groupVariableName}</p>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={table}>
               <thead>
                 <tr>
                   <th style={thStyle}>{results.anova.groupVariableName}</th>
@@ -979,7 +979,7 @@ export default function ResultsPage() {
             </table>
 
             <p style={tableTitle}>Table {nextTable()}. One-Way ANOVA: {results.anova.outcomeVariableName} by {results.anova.groupVariableName}</p>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={table}>
               <thead>
                 <tr>
                   <th style={thStyle}></th>
@@ -1019,7 +1019,7 @@ export default function ResultsPage() {
             </table>
 
             <p style={tableTitle}>Table {nextTable()}. Post Hoc Tests — Tukey HSD Multiple Comparisons</p>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={table}>
               <thead>
                 <tr>
                   <th style={thStyle}>(I) Group</th>
@@ -1052,7 +1052,7 @@ export default function ResultsPage() {
 {results.chisquare && (
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
             <p style={tableTitle}>Table {nextTable()}. {results.chisquare.rowVariableName} * {results.chisquare.colVariableName} Crosstabulation</p>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={table}>
               <thead>
                 <tr>
                   <th style={thStyle}>{results.chisquare.rowVariableName}</th>
@@ -1084,7 +1084,7 @@ export default function ResultsPage() {
             <p style={noteStyle}>Note. Values shown are Count, with Expected Count in parentheses.</p>
 
             <p style={tableTitle}>Table {nextTable()}. Chi-Square Tests</p>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={table}>
               <thead>
                 <tr>
                   <th style={thStyle}></th>
