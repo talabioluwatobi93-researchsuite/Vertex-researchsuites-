@@ -173,10 +173,11 @@ export async function POST(req: Request) {
     // NOTE: this assumes session.constructs and session.raw_data exist as
     // columns — confirm column names before running (see check below).
     const { getConstructScore } = await import('../calculate/route');
+    const textMappings = session.cleaning_config?.text_mappings || {};
     const constructScores: Record<string, number[]> = {};
     for (const c of session.constructs || []) {
       constructScores[c.id] = (session.raw_data || [])
-        .map((row: any[]) => getConstructScore(row, c))
+        .map((row: any[]) => getConstructScore(row, c, textMappings))
         .filter((v: number | null): v is number => v !== null);
     }
 

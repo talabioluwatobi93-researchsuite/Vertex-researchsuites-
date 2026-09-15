@@ -11,6 +11,35 @@ function r3(n: number): number { return Math.round(n * 1000) / 1000 }
 function r2(n: number): number { return Math.round(n * 100) / 100 }
 function r1(n: number): number { return Math.round(n * 10) / 10 }
 
+    function resolveNumeric(raw: any, constructId: string, textMappings: Record<string, any>): number | null {
+      if (raw === null || raw === undefined || String(raw).trim() === '') return null
+      const str = String(raw).trim()
+      const direct = Number(str)
+      if (!isNaN(direct)) return direct
+      const mapping = textMappings[constructId]
+      if (mapping && mapping[str] !== undefined) return Number(mapping[str])
+      return null
+    }
+
+    export function getConstructScore(row: any[], construct: any, textMappings: Record<string, any>): number | null {
+      const cols: number[] = construct.columnIndexes || []
+      const reverseIdx: number[] = construct.reverseIndexes || []
+      const scaleMin = construct.scaleMin ?? 1
+      const scaleMax = construct.scaleMax ?? 5
+      const scaleReversed = !!construct.scaleReversed
+
+      const values: number[] = []
+      for (const ci of cols) {
+        let num = resolveNumeric(row[ci], construct.id, textMappings)
+        if (num === null) continue
+        if (scaleReversed) num = (scaleMin + scaleMax) - num
+        const scored = reverseIdx.includes(ci) ? (scaleMin + scaleMax) - num : num
+        values.push(scored)
+      }
+      if (values.length === 0) return null
+      return mean(values)
+    }
+
 export async function POST(req: NextRequest) {
   try {
     const { sessionId } = await req.json()
@@ -69,34 +98,7 @@ export async function POST(req: NextRequest) {
     })
 
     // resolve a raw cell to a number, applying the construct's text-to-value mapping first if needed
-    function resolveNumeric(raw: any, constructId: string): number | null {
-      if (raw === null || raw === undefined || String(raw).trim() === '') return null
-      const str = String(raw).trim()
-      const direct = Number(str)
-      if (!isNaN(direct)) return direct
-      const mapping = textMappings[constructId]
-      if (mapping && mapping[str] !== undefined) return Number(mapping[str])
-      return null
-    }
 
-    export function getConstructScore(row: any[], construct: any): number | null {
-      const cols: number[] = construct.columnIndexes || []
-      const reverseIdx: number[] = construct.reverseIndexes || []
-      const scaleMin = construct.scaleMin ?? 1
-      const scaleMax = construct.scaleMax ?? 5
-      const scaleReversed = !!construct.scaleReversed
-
-      const values: number[] = []
-      for (const ci of cols) {
-        let num = resolveNumeric(row[ci], construct.id)
-        if (num === null) continue
-        if (scaleReversed) num = (scaleMin + scaleMax) - num
-        const scored = reverseIdx.includes(ci) ? (scaleMin + scaleMax) - num : num
-        values.push(scored)
-      }
-      if (values.length === 0) return null
-      return mean(values)
-    }
 
     const ivConstructs = constructs.filter((c) => c.role === 'IV')
     const dvConstructs = constructs.filter((c) => c.role === 'DV')
@@ -109,7 +111,7 @@ export async function POST(req: NextRequest) {
 
     cleanedRows.forEach((row) => {
       allScaleConstructs.forEach((c) => {
-        const score = getConstructScore(row, c)
+        const score = getConstructScore(row, c, textMappings)
         if (score !== null) constructScores[c.id].push(score)
       })
     })
@@ -309,7 +311,7 @@ export async function POST(req: NextRequest) {
 
         cleanedRows.forEach((row: any[]) => {
           const label = String(row[groupCol]).trim()
-          const score = getConstructScore(row, outcomeConstruct)
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
           if (score === null) return
           if (label === group1Label) group1Scores.push(score)
           else if (label === group2Label) group2Scores.push(score)
@@ -408,7 +410,7 @@ export async function POST(req: NextRequest) {
 
         cleanedRows.forEach((row: any[]) => {
           const label = String(row[groupCol]).trim()
-          const score = getConstructScore(row, outcomeConstruct)
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
           if (score === null) return
           if (label === group1Label) group1Scores.push(score)
           else if (label === group2Label) group2Scores.push(score)
@@ -466,7 +468,7 @@ export async function POST(req: NextRequest) {
 
         cleanedRows.forEach((row: any[]) => {
           const label = String(row[groupCol]).trim()
-          const score = getConstructScore(row, outcomeConstruct)
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
           if (score === null) return
           if (groupedScores[label] !== undefined) groupedScores[label].push(score)
         })
@@ -534,7 +536,7 @@ export async function POST(req: NextRequest) {
 
         cleanedRows.forEach((row: any[]) => {
           const label = String(row[groupCol]).trim()
-          const score = getConstructScore(row, outcomeConstruct)
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
           if (score === null) return
           if (groupedScores[label] !== undefined) groupedScores[label].push(score)
         })
@@ -586,7 +588,7 @@ export async function POST(req: NextRequest) {
           const rawLabelB = String(row[colB]).trim()
           const labelA = resolveGroupLabel(rawLabelA, colA, reverseMapA)
           const labelB = resolveGroupLabel(rawLabelB, colB, reverseMapB)
-          const score = getConstructScore(row, outcomeConstruct)
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
           if (!rawLabelA || !rawLabelB || score === null) return
           factorAValues.push(labelA)
           factorBValues.push(labelB)
@@ -731,7 +733,7 @@ export async function POST(req: NextRequest) {
         const rawCounts: Record<number, number> = {}
 
         cleanedRows.forEach((row) => {
-          let num = resolveNumeric(row[col], c.id)
+          let num = resolveNumeric(row[col], c.id, textMappings)
           if (num === null) return
           if (reverseIdx.includes(col)) num = (scaleMin + scaleMax) - num
           values.push(num)
@@ -760,7 +762,7 @@ export async function POST(req: NextRequest) {
 
       const compositeScores: number[] = []
         cleanedRows.forEach((row: any[]) => {
-          const score = getConstructScore(row, c)
+          const score = getConstructScore(row, c, textMappings)
           if (score !== null) compositeScores.push(score)
         })
         const totalMean = compositeScores.length > 0 ? r2(mean(compositeScores)) : null
