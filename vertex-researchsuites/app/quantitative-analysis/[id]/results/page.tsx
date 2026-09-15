@@ -494,7 +494,7 @@ export default function ResultsPage() {
                 </thead>
                 <tbody>
                   {f.rows.map((r: any, i: number) => (
-                    <tr key={i}>
+                    <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#F7F7F5' : 'transparent' }}>
                       <td style={tdStyle}>{r.label}</td>
                       <td style={tdStyle}>{r.frequency}</td>
                       <td style={tdStyle}>{r.percent.toFixed(2)}</td>
@@ -548,7 +548,7 @@ export default function ResultsPage() {
             </thead>
             <tbody>
               {c.items.map((it: any, ii: number) => (
-                <tr key={ii}>
+                <tr key={ii} style={{ backgroundColor: ii % 2 === 0 ? '#F7F7F5' : 'transparent' }}>
                   <td style={tdStyle}>{it.label}</td>
                   {Array.from({ length: c.scaleMax - c.scaleMin + 1 }, (_, i) => c.scaleMin + i).map((p: number) => (
                     <td key={p} style={tdStyle}>{it.pointPercents[p]?.toFixed(1)}%</td>
@@ -606,7 +606,7 @@ export default function ResultsPage() {
             </thead>
             <tbody>
               {results.descriptives.map((d: any, i: number) => (
-                <tr key={i}>
+                <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#F7F7F5' : 'transparent' }}>
                   <td style={tdStyle}>{d.name}</td>
                   <td style={tdStyle}>{d.n}</td>
                   <td style={tdStyle}>{d.mean.toFixed(2)}</td>
