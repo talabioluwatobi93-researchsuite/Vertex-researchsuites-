@@ -59,7 +59,8 @@ function buildDataProfile(session: any, constructScores: Record<string, number[]
   };
 }
 
-export { buildDataProfile, DataProfile, ConstructProfile };
+export { buildDataProfile };
+export type { DataProfile, ConstructProfile };
 
 // CHUNK 2 — rule-based structural scan (no AI, pure data facts)
 import {
