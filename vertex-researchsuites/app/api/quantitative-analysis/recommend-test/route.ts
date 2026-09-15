@@ -1,6 +1,7 @@
 // CHUNK 1 — data-gathering layer
 import { checkCorrelation, checkRegression, checkLogistic, checkConfigPresent,
          checkChiSquare, TEST_NAMES, TestName } from '../lib/eligibility';
+import { callQuantRecommendChain } from '@/lib/openrouter';
 
 interface ConstructProfile {
   id: string;
@@ -118,18 +119,8 @@ ${profile.researchText || 'No research framework text provided.'}
 Respond with ONLY valid JSON, no markdown fences:
 { "suggestedTest": "...", "involvedConstructs": ["..."], "reasoning": "..." }`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1000,
-      messages: [{ role: "user", content: systemPrompt }],
-    }),
-  });
-  const data = await response.json();
-  const text = data.content.map((b: any) => b.text || '').join('');
-  const clean = text.replace(/```json|```/g, '').trim();
+  const { content } = await callQuantRecommendChain(systemPrompt);
+  const clean = content.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
 

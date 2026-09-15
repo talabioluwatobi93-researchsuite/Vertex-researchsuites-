@@ -188,3 +188,20 @@ export async function callVoiceInterpretChain(prompt: string): Promise<OpenRoute
     }
   }
 }
+
+export const QUANT_RECOMMEND_MODEL_ROUTES = {
+  primary: 'anthropic/claude-sonnet-4.6',
+  fallback: 'openai/gpt-4o-mini',
+};
+
+export async function callQuantRecommendChain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUANT_RECOMMEND_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'sonnet5-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Quant Recommend primary failed, falling back:', err);
+    const content = await callOpenRouterStreaming(QUANT_RECOMMEND_MODEL_ROUTES.fallback, prompt);
+    return { content, providerUsed: 'gpt4o-mini-fallback' };
+  }
+}
