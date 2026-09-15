@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       return null
     }
 
-    function getConstructScore(row: any[], construct: any): number | null {
+    export function getConstructScore(row: any[], construct: any): number | null {
       const cols: number[] = construct.columnIndexes || []
       const reverseIdx: number[] = construct.reverseIndexes || []
       const scaleMin = construct.scaleMin ?? 1
