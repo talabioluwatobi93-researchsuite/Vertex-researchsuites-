@@ -519,7 +519,7 @@ export default function ResultsPage() {
                         label={(entry: any) => entry.label}
                       >
                         {f.rows.map((_r: any, ri: number) => (
-                          <Cell key={`cell-${ri}`} fill={['#4A6FA5', '#D4AF37', '#8E8E8E', '#5C8A5C', '#B85C5C', '#7A6FA5'][ri % 6]} />
+                          <Cell key={`cell-${ri}`} fill={['#595959', '#8C8C8C', '#BFBFBF', '#404040', '#A6A6A6', '#D9D9D9'][ri % 6]} stroke="#000000" strokeWidth={1} />
                         ))}
                       </Pie>
                       <Tooltip />
@@ -574,10 +574,10 @@ export default function ResultsPage() {
             <div style={{ width: '100%', height: Math.max(260, c.items.length * 50), marginTop: '12px' }}>
               <ResponsiveContainer>
                 <BarChart data={c.items} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
-                  <XAxis dataKey="label" />
-                  <YAxis domain={[c.scaleMin, c.scaleMax]} />
+                  <XAxis dataKey="label" stroke="#333333" tick={{ fill: '#333333', fontSize: 11 }} />
+                  <YAxis domain={[c.scaleMin, c.scaleMax]} stroke="#333333" tick={{ fill: '#333333', fontSize: 11 }} />
                   <Tooltip />
-                  <Bar dataKey="mean" fill="#4A6FA5">
+                  <Bar dataKey="mean" fill="#8C8C8C" stroke="#000000" strokeWidth={1}>
                     <LabelList dataKey="mean" position="top" formatter={(v: any) => Number(v).toFixed(2)} />
                   </Bar>
                   {c.totalMean !== null && (
