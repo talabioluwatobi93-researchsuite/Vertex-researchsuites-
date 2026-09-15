@@ -519,7 +519,7 @@ export default function ResultsPage() {
                         label={(entry: any) => entry.label}
                       >
                         {f.rows.map((_r: any, ri: number) => (
-                          <Cell key={`cell-${ri}`} fill={['#595959', '#8C8C8C', '#BFBFBF', '#404040', '#A6A6A6', '#D9D9D9'][ri % 6]} stroke="#000000" strokeWidth={1} />
+                          <Cell key={`cell-${ri}`} fill={['#D4AF37', '#2E86AB', '#A23B72', '#3B8C6E', '#E07A3E', '#6A4C93'][ri % 6]} stroke="#000000" strokeWidth={1} />
                         ))}
                       </Pie>
                       <Tooltip />
@@ -577,7 +577,7 @@ export default function ResultsPage() {
                   <XAxis dataKey="label" stroke="#333333" tick={{ fill: '#333333', fontSize: 11 }} />
                   <YAxis domain={[c.scaleMin, c.scaleMax]} stroke="#333333" tick={{ fill: '#333333', fontSize: 11 }} />
                   <Tooltip />
-                  <Bar dataKey="mean" fill="#8C8C8C" stroke="#000000" strokeWidth={1}>
+                  <Bar dataKey="mean" fill="#D4AF37" stroke="#000000" strokeWidth={1}>
                     <LabelList dataKey="mean" position="top" formatter={(v: any) => Number(v).toFixed(2)} />
                   </Bar>
                   {c.totalMean !== null && (
