@@ -455,7 +455,7 @@ export default function AnalysisTypePage() {
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Your Constructs</p>
-              <TestRecommendation sessionId={sessionId} onSelect={(test) => {}} onManual={() => {}} />
+              <TestRecommendation sessionId={sessionId} onSelect={(test) => setSelected([test as AnalysisType])} onManual={() => {}} />
         <p style={{ color: '#777777', fontSize: '12px', margin: 0 }}>
           {ivCount} Independent Variable{ivCount !== 1 ? 's' : ''} &middot; {dvCount} Dependent Variable{dvCount !== 1 ? 's' : ''}
           {hasDemographic ? ' \u00b7 Demographics included' : ''}
