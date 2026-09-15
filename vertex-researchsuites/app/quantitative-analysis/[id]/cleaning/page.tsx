@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { CITATION_STYLES, CitationStyleValue } from '@/lib/citationStyles'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,6 +31,7 @@ export default function CleaningPage() {
     action: 'excluded'
   })
   const [chartPrefs, setChartPrefs] = useState<{ bar: boolean; pie: boolean }>({ bar: true, pie: true })
+  const [citationStyle, setCitationStyle] = useState<CitationStyleValue | ''>('')
 
   useEffect(() => {
     loadSession()
@@ -242,7 +244,7 @@ export default function CleaningPage() {
 
     const { error } = await supabase
       .from('quantitative_analysis_sessions')
-      .update({ cleaning_config, chart_preferences: chartPrefs, status: 'cleaning_complete' })
+      .update({ cleaning_config, chart_preferences: chartPrefs, citation_style: citationStyle, status: 'cleaning_complete' })
       .eq('id', id)
 
     setSaving(false)
@@ -396,6 +398,16 @@ export default function CleaningPage() {
           </button>
         </div>
       </div>
+
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>APA style</h2>
+          <select value={citationStyle} onChange={(e) => setCitationStyle(e.target.value as CitationStyleValue)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }}>
+            <option value="">Select citation style</option>
+            {CITATION_STYLES.map((style) => (
+              <option key={style.value} value={style.value}>{style.label}</option>
+            ))}
+          </select>
+        </div>
 
       {errorMsg && (
         <div style={{ backgroundColor: '#FDEDEC', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
