@@ -34,7 +34,7 @@ function stripFences(text: string): string {
   return text.replace(/```json/g, '').replace(/```/g, '').trim()
 }
 
-export async function runQuantInterpretation(session: any): Promise<{ interpretation: string; discussion: string }> {
+export async function runQuantInterpretation(session: any): Promise<{ interpretation: string; discussion: string; tableInterpretations: Record<string, string> }> {
     const framework = session.research_framework || {}
     const scaleInfo = deriveScaleLabels(session.constructs || [])
     const responseRateInfo = session.response_rate_info || {}
@@ -167,12 +167,15 @@ Respond ONLY with valid JSON, no preamble, no markdown fences:
 
     const findings = step3b?.quantitative_hypothesis_findings || {}
 
-    let interpretation = ''
-    for (const t of resultTables) {
-      interpretation += `${t.table_title}\n${t.why_appropriate ? 'Rationale: ' + t.why_appropriate + '\n' : ''}`
-      const match = (findings.table_interpretations || []).find((ti: any) => ti.table_title === t.table_title)
-      if (match) interpretation += `${match.interpretation}\n\n`
-    }
+  let interpretation = '';
+  const tableInterpretations: Record<string, string> = {};
+  for (const t of resultTables) {
+    let block = `${t.table_title}\n${t.why_appropriate ? 'Rationale: ' + t.why_appropriate + '\n' : ''}`;
+    const match = (findings.table_interpretations || []).find((ti: any) => ti.table_title === t.table_title);
+    if (match) block += `${match.interpretation}\n\n`;
+    interpretation += block;
+    tableInterpretations[t.table_title] = block;
+  }
 
     let discussion = ''
     for (const h of (findings.hypothesis_testing || [])) {
@@ -180,5 +183,5 @@ Respond ONLY with valid JSON, no preamble, no markdown fences:
     }
 
 
-  return { interpretation, discussion }
+  return { interpretation, discussion, tableInterpretations };
 }
