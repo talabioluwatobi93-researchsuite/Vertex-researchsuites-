@@ -1,12 +1,14 @@
 import { Paragraph, Table } from "docx";
-import { makeTable, tableTitle, spacer, fmt, TableGroup } from "./quantBunkerDocx";
+import { makeTable, tableTitle, spacer, fmt, TableGroup, CitationStyle, makeTableStyled, tableTitleStyled } from "./quantBunkerDocx";
 
 // ---- Descriptives table ----
 export function buildDescriptivesTable(
   descriptives: { name: string; role: string; n: number; mean: number; sd: number; min: number; max: number }[],
-  tableNumber: number
+  tableNumber: number,
+  citationStyle?: CitationStyle
 ): TableGroup[] {
-  const title = `Table ${tableNumber}. Descriptive Statistics`;
+  const caption = "Descriptive Statistics";
+  const title = `Table ${tableNumber}. ${caption}`;
   const headers = ["Variable", "Role", "N", "Mean", "SD", "Min", "Max"];
   const rows = descriptives.map((d) => [
     d.name,
@@ -17,10 +19,12 @@ export function buildDescriptivesTable(
     fmt(d.min),
     fmt(d.max),
   ]);
+  const titleBlocks: Paragraph[] = citationStyle ? tableTitleStyled(tableNumber, caption, citationStyle) : [tableTitle(title)];
+  const tableBlock: Table = citationStyle ? makeTableStyled(headers, rows, citationStyle, true) : makeTable(headers, rows, true);
   return [
     {
       title,
-      blocks: [tableTitle(title), makeTable(headers, rows, true), spacer()],
+      blocks: [...titleBlocks, tableBlock, spacer()],
     },
   ];
 }
@@ -33,10 +37,13 @@ export function buildFrequencyTables(
     nMissing: number;
     rows: { label: string; frequency: number; percent: number; validPercent: number; cumulativePercent: number }[];
   }[],
-  startTableNumber: number
+  startTableNumber: number,
+  citationStyle?: CitationStyle
 ): TableGroup[] {
   return frequencyTables.map((ft, idx) => {
-    const title = `Table ${startTableNumber + idx}. Frequency Distribution for ${ft.name} (N valid = ${ft.nValid}, Missing = ${ft.nMissing})`;
+    const tableNumber = startTableNumber + idx;
+    const caption = `Frequency Distribution for ${ft.name} (N valid = ${ft.nValid}, Missing = ${ft.nMissing})`;
+    const title = `Table ${tableNumber}. ${caption}`;
     const headers = ["Value", "Frequency", "Percent", "Valid Percent", "Cumulative Percent"];
     const rows = ft.rows.map((r) => [
       r.label,
@@ -45,9 +52,11 @@ export function buildFrequencyTables(
       fmt(r.validPercent, 1),
       fmt(r.cumulativePercent, 1),
     ]);
+    const titleBlocks: Paragraph[] = citationStyle ? tableTitleStyled(tableNumber, caption, citationStyle) : [tableTitle(title)];
+    const tableBlock: Table = citationStyle ? makeTableStyled(headers, rows, citationStyle, true) : makeTable(headers, rows, true);
     return {
       title,
-      blocks: [tableTitle(title), makeTable(headers, rows, true), spacer()],
+      blocks: [...titleBlocks, tableBlock, spacer()],
     };
   });
 }
@@ -70,13 +79,16 @@ export function buildItemDescriptivesTables(
     totalSD: number | null;
     totalOverallPercent: number | null;
   }[],
-  startTableNumber: number
+  startTableNumber: number,
+  citationStyle?: CitationStyle
 ): TableGroup[] {
   return itemDescriptives.map((construct, idx) => {
+    const tableNumber = startTableNumber + idx;
     const scalePoints: number[] = [];
     for (let p = construct.scaleMin; p <= construct.scaleMax; p++) scalePoints.push(p);
 
-    const title = `Table ${startTableNumber + idx}. Item Descriptives for ${construct.constructName}`;
+    const caption = `Item Descriptives for ${construct.constructName}`;
+    const title = `Table ${tableNumber}. ${caption}`;
     const headers = ["Item", "N", ...scalePoints.map((p) => `Point ${p} (%)`), "Mean", "SD", "Overall %"];
 
     const rows = construct.items.map((item) => [
@@ -97,9 +109,11 @@ export function buildItemDescriptivesTables(
       fmt(construct.totalOverallPercent, 1),
     ]);
 
+    const titleBlocks: Paragraph[] = citationStyle ? tableTitleStyled(tableNumber, caption, citationStyle) : [tableTitle(title)];
+    const tableBlock: Table = citationStyle ? makeTableStyled(headers, rows, citationStyle, true) : makeTable(headers, rows, true);
     return {
       title,
-      blocks: [tableTitle(title), makeTable(headers, rows, true), spacer()],
+      blocks: [...titleBlocks, tableBlock, spacer()],
     };
   });
 }
