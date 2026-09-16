@@ -1,12 +1,12 @@
 import { Paragraph, Table } from "docx";
-import { makeTable, tableTitle, spacer, fmt } from "./quantBunkerDocx";
+import { makeTable, tableTitle, spacer, fmt, TableGroup } from "./quantBunkerDocx";
 
 // ---- Descriptives table ----
-// descriptives: [{ name, role, n, mean, sd, min, max }]
 export function buildDescriptivesTable(
   descriptives: { name: string; role: string; n: number; mean: number; sd: number; min: number; max: number }[],
   tableNumber: number
-): (Paragraph | Table)[] {
+): TableGroup[] {
+  const title = `Table ${tableNumber}. Descriptive Statistics`;
   const headers = ["Variable", "Role", "N", "Mean", "SD", "Min", "Max"];
   const rows = descriptives.map((d) => [
     d.name,
@@ -18,14 +18,14 @@ export function buildDescriptivesTable(
     fmt(d.max),
   ]);
   return [
-    tableTitle(`Table ${tableNumber}. Descriptive Statistics`),
-    makeTable(headers, rows, true),
-    spacer(),
+    {
+      title,
+      blocks: [tableTitle(title), makeTable(headers, rows, true), spacer()],
+    },
   ];
 }
 
 // ---- Frequency tables ----
-// frequencyTables: [{ name, nValid, nMissing, rows: [{ label, frequency, percent, validPercent, cumulativePercent }] }]
 export function buildFrequencyTables(
   frequencyTables: {
     name: string;
@@ -34,9 +34,9 @@ export function buildFrequencyTables(
     rows: { label: string; frequency: number; percent: number; validPercent: number; cumulativePercent: number }[];
   }[],
   startTableNumber: number
-): (Paragraph | Table)[] {
-  const out: (Paragraph | Table)[] = [];
-  frequencyTables.forEach((ft, idx) => {
+): TableGroup[] {
+  return frequencyTables.map((ft, idx) => {
+    const title = `Table ${startTableNumber + idx}. Frequency Distribution for ${ft.name} (N valid = ${ft.nValid}, Missing = ${ft.nMissing})`;
     const headers = ["Value", "Frequency", "Percent", "Valid Percent", "Cumulative Percent"];
     const rows = ft.rows.map((r) => [
       r.label,
@@ -45,19 +45,14 @@ export function buildFrequencyTables(
       fmt(r.validPercent, 1),
       fmt(r.cumulativePercent, 1),
     ]);
-    out.push(
-      tableTitle(
-        `Table ${startTableNumber + idx}. Frequency Distribution for ${ft.name} (N valid = ${ft.nValid}, Missing = ${ft.nMissing})`
-      )
-    );
-    out.push(makeTable(headers, rows, true));
-    out.push(spacer());
+    return {
+      title,
+      blocks: [tableTitle(title), makeTable(headers, rows, true), spacer()],
+    };
   });
-  return out;
 }
 
 // ---- Item descriptives (Likert-style construct tables) ----
-// itemDescriptives: [{ constructName, scaleMin, scaleMax, items: [{ label, n, pointPercents, mean, sd, overallPercent }], totalMean, totalSD, totalOverallPercent }]
 export function buildItemDescriptivesTables(
   itemDescriptives: {
     constructName: string;
@@ -76,12 +71,12 @@ export function buildItemDescriptivesTables(
     totalOverallPercent: number | null;
   }[],
   startTableNumber: number
-): (Paragraph | Table)[] {
-  const out: (Paragraph | Table)[] = [];
-  itemDescriptives.forEach((construct, idx) => {
+): TableGroup[] {
+  return itemDescriptives.map((construct, idx) => {
     const scalePoints: number[] = [];
     for (let p = construct.scaleMin; p <= construct.scaleMax; p++) scalePoints.push(p);
 
+    const title = `Table ${startTableNumber + idx}. Item Descriptives for ${construct.constructName}`;
     const headers = ["Item", "N", ...scalePoints.map((p) => `Point ${p} (%)`), "Mean", "SD", "Overall %"];
 
     const rows = construct.items.map((item) => [
@@ -93,7 +88,6 @@ export function buildItemDescriptivesTables(
       fmt(item.overallPercent, 1),
     ]);
 
-    // Totals row
     rows.push([
       "Total (Composite)",
       "",
@@ -103,9 +97,9 @@ export function buildItemDescriptivesTables(
       fmt(construct.totalOverallPercent, 1),
     ]);
 
-    out.push(tableTitle(`Table ${startTableNumber + idx}. Item Descriptives for ${construct.constructName}`));
-    out.push(makeTable(headers, rows, true));
-    out.push(spacer());
+    return {
+      title,
+      blocks: [tableTitle(title), makeTable(headers, rows, true), spacer()],
+    };
   });
-  return out;
 }

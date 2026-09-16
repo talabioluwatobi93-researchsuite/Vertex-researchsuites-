@@ -107,3 +107,11 @@ export function fmtP(p: number | null | undefined): string {
   if (p < 0.001) return "< .001";
   return p.toFixed(3).replace(/^0\./, ".");
 }
+
+// ---- Grouped table unit: title + its rendered blocks (title paragraph, table, spacer) ----
+// title is the exact table title string (e.g. "Table 3. Independent Samples Test for Score")
+// used to splice matching interpretation text after this group in Doc B.
+export interface TableGroup {
+  title: string;
+  blocks: (Paragraph | Table)[];
+}
