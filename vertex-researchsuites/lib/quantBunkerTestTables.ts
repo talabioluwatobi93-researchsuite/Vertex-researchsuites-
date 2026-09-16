@@ -125,3 +125,145 @@ export function buildWilcoxonTable(w: any, tableNumber: number): (Paragraph | Ta
     spacer(),
   ];
 }
+
+// ---- One-way ANOVA ----
+export function buildAnovaTables(anova: any, tableNumber: number): (Paragraph | Table)[] {
+  const out: (Paragraph | Table)[] = [];
+
+  out.push(tableTitle(`Table ${tableNumber}. Descriptives for ${anova.outcomeVariableName} by ${anova.groupVariableName}`));
+  out.push(
+    makeTable(
+      [anova.groupVariableName, "N", "Mean", "SD", "SEM", "95% CI Lower", "95% CI Upper", "Min", "Max"],
+      anova.groupStats.map((g: any) => [
+        g.label,
+        String(g.n),
+        fmt(g.mean),
+        fmt(g.sd),
+        fmt(g.sem),
+        fmt(g.ciLower),
+        fmt(g.ciUpper),
+        fmt(g.min),
+        fmt(g.max),
+      ]),
+      true
+    )
+  );
+  out.push(spacer());
+
+  out.push(tableTitle(`Table ${tableNumber + 1}. ANOVA Summary for ${anova.outcomeVariableName}`));
+  out.push(
+    makeTable(
+      ["Source", "SS", "df", "MS", "F", "p"],
+      [
+        ["Between Groups", fmt(anova.ssBetween), fmt(anova.dfBetween, 0), fmt(anova.msBetween), fmt(anova.F), fmtP(anova.p)],
+        ["Within Groups", fmt(anova.ssWithin), fmt(anova.dfWithin, 0), fmt(anova.msWithin), "", ""],
+        ["Total", fmt(anova.ssTotal), fmt(anova.dfBetween + anova.dfWithin, 0), "", "", ""],
+      ],
+      true
+    )
+  );
+  out.push(spacer());
+
+  if (anova.tukey && anova.tukey.length > 0) {
+    out.push(tableTitle(`Table ${tableNumber + 2}. Tukey HSD Post-Hoc Comparisons`));
+    out.push(
+      makeTable(
+        ["Group A", "Group B", "Mean Diff", "SE Diff", "p", "95% CI Lower", "95% CI Upper"],
+        anova.tukey.map((t: any) => [
+          t.groupA,
+          t.groupB,
+          fmt(t.meanDiff),
+          fmt(t.seDiff),
+          fmtP(t.p),
+          fmt(t.ciLower),
+          fmt(t.ciUpper),
+        ]),
+        true
+      )
+    );
+    out.push(spacer());
+  }
+
+  return out;
+}
+
+// ---- Chi-square test of independence ----
+export function buildChiSquareTables(cs: any, tableNumber: number): (Paragraph | Table)[] {
+  const out: (Paragraph | Table)[] = [];
+
+  const crosstabHeaders = [cs.rowVariableName || "", ...cs.colLabels, "Total"];
+  const crosstabRows = cs.crosstab.map((row: any) => [
+    row.label,
+    ...row.observed.map((o: number) => String(o)),
+    String(row.rowTotal),
+  ]);
+  crosstabRows.push(["Total", ...cs.colTotals.map((c: number) => String(c)), String(cs.grandTotal)]);
+
+  out.push(tableTitle(`Table ${tableNumber}. Crosstabulation of ${cs.rowVariableName} by ${cs.colVariableName}`));
+  out.push(makeTable(crosstabHeaders, crosstabRows, true));
+  out.push(spacer());
+
+  out.push(tableTitle(`Table ${tableNumber + 1}. Chi-Square Tests`));
+  out.push(
+    makeTable(
+      ["Test", "Value", "df", "p"],
+      [
+        ["Pearson Chi-Square", fmt(cs.pearsonChiSq), fmt(cs.df, 0), fmtP(cs.pearsonP)],
+        ["Likelihood Ratio", fmt(cs.likelihoodRatio), fmt(cs.df, 0), fmtP(cs.likelihoodP)],
+        ["Linear-by-Linear Association", fmt(cs.linearByLinear), "1", fmtP(cs.linearP)],
+        ["N of Valid Cases", String(cs.grandTotal), "", ""],
+      ],
+      true
+    )
+  );
+  out.push(spacer());
+
+  out.push(tableTitle(`Table ${tableNumber + 2}. Symmetric Measures`));
+  out.push(
+    makeTable(
+      ["Measure", "Value"],
+      [
+        ["Cramer's V", fmt(cs.cramersV)],
+        ["Minimum Expected Count", fmt(cs.minExpected)],
+        ["Cells with Expected Count < 5", `${cs.cellsUnderFive} of ${cs.totalCells} (${fmt(cs.pctCellsUnderFive, 1)}%)`],
+      ],
+      true
+    )
+  );
+  out.push(spacer());
+
+  return out;
+}
+
+// ---- Kruskal-Wallis H test ----
+export function buildKruskalWallisTables(kw: any, tableNumber: number): (Paragraph | Table)[] {
+  const out: (Paragraph | Table)[] = [];
+
+  out.push(tableTitle(`Table ${tableNumber}. Ranks for ${kw.outcomeVariableName} by ${kw.groupVariableName}`));
+  out.push(
+    makeTable(
+      [kw.groupVariableName, "N", "Median", "Mean Rank", "Rank Sum"],
+      kw.groups.map((g: any, idx: number) => [
+        kw.groupLabels?.[idx] ?? `Group ${idx + 1}`,
+        String(g.n),
+        fmt(g.median),
+        fmt(g.meanRank, 2),
+        fmt(g.rankSum, 1),
+      ]),
+      true
+    )
+  );
+  out.push(spacer());
+
+  out.push(tableTitle(`Table ${tableNumber + 1}. Kruskal-Wallis Test Statistics`));
+  out.push(
+    makeTable(
+      ["N", "H (Chi-Square)", "df", "p"],
+      [[String(kw.N), fmt(kw.h), fmt(kw.df, 0), fmtP(kw.p)]],
+      false
+    )
+  );
+  out.push(spacer());
+
+  return out;
+}
