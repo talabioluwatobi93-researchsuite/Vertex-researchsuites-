@@ -134,7 +134,7 @@ export async function POST(req: Request) {
     let tableInterpretations: Record<string, string> = {};
 
     if (!interpretation || !discussion) {
-      const result = await runQuantInterpretation(session);
+      const result = await runQuantInterpretation(session, session.citation_style);
       interpretation = result.interpretation;
       discussion = result.discussion;
       tableInterpretations = result.tableInterpretations;
@@ -146,7 +146,7 @@ export async function POST(req: Request) {
     } else {
       // interpretation/discussion already existed in DB, but tableInterpretations
       // is not persisted anywhere - must recompute it to get per-table splits for Doc B.
-      const result = await runQuantInterpretation(session);
+      const result = await runQuantInterpretation(session, session.citation_style);
       tableInterpretations = result.tableInterpretations;
     }
 
