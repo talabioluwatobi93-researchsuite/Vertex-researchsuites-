@@ -92,6 +92,24 @@ export default function QuantitativeAnalysisUploadPage() {
         apaVersion,
       }
 
+      let questionnaireFilePath: string | null = null;
+      if (questionnaireFile) {
+        const qPath = `${user.id}/${Date.now()}_questionnaire_${questionnaireFile.name}`;
+        const { error: qErr } = await supabase.storage
+          .from('quant-session-uploads')
+          .upload(qPath, questionnaireFile);
+        if (qErr === null) questionnaireFilePath = qPath;
+      }
+
+      let chapter3FilePath: string | null = null;
+      if (chapter3File) {
+        const cPath = `${user.id}/${Date.now()}_chapter3_${chapter3File.name}`;
+        const { error: cErr } = await supabase.storage
+          .from('quant-session-uploads')
+          .upload(cPath, chapter3File);
+        if (cErr === null) chapter3FilePath = cPath;
+      }
+
       const { data: session, error } = await supabase
         .from('quantitative_analysis_sessions')
         .insert({
@@ -102,6 +120,11 @@ export default function QuantitativeAnalysisUploadPage() {
           raw_data: dataRows,
           research_framework: researchFramework,
           file_fingerprint: fileFingerprint,
+          questionnaire_link: questionnaireLink.trim() || null,
+          questionnaire_file_path: questionnaireFilePath,
+          chapter3_link: chapter3Link.trim() || null,
+          chapter3_file_path: chapter3FilePath,
+          analysis_intent: analysisIntent.trim() || null,
         })
         .select('id')
         .single()
