@@ -1,8 +1,11 @@
 import { Paragraph, Table } from "docx";
-import { makeTable, tableTitle, spacer, fmt, fmtP, TableGroup } from "./quantBunkerDocx";
+import { makeTable as baseMakeTable, tableTitle, spacer, fmt, fmtP, TableGroup, CitationStyle, makeTableStyled } from "./quantBunkerDocx";
 
 // ---- Correlation matrix (Pearson, + Spearman if present) ----
-export function buildCorrelationTables(corr: any, tableNumber: number): TableGroup[] {
+export function buildCorrelationTables(corr: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const headers = ["", ...corr.labels];
   const buildRows = (matrix: any[]) =>
     matrix.map((row: any, i: number) => [
@@ -31,7 +34,10 @@ export function buildCorrelationTables(corr: any, tableNumber: number): TableGro
 }
 
 // ---- Linear regression ----
-export function buildRegressionTables(reg: any, tableNumber: number): TableGroup[] {
+export function buildRegressionTables(reg: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const modelTitle = `Table ${tableNumber}. Model Summary for ${reg.dvName}`;
   const anovaTitle = `Table ${tableNumber + 1}. ANOVA for ${reg.dvName}`;
   const coefTitle = `Table ${tableNumber + 2}. Regression Coefficients for ${reg.dvName}`;
@@ -81,7 +87,10 @@ export function buildRegressionTables(reg: any, tableNumber: number): TableGroup
 }
 
 // ---- Moderation analysis ----
-export function buildModerationTables(mod: any, tableNumber: number): TableGroup[] {
+export function buildModerationTables(mod: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const modelTitle = `Table ${tableNumber}. Model Summary for ${mod.outcomeName}`;
   const coefTitle = `Table ${tableNumber + 1}. Moderation Coefficients (${mod.predictorName} x ${mod.moderatorName} on ${mod.outcomeName})`;
 
@@ -114,7 +123,10 @@ export function buildModerationTables(mod: any, tableNumber: number): TableGroup
 }
 
 // ---- Two-way ANOVA ----
-export function buildTwoWayAnovaTables(twa: any, tableNumber: number): TableGroup[] {
+export function buildTwoWayAnovaTables(twa: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const anovaTitle = `Table ${tableNumber}. Two-Way ANOVA for ${twa.outcomeVariableName}`;
   const cellTitle = `Table ${tableNumber + 1}. Cell Statistics (${twa.factorAName} x ${twa.factorBName})`;
   const marginalATitle = `Table ${tableNumber + 2}. Marginal Means for ${twa.factorAName}`;
@@ -180,7 +192,10 @@ export function buildTwoWayAnovaTables(twa: any, tableNumber: number): TableGrou
 }
 
 // ---- Mediation analysis (Sobel test) ----
-export function buildMediationTables(med: any, tableNumber: number): TableGroup[] {
+export function buildMediationTables(med: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const pathsTitle = `Table ${tableNumber}. Mediation Path Coefficients`;
   const sobelTitle = `Table ${tableNumber + 1}. Sobel Test for Indirect Effect`;
 
@@ -210,7 +225,10 @@ export function buildMediationTables(med: any, tableNumber: number): TableGroup[
 }
 
 // ---- Logistic regression ----
-export function buildLogisticTables(log: any, tableNumber: number): TableGroup[] {
+export function buildLogisticTables(log: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const fitTitle = `Table ${tableNumber}. Logistic Regression Model Fit for ${log.dvName ?? ""}`;
   const coefTitle = `Table ${tableNumber + 1}. Logistic Regression Coefficients`;
   const classTitle = `Table ${tableNumber + 2}. Classification Table`;
