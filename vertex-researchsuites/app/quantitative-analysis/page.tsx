@@ -24,6 +24,13 @@ export default function QuantitativeAnalysisUploadPage() {
   const [objectives, setObjectives] = useState('')
   const [apaVersion, setApaVersion] = useState('APA7')
 
+  // Phase 1: Questionnaire (Box 1) and Chapter 3 (Box 2) inputs
+  const [questionnaireLink, setQuestionnaireLink] = useState('');
+  const [questionnaireFile, setQuestionnaireFile] = useState<File | null>(null);
+  const [chapter3Link, setChapter3Link] = useState('');
+  const [chapter3File, setChapter3File] = useState<File | null>(null);
+  const [analysisIntent, setAnalysisIntent] = useState('');
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
@@ -167,6 +174,90 @@ export default function QuantitativeAnalysisUploadPage() {
           <p style={{ color: '#777777', fontSize: '12px', marginTop: '10px' }}>{fileName}</p>
         )}
       </div>
+
+          <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: "1px solid #EEEEEE", marginBottom: "16px" }}>
+            <p style={{ color: "#333333", fontSize: "13px", fontWeight: 700, marginBottom: "6px" }}>Questionnaire (required)</p>
+            <p style={{ color: "#777777", fontSize: "12px", marginBottom: "10px" }}>Paste a link OR upload the survey instrument (PDF or Word).</p>
+            <input
+              style={inputStyle}
+              value={questionnaireLink}
+              onChange={(e) => setQuestionnaireLink(e.target.value)}
+              placeholder="Paste a link to your questionnaire"
+            />
+            <div style={{ textAlign: "center", color: "#AAAAAA", fontSize: "12px", margin: "8px 0" }}>OR</div>
+            <label
+              htmlFor="questionnaire-upload"
+              style={{
+                display: "inline-block",
+                backgroundColor: "#D4AF37",
+                color: "#333333",
+                fontWeight: 700,
+                fontSize: "13px",
+                padding: "10px 20px",
+                borderRadius: "10px",
+                cursor: "pointer",
+              }}
+            >
+              Upload Questionnaire
+            </label>
+            <input
+              id="questionnaire-upload"
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={(e) => setQuestionnaireFile(e.target.files ? e.target.files[0] : null)}
+              style={{ display: "none" }}
+            />
+            {questionnaireFile && (
+              <p style={{ color: "#777777", fontSize: "12px", marginTop: "10px" }}>{questionnaireFile.name}</p>
+            )}
+          </div>
+
+          <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: "1px solid #EEEEEE", marginBottom: "16px" }}>
+            <p style={{ color: "#333333", fontSize: "13px", fontWeight: 700, marginBottom: "6px" }}>Chapter 3 (Methodology) - optional</p>
+            <p style={{ color: "#777777", fontSize: "12px", marginBottom: "10px" }}>Paste a link OR upload just the Methodology chapter (PDF or Word).</p>
+            <input
+              style={inputStyle}
+              value={chapter3Link}
+              onChange={(e) => setChapter3Link(e.target.value)}
+              placeholder="Paste a link to your Chapter 3"
+            />
+            <div style={{ textAlign: "center", color: "#AAAAAA", fontSize: "12px", margin: "8px 0" }}>OR</div>
+            <label
+              htmlFor="chapter3-upload"
+              style={{
+                display: "inline-block",
+                backgroundColor: "#D4AF37",
+                color: "#333333",
+                fontWeight: 700,
+                fontSize: "13px",
+                padding: "10px 20px",
+                borderRadius: "10px",
+                cursor: "pointer",
+              }}
+            >
+              Upload Chapter 3
+            </label>
+            <input
+              id="chapter3-upload"
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={(e) => setChapter3File(e.target.files ? e.target.files[0] : null)}
+              style={{ display: "none" }}
+            />
+            {chapter3File && (
+              <p style={{ color: "#777777", fontSize: "12px", marginTop: "10px" }}>{chapter3File.name}</p>
+            )}
+          </div>
+
+          <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: "1px solid #EEEEEE", marginBottom: "16px" }}>
+            <p style={{ color: "#333333", fontSize: "13px", fontWeight: 700, marginBottom: "6px" }}>What do you want to analyze?</p>
+            <textarea
+              style={{ ...inputStyle, minHeight: "70px" }}
+              value={analysisIntent}
+              onChange={(e) => setAnalysisIntent(e.target.value)}
+              placeholder="Describe in plain language what you want this analysis to cover"
+            />
+          </div>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, marginBottom: '14px' }}>Research Framework</p>
