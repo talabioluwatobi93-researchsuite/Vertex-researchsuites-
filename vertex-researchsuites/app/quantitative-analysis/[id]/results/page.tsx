@@ -24,13 +24,13 @@ const tableWrap: React.CSSProperties = {
   border: '1px solid #EEEEEE', marginBottom: '24px', overflowX: 'auto'
 }
 const tableTitle: React.CSSProperties = {
-  fontSize: '13px', fontStyle: 'italic', color: '#333333', marginBottom: '10px'
+  fontSize: '13px', fontWeight: 700, color: '#333333', marginBottom: '10px'
 }
 const table: React.CSSProperties = {
   width: '100%', borderCollapse: 'collapse', border: '1px solid #333333'
 }
 const noteStyle: React.CSSProperties = {
-  fontSize: '11px', color: '#777777', marginTop: '8px', fontStyle: 'italic'
+  fontSize: '11px', color: '#777777', marginTop: '8px'
 }
 
 function checkInterpretationGate(gateInfo: any) {
@@ -481,30 +481,44 @@ export default function ResultsPage() {
 
           {results.frequencyTables?.map((f: any, idx: number) => (
             <div key={idx} style={tableWrap}>
-              <p style={tableTitle}>Table {nextTable()}. Frequency Distribution for {f.name}</p>
-              <table style={table}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>{f.name}</th>
-                    <th style={thStyle}>Frequency</th>
-                    <th style={thStyle}>Percent</th>
-                    <th style={thStyle}>Valid Percent</th>
-                    <th style={thStyle}>Cumulative Percent</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {f.rows.map((r: any, i: number) => (
-                    <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#F7F7F5' : 'transparent' }}>
-                      <td style={tdStyle}>{r.label}</td>
-                      <td style={tdStyle}>{r.frequency}</td>
-                      <td style={tdStyle}>{r.percent.toFixed(2)}</td>
-                      <td style={tdStyle}>{r.validPercent.toFixed(2)}</td>
-                      <td style={tdStyle}>{r.cumulativePercent.toFixed(2)}</td>
+                <p style={tableTitle}>Table {nextTable()}. Frequency Distribution for {f.name}</p>
+                <table style={table}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle} colSpan={5}>{f.name}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p style={noteStyle}>Note. N = {f.nValid + f.nMissing} ({f.nValid} valid, {f.nMissing} missing).</p>
+                    <tr>
+                      <th style={thStyle}></th>
+                      <th style={thStyle}></th>
+                      <th style={thStyle}>Frequency</th>
+                      <th style={thStyle}>Percent</th>
+                      <th style={thStyle}>Valid Percent</th>
+                      <th style={thStyle}>Cumulative Percent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {f.rows.map((r: any, i: number) => (
+                      <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#F7F7F5' : 'transparent' }}>
+                        {i === 0 && (
+                          <td style={tdStyle} rowSpan={f.rows.length}>Valid</td>
+                        )}
+                        <td style={tdStyle}>{r.label}</td>
+                        <td style={tdStyle}>{r.frequency}</td>
+                        <td style={tdStyle}>{r.percent.toFixed(2)}</td>
+                        <td style={tdStyle}>{r.validPercent.toFixed(2)}</td>
+                        <td style={tdStyle}>{r.cumulativePercent.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td style={tdStyle} colSpan={2}>Total</td>
+                      <td style={tdStyle}>{f.nValid}</td>
+                      <td style={tdStyle}>100.0</td>
+                      <td style={tdStyle}>100.0</td>
+                      <td style={tdStyle}></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p style={noteStyle}>Note. N = {f.nValid + f.nMissing} ({f.nValid} valid, {f.nMissing} missing).</p>
               {chartPrefs.pie && (
                 <div style={{ width: '100%', height: 260, marginTop: '16px' }}>
                   <ResponsiveContainer>
