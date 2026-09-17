@@ -801,7 +801,7 @@ export default function ResultsPage() {
                   <tbody>
                     <tr>
                       <td style={tdStyle}>1</td>
-                      <td style={tdStyle}>{results.regression.modelSummary.r.toFixed(3)}</td>
+                      <td style={tdStyle}>{formatSpssValue(results.regression.modelSummary.r, 3)}</td>
                       <td style={tdStyle}>{results.regression.modelSummary.rSquared.toFixed(3)}</td>
                       <td style={tdStyle}>{results.regression.modelSummary.adjRSquared.toFixed(3)}</td>
                       <td style={tdStyle}>{results.regression.modelSummary.stdError.toFixed(3)}</td>
@@ -835,7 +835,7 @@ export default function ResultsPage() {
                   <td style={tdStyle}>{results.regression.anova.regression.df}</td>
                   <td style={tdStyle}>{results.regression.anova.regression.ms.toFixed(3)}</td>
                   <td style={tdStyle}>{results.regression.anova.F.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.regression.anova.p.toFixed(3)}</td>
+                  <td style={tdStyle}>{formatSpssValue(results.regression.anova.p, 3)}</td>
                 </tr>
                 <tr>
                   <td style={tdStyle}>Residual</td>
@@ -946,10 +946,10 @@ export default function ResultsPage() {
                 <tr>
                   <td style={tdStyle}>Equal variances assumed</td>
                   <td style={tdStyle}>{results.ttest.levene.f.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.ttest.levene.p.toFixed(3)}</td>
+                  <td style={tdStyle}>{formatSpssValue(results.ttest.levene.p, 3)}</td>
                   <td style={tdStyle}>{results.ttest.equalVariances.t.toFixed(3)}</td>
                   <td style={tdStyle}>{results.ttest.equalVariances.df.toFixed(0)}</td>
-                  <td style={tdStyle}>{results.ttest.equalVariances.p.toFixed(3)}</td>
+                  <td style={tdStyle}>{formatSpssValue(results.ttest.equalVariances.p, 3)}</td>
                   <td style={tdStyle}>{results.ttest.equalVariances.meanDiff.toFixed(3)}</td>
                   <td style={tdStyle}>{results.ttest.equalVariances.seDiff.toFixed(3)}</td>
                   <td style={tdStyle}>{results.ttest.equalVariances.ciLower.toFixed(3)}</td>
@@ -961,7 +961,7 @@ export default function ResultsPage() {
                   <td style={tdStyle}></td>
                   <td style={tdStyle}>{results.ttest.unequalVariances.t.toFixed(3)}</td>
                   <td style={tdStyle}>{results.ttest.unequalVariances.df.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.ttest.unequalVariances.p.toFixed(3)}</td>
+                  <td style={tdStyle}>{formatSpssValue(results.ttest.unequalVariances.p, 3)}</td>
                   <td style={tdStyle}>{results.ttest.unequalVariances.meanDiff.toFixed(3)}</td>
                   <td style={tdStyle}>{results.ttest.unequalVariances.seDiff.toFixed(3)}</td>
                   <td style={tdStyle}>{results.ttest.unequalVariances.ciLower.toFixed(3)}</td>
@@ -1037,7 +1037,7 @@ export default function ResultsPage() {
                   <td style={tdStyle}>{results.anova.dfBetween}</td>
                   <td style={tdStyle}>{results.anova.msBetween.toFixed(3)}</td>
                   <td style={tdStyle}>{results.anova.F.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.anova.p.toFixed(3)}</td>
+                  <td style={tdStyle}>{formatSpssValue(results.anova.p, 3)}</td>
                 </tr>
                 <tr>
                   <td style={tdStyle}>Within Groups</td>
@@ -1078,7 +1078,7 @@ export default function ResultsPage() {
                     <td style={tdStyle}>{t.groupB}</td>
                     <td style={tdStyle}>{t.meanDiff.toFixed(3)}</td>
                     <td style={tdStyle}>{t.seDiff.toFixed(3)}</td>
-                    <td style={tdStyle}>{t.p.toFixed(3)}</td>
+                    <td style={tdStyle}>{formatSpssValue(t.p, 3)}</td>
                     <td style={tdStyle}>{t.ciLower.toFixed(3)}</td>
                     <td style={tdStyle}>{t.ciUpper.toFixed(3)}</td>
                   </tr>
