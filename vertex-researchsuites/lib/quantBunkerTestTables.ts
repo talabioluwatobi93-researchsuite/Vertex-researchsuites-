@@ -1,8 +1,11 @@
 import { Paragraph, Table } from "docx";
-import { makeTable, tableTitle, spacer, fmt, fmtP, TableGroup } from "./quantBunkerDocx";
+import { makeTable as baseMakeTable, tableTitle, spacer, fmt, fmtP, TableGroup, CitationStyle, makeTableStyled } from "./quantBunkerDocx";
 
 // ---- Independent samples t-test ----
-export function buildTTestTables(ttest: any, tableNumber: number): TableGroup[] {
+export function buildTTestTables(ttest: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const groupStatsTitle = `Table ${tableNumber}. Group Statistics for ${ttest.outcomeVariableName} by ${ttest.groupVariableName}`;
   const testTitle = `Table ${tableNumber + 1}. Independent Samples Test for ${ttest.outcomeVariableName}`;
 
@@ -63,7 +66,10 @@ export function buildTTestTables(ttest: any, tableNumber: number): TableGroup[] 
 }
 
 // ---- Paired samples t-test ----
-export function buildPairedTTestTable(paired: any, tableNumber: number): TableGroup[] {
+export function buildPairedTTestTable(paired: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const title = `Table ${tableNumber}. Paired Samples Test for ${paired.group1Name} and ${paired.group2Name}`;
   const headers = ["Pair", "N", "Mean", "SD", "SE Mean", "Mean Diff", "SD Diff", "SE Diff", "95% CI Lower", "95% CI Upper", "t", "df", "p"];
   const rows = [
@@ -87,7 +93,10 @@ export function buildPairedTTestTable(paired: any, tableNumber: number): TableGr
 }
 
 // ---- Mann-Whitney U test ----
-export function buildMannWhitneyTable(mw: any, tableNumber: number): TableGroup[] {
+export function buildMannWhitneyTable(mw: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const ranksTitle = `Table ${tableNumber}. Mann-Whitney U Test Ranks for ${mw.outcomeVariableName}`;
   const statsTitle = `Table ${tableNumber + 1}. Mann-Whitney U Test Statistics`;
 
@@ -119,7 +128,10 @@ export function buildMannWhitneyTable(mw: any, tableNumber: number): TableGroup[
 }
 
 // ---- Wilcoxon Signed-Rank test ----
-export function buildWilcoxonTable(w: any, tableNumber: number): TableGroup[] {
+export function buildWilcoxonTable(w: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const title = `Table ${tableNumber}. Wilcoxon Signed-Rank Test for ${w.group1Name} and ${w.group2Name}`;
   const headers = ["N", "N Excluded (Ties=0)", "W+", "W-", "W", "Mean W", "SD W", "Z", "p"];
   const rows = [
@@ -139,7 +151,10 @@ export function buildWilcoxonTable(w: any, tableNumber: number): TableGroup[] {
 }
 
 // ---- One-way ANOVA ----
-export function buildAnovaTables(anova: any, tableNumber: number): TableGroup[] {
+export function buildAnovaTables(anova: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const descTitle = `Table ${tableNumber}. Descriptives for ${anova.outcomeVariableName} by ${anova.groupVariableName}`;
   const summaryTitle = `Table ${tableNumber + 1}. ANOVA Summary for ${anova.outcomeVariableName}`;
 
@@ -204,7 +219,10 @@ export function buildAnovaTables(anova: any, tableNumber: number): TableGroup[] 
 }
 
 // ---- Chi-square test of independence ----
-export function buildChiSquareTables(cs: any, tableNumber: number): TableGroup[] {
+export function buildChiSquareTables(cs: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const crosstabTitle = `Table ${tableNumber}. Crosstabulation of ${cs.rowVariableName} by ${cs.colVariableName}`;
   const testsTitle = `Table ${tableNumber + 1}. Chi-Square Tests`;
   const symmetricTitle = `Table ${tableNumber + 2}. Symmetric Measures`;
@@ -255,7 +273,10 @@ export function buildChiSquareTables(cs: any, tableNumber: number): TableGroup[]
 }
 
 // ---- Kruskal-Wallis H test ----
-export function buildKruskalWallisTables(kw: any, tableNumber: number): TableGroup[] {
+export function buildKruskalWallisTables(kw: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
+  const makeTable = citationStyle
+    ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
+    : baseMakeTable;
   const ranksTitle = `Table ${tableNumber}. Ranks for ${kw.outcomeVariableName} by ${kw.groupVariableName}`;
   const statsTitle = `Table ${tableNumber + 1}. Kruskal-Wallis Test Statistics`;
 
