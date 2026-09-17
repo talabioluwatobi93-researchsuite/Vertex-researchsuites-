@@ -271,6 +271,42 @@ export default function Bunker() {
                 </pre>
               </div>
             )}
+            {(selected?.item_type === 'quantitative_analysis_dataset' || selected?.item_type === 'quantitative_analysis_report') && (
+              <div style={{ marginTop: '16px', padding: '16px', backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #EEEEEE' }}>
+                {preparingFiles && <p style={{ color: '#888888', fontSize: '13px' }}>Preparing your files...</p>}
+                {bunkerFileError && <p style={{ color: '#C0392B', fontSize: '13px' }}>{bunkerFileError}</p>}
+                {!docBViewed ? (
+                  <button
+                    onClick={async () => {
+                      const res = await fetch('/api/quantitative-analysis/get-bunker-file-url', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionId: selected?.content_reference, fileType: 'report' }),
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        setDocBUrl(data.url);
+                        window.open(data.url, '_blank');
+                        setDocBViewed(true);
+                      } else {
+                        setBunkerFileError('Could not open the full document yet.');
+                      }
+                    }}
+                    style={{ backgroundColor: '#B8860B', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '10px 16px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    View full document
+                  </button>
+                ) : (
+                  <a
+                    href={docBUrl || '#'}
+                    download="report-full.docx"
+                    style={{ display: 'inline-block', backgroundColor: '#2E7D32', color: '#ffffff', borderRadius: '8px', padding: '10px 16px', fontSize: '14px', fontWeight: 700, textDecoration: 'none' }}
+                  >
+                    Download full report
+                  </a>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE' }}>
