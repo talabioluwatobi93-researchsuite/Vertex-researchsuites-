@@ -105,6 +105,35 @@ export default function Bunker() {
         setGenericJson(item.item_type === 'quantitative_analysis_report' && data.interpretation ? data.interpretation : data.results)
       }
       setDetailLoading(false)
+        setPreparingFiles(true);
+        setBunkerFileError('');
+        try {
+          await fetch('/api/quantitative-analysis/generate-bunker-files', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: item.content_reference }),
+          });
+          const urlRes = await fetch('/api/quantitative-analysis/get-bunker-file-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: item.content_reference, fileType: 'dataset' }),
+          });
+          const urlData = await urlRes.json();
+          if (urlData.success) {
+            const a = document.createElement('a');
+            a.href = urlData.url;
+            a.download = 'dataset-raw.docx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setBunkerFilesReady(true);
+          } else {
+            setBunkerFileError('Could not prepare download.');
+          }
+        } catch (e) {
+          setBunkerFileError('Could not prepare download.');
+        }
+        setPreparingFiles(false);
       return
     }
 
