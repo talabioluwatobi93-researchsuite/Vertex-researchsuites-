@@ -774,7 +774,8 @@ export default function ResultsPage() {
                 </tr>
               </tbody>
             </table>
-            <p style={noteStyle}>Note. Dependent Variable: {results.regression.dvName}.</p>
+                <p style={noteStyle}>a. Dependent Variable: {results.regression.dvName}.</p>
+                <p style={noteStyle}>b. All requested variables entered.</p>
           </div>
 
           <div style={tableWrap}>
@@ -841,6 +842,8 @@ export default function ResultsPage() {
                 </tr>
               </tbody>
             </table>
+                <p style={noteStyle}>a. Dependent Variable: {results.regression.dvName}.</p>
+                <p style={noteStyle}>b. Predictors: (Constant), {results.regression.variablesEntered.entered.join(', ')}.</p>
           </div>
 
           <div style={tableWrap}>
