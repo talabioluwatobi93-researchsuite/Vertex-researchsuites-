@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Document, Packer, Paragraph } from "docx";
 import { runQuantInterpretation } from "@/lib/quantInterpret";
-import { TableGroup } from "@/lib/quantBunkerDocx";
+import { TableGroup, CitationStyle } from "@/lib/quantBunkerDocx";
 import {
   buildDescriptivesTable,
   buildFrequencyTables,
@@ -32,78 +32,78 @@ const supabaseAdmin = createClient(
 );
 
 // ---- Build the full ordered list of TableGroups from session.results ----
-function buildAllTableGroups(results: any): TableGroup[] {
+function buildAllTableGroups(results: any, citationStyle?: CitationStyle): TableGroup[] {
   let groups: TableGroup[] = [];
   let n = 1;
 
   // Always-present blocks
   if (results.descriptives) {
-    const g = buildDescriptivesTable(results.descriptives, n);
+    const g = buildDescriptivesTable(results.descriptives, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   }
   if (results.frequencyTables) {
-    const g = buildFrequencyTables(results.frequencyTables, n);
+    const g = buildFrequencyTables(results.frequencyTables, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   }
   if (results.itemDescriptives) {
-    const g = buildItemDescriptivesTables(results.itemDescriptives, n);
+    const g = buildItemDescriptivesTables(results.itemDescriptives, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   }
 
   // Mutually-exclusive test type (only one should be populated)
   if (results.ttest) {
-    const g = buildTTestTables(results.ttest, n);
+    const g = buildTTestTables(results.ttest, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.paired) {
-    const g = buildPairedTTestTable(results.paired, n);
+    const g = buildPairedTTestTable(results.paired, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.mannwhitney) {
-    const g = buildMannWhitneyTable(results.mannwhitney, n);
+    const g = buildMannWhitneyTable(results.mannwhitney, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.wilcoxon) {
-    const g = buildWilcoxonTable(results.wilcoxon, n);
+    const g = buildWilcoxonTable(results.wilcoxon, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.anova) {
-    const g = buildAnovaTables(results.anova, n);
+    const g = buildAnovaTables(results.anova, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.chisquare) {
-    const g = buildChiSquareTables(results.chisquare, n);
+    const g = buildChiSquareTables(results.chisquare, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.kruskalwallis) {
-    const g = buildKruskalWallisTables(results.kruskalwallis, n);
+    const g = buildKruskalWallisTables(results.kruskalwallis, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.correlation) {
-    const g = buildCorrelationTables(results.correlation, n);
+    const g = buildCorrelationTables(results.correlation, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.regression) {
-    const g = buildRegressionTables(results.regression, n);
+    const g = buildRegressionTables(results.regression, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.moderation) {
-    const g = buildModerationTables(results.moderation, n);
+    const g = buildModerationTables(results.moderation, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.twowayanova) {
-    const g = buildTwoWayAnovaTables(results.twowayanova, n);
+    const g = buildTwoWayAnovaTables(results.twowayanova, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.mediation) {
-    const g = buildMediationTables(results.mediation, n);
+    const g = buildMediationTables(results.mediation, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   } else if (results.logistic) {
-    const g = buildLogisticTables(results.logistic, n);
+    const g = buildLogisticTables(results.logistic, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   }
@@ -150,20 +150,22 @@ export async function POST(req: Request) {
       tableInterpretations = result.tableInterpretations;
     }
 
-    const tableGroups = buildAllTableGroups(session.results);
+    const tableGroupsA = buildAllTableGroups(session.results);
+    const citationStyle = session.citation_style as CitationStyle | undefined;
+    const tableGroupsB = buildAllTableGroups(session.results, citationStyle);
 
     // ---- Doc A: raw tables only ----
     const docA = new Document({
       sections: [
         {
-          children: tableGroups.flatMap((g) => g.blocks),
+          children: tableGroupsA.flatMap((g) => g.blocks),
         },
       ],
     });
 
     // ---- Doc B: tables + interpretation interleaved ----
     const docBChildren: any[] = [];
-    for (const g of tableGroups) {
+    for (const g of tableGroupsB) {
       docBChildren.push(...g.blocks);
       const interp = tableInterpretations[g.title];
       if (interp) {
