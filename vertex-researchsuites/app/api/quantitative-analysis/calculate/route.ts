@@ -244,7 +244,12 @@ export async function POST(req: NextRequest) {
             r: r3(reg.multipleR),
             rSquared: r3(reg.rSquared),
             adjRSquared: r3(reg.adjRSquared),
-            stdError: r3(reg.stdErrEstimate)
+            stdError: r3(reg.stdErrEstimate),
+            rSquaredChange: r3(reg.rSquared),
+            fChange: r3(reg.F),
+            df1: reg.dfRegression,
+            df2: reg.dfResidual,
+            sigFChange: r3(reg.fP)
           },
           anova: {
             regression: { ss: r3(reg.ssRegression), df: reg.dfRegression, ms: r3(reg.msRegression) },
