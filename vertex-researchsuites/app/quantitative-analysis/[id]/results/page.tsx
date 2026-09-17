@@ -33,6 +33,16 @@ const noteStyle: React.CSSProperties = {
   fontSize: '11px', color: '#777777', marginTop: '8px'
 }
 
+// SPSS-style number formatting: bounded stats (-1 to 1) drop the leading zero
+function formatSpssValue(value: number | null | undefined, decimals: number = 3): string {
+  if (value === null || value === undefined || isNaN(value)) return '-'
+  const fixed = value.toFixed(decimals)
+  if (value > -1 && value < 1) {
+    return fixed.replace(/^(-?)0\./, '$1.')
+  }
+  return fixed
+}
+
 function checkInterpretationGate(gateInfo: any) {
   const reasons: string[] = []
   if (!gateInfo?.response_rate_info) reasons.push('Response rate information is missing.')
@@ -655,7 +665,7 @@ export default function ResultsPage() {
                   <td style={tdStyle}>Pearson Correlation</td>
                   {row.cells.map((cell: any, j: number) => (
                     <td style={tdStyle} key={j}>
-                      {cell.r.toFixed(3)}
+                      {formatSpssValue(cell.r, 3)}
                       {cell.p !== null && (tailType === 'one' ? cell.pOneTailed : cell.p) < 0.05 ? '*' : ''}
                     </td>
                   ))}
@@ -716,7 +726,7 @@ export default function ResultsPage() {
                   <td style={tdStyle}>Spearman's rho</td>
                   {row.cells.map((cell: any, j: number) => (
                     <td style={tdStyle} key={j}>
-                      {cell.r.toFixed(3)}
+                      {formatSpssValue(cell.r, 3)}
                       {cell.p !== null && cell.p < 0.05 ? '*' : ''}
                     </td>
                   ))}
@@ -725,7 +735,7 @@ export default function ResultsPage() {
                   <td style={tdStyle}>Sig. (2-tailed)</td>
                   {row.cells.map((cell: any, j: number) => (
                     <td style={tdStyle} key={j}>
-                      {cell.p === null ? '' : cell.p.toFixed(3)}
+                      {cell.p === null ? '' : formatSpssValue(cell.p, 3)}
                     </td>
                   ))}
                 </tr>,
