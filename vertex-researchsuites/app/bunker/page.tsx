@@ -34,6 +34,11 @@ export default function Bunker() {
   const [pilotResults, setPilotResults] = useState<any>(null)
   const [pilotInterpretations, setPilotInterpretations] = useState<any>(null)
   const [genericJson, setGenericJson] = useState<any>(null)
+  const [bunkerFilesReady, setBunkerFilesReady] = useState(false);
+  const [docBUrl, setDocBUrl] = useState<string | null>(null);
+  const [docBViewed, setDocBViewed] = useState(false);
+  const [preparingFiles, setPreparingFiles] = useState(false);
+  const [bunkerFileError, setBunkerFileError] = useState('');
 
   useEffect(() => {
     const fetchItems = async () => {
