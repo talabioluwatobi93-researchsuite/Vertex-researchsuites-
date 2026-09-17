@@ -780,26 +780,39 @@ export default function ResultsPage() {
 
           <div style={tableWrap}>
             <p style={tableTitle}>Table {nextTable()}. Model Summary</p>
-            <table style={table}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Model</th>
-                  <th style={thStyle}>R</th>
-                  <th style={thStyle}>R²</th>
-                  <th style={thStyle}>Adjusted R²</th>
-                  <th style={thStyle}>Std. Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={tdStyle}>1</td>
-                  <td style={tdStyle}>{results.regression.modelSummary.r.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.regression.modelSummary.rSquared.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.regression.modelSummary.adjRSquared.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.regression.modelSummary.stdError.toFixed(3)}</td>
-                </tr>
-              </tbody>
-            </table>
+                <table style={table}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle} rowSpan={2}>Model</th>
+                      <th style={thStyle} rowSpan={2}>R</th>
+                      <th style={thStyle} rowSpan={2}>R²</th>
+                      <th style={thStyle} rowSpan={2}>Adjusted R²</th>
+                      <th style={thStyle} rowSpan={2}>Std. Error</th>
+                      <th style={thStyle} colSpan={5}>Change Statistics</th>
+                    </tr>
+                    <tr>
+                      <th style={thStyle}>R² Change</th>
+                      <th style={thStyle}>F Change</th>
+                      <th style={thStyle}>df1</th>
+                      <th style={thStyle}>df2</th>
+                      <th style={thStyle}>Sig. F Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={tdStyle}>1</td>
+                      <td style={tdStyle}>{results.regression.modelSummary.r.toFixed(3)}</td>
+                      <td style={tdStyle}>{results.regression.modelSummary.rSquared.toFixed(3)}</td>
+                      <td style={tdStyle}>{results.regression.modelSummary.adjRSquared.toFixed(3)}</td>
+                      <td style={tdStyle}>{results.regression.modelSummary.stdError.toFixed(3)}</td>
+                      <td style={tdStyle}>{results.regression.modelSummary.rSquaredChange?.toFixed(3) ?? '-'}</td>
+                      <td style={tdStyle}>{results.regression.modelSummary.fChange?.toFixed(3) ?? '-'}</td>
+                      <td style={tdStyle}>{results.regression.modelSummary.df1 ?? '-'}</td>
+                      <td style={tdStyle}>{results.regression.modelSummary.df2 ?? '-'}</td>
+                      <td style={tdStyle}>{results.regression.modelSummary.sigFChange?.toFixed(3) ?? '-'}</td>
+                    </tr>
+                  </tbody>
+                </table>
           </div>
 
           <div style={tableWrap}>
