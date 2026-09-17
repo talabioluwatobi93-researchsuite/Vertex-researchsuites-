@@ -34,7 +34,28 @@ function stripFences(text: string): string {
   return text.replace(/```json/g, '').replace(/```/g, '').trim()
 }
 
-export async function runQuantInterpretation(session: any): Promise<{ interpretation: string; discussion: string; tableInterpretations: Record<string, string> }> {
+
+const CITATION_STYLE_WRITING_RULES: Record<string, string> = {
+  APA7: "Report statistics in APA7 style: italicize statistical symbols and report as e.g. *t*(28) = 2.45, *p* = .019. Use two decimal places for most statistics and three for p-values below .001 (report as *p* < .001).",
+  APA6: "Report statistics in APA6 style: italicize statistical symbols and report as e.g. *t*(28) = 2.45, *p* = .019. Use two decimal places for most statistics.",
+  Vancouver: "Report statistics in Vancouver/biomedical style: do not italicize symbols, use plain text (e.g. t=2.45, P=.019), and capitalize P for p-values.",
+  AMA: "Report statistics in AMA style: do not italicize symbols, use plain text (e.g. t=2.45, P=.019), and capitalize P for p-values.",
+  IEEE: "Report statistics in a compact, technical, IEEE-appropriate style: minimal prose, values reported plainly and concisely without italics.",
+  Chicago17: "Report statistics in Chicago-style prose: plain, non-italicized statistical notation embedded naturally within full sentences.",
+  Turabian9: "Report statistics in Turabian-style prose (same conventions as Chicago): plain, non-italicized statistical notation embedded naturally within full sentences.",
+  Harvard: "Report statistics in Harvard-style prose: plain, non-italicized statistical notation, straightforward academic tone common in business and social science reporting.",
+  MLA9: "MLA does not have an established convention for reporting quantitative statistics. Write the interpretation in plain narrative prose, minimizing statistical jargon and symbol-heavy notation, favoring accessible descriptive language over formal statistical notation.",
+  OSCOLA: "OSCOLA does not have an established convention for reporting quantitative statistics. Write the interpretation in plain, minimal-notation prose suitable for a legal-adjacent academic audience.",
+};
+
+function getCitationWritingRule(citationStyle?: string): string {
+  if (!citationStyle || !CITATION_STYLE_WRITING_RULES[citationStyle]) {
+    return CITATION_STYLE_WRITING_RULES.APA7;
+  }
+  return CITATION_STYLE_WRITING_RULES[citationStyle];
+}
+
+export async function runQuantInterpretation(session: any, citationStyle?: string): Promise<{ interpretation: string; discussion: string; tableInterpretations: Record<string, string> }> {
     const framework = session.research_framework || {}
     const scaleInfo = deriveScaleLabels(session.constructs || [])
     const responseRateInfo = session.response_rate_info || {}
@@ -114,7 +135,7 @@ INPUT DATA:
 TASK:
 For each table in Step 3a's result_tables, write a distinct interpretation paragraph. Every contextual finding must be phrased in terms of the actual questionnaire scale labels the respondents saw (e.g. "most respondents Agree", "the mean falls in the Neutral (Undecided) range") rather than a bare restatement of the coefficient or p-value. Then, for each hypothesis, state explicitly whether it is Supported or Rejected.
 
-STRICT TONE & GRAMMAR CONSTRAINTS:
+CITATION STYLE REQUIREMENT:\n${getCitationWritingRule(citationStyle)}\n\nSTRICT TONE & GRAMMAR CONSTRAINTS:
 1. Write in clear, simple, direct English.
 2. Use STRICT THIRD-PERSON PERSPECTIVE. NEVER use 'I', 'we', or 'our'.
 3. Link every statistical interpretation directly to its hypothesis.
