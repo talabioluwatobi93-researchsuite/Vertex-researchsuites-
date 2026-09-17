@@ -878,9 +878,9 @@ export default function ResultsPage() {
                     <td style={tdStyle}>{c.name}</td>
                     <td style={tdStyle}>{c.B.toFixed(3)}</td>
                     <td style={tdStyle}>{c.SE.toFixed(3)}</td>
-                    <td style={tdStyle}>{c.beta !== null ? c.beta.toFixed(3) : '—'}</td>
+                    <td style={tdStyle}>{c.beta !== null ? formatSpssValue(c.beta, 3) : '—'}</td>
                     <td style={tdStyle}>{c.t.toFixed(3)}</td>
-                    <td style={tdStyle}>{c.p.toFixed(3)}</td>
+                    <td style={tdStyle}>{formatSpssValue(c.p, 3)}</td>
                   </tr>
                 ))}
               </tbody>
