@@ -115,7 +115,7 @@ export default function AnalysisTypePage() {
     const load = async () => {
       const { data, error } = await supabase
         .from('quantitative_analysis_sessions')
-        .select('constructs, analysis_type, raw_data, ttest_config, anova_config, chisquare_config, paired_config, mannwhitney_config, wilcoxon_config, kruskalwallis_config, twowayanova_config, mediation_config, moderation_config')
+        .select('constructs, analysis_type, raw_data, ttest_config, anova_config, chisquare_config, paired_config, mannwhitney_config, wilcoxon_config, kruskalwallis_config, twowayanova_config, mediation_config, moderation_config, chapter3_file_path, chapter3_link, chapter3_extraction, research_framework')
         .eq('id', sessionId)
         .single()
 
@@ -176,6 +176,50 @@ export default function AnalysisTypePage() {
       setLoading(false)
     }
     load()
+  }, [sessionId])
+
+  useEffect(() => {
+    if (!sessionId) return
+
+    const prepareResearchFramework = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('quantitative_analysis_sessions')
+          .select('chapter3_file_path, chapter3_link, chapter3_extraction, research_framework')
+          .eq('id', sessionId)
+          .single()
+
+        if (error || !data) return
+
+        const hasChapter3Source = !!(data.chapter3_file_path || data.chapter3_link)
+        if (!hasChapter3Source) return // Nothing to extract; manual picker path handles this.
+
+        if (!data.chapter3_extraction) {
+          const extractRes = await fetch('/api/quantitative-analysis/extract-chapter3', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId }),
+          })
+          const extractData = await extractRes.json()
+          if (extractData.extractionFailed) return // Graceful fallback: leave manual picker as the path.
+        }
+
+        if (!data.research_framework) {
+          await fetch('/api/quantitative-analysis/build-research-framework', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId }),
+          })
+        }
+      } catch (err) {
+        console.error('Chapter 3 auto-extraction/framework build failed silently:', err)
+        // Intentionally swallow: TestRecommendation already handles a missing
+        // research_framework by falling back to the data-driven recommendation
+        // and the manual picker, so this must never block the page.
+      }
+    }
+
+    prepareResearchFramework()
   }, [sessionId])
 
   const ivConstructs = constructs.filter((c) => c.role === 'IV')
