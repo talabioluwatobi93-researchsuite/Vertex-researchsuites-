@@ -100,13 +100,14 @@ function scanStructuralEligibility(session: any, profile: DataProfile, scores: R
 
 // CHUNK 3 — LLM-based intent mapping
 async function callRecommendationLLM(profile: DataProfile) {
-  const systemPrompt = `You are a research methodology expert. A researcher has described their study intent below. Based ONLY on the research text and the available constructs listed, suggest the SINGLE most appropriate statistical test from this exact list: ${TEST_NAMES.join(', ')}.
+  const systemPrompt = `You are a research methodology expert. A researcher has described their study intent below. Based ONLY on the research text and the available constructs listed, suggest the appropriate statistical test(s) from this exact list: ${TEST_NAMES.join(', ')}.
 
 Rules:
 - Never invent a test not in the list.
 - Never invent constructs not listed below.
 - If the intent is unclear or doesn't map cleanly, say so honestly in your reasoning rather than forcing a guess.
 - Consider mediation/moderation ONLY if the research text explicitly describes an indirect effect (mediation) or an interaction/conditional effect (moderation) — do not suggest these by default.
+- In most cases a single test is correct. Suggest more than one ONLY when the research text describes multiple distinct hypotheses or objectives that each genuinely require a different test. Do not pad the list with tests that are not clearly supported by the text.
 
 Available constructs:
 ${profile.constructs.map(c => `- ${c.name} (${c.type}, n=${c.n})`).join('\n')}
@@ -117,11 +118,18 @@ ${profile.researchText || 'No research framework text provided.'}
 """
 
 Respond with ONLY valid JSON, no markdown fences:
-{ "suggestedTest": "...", "involvedConstructs": ["..."], "reasoning": "..." }`;
+{ "suggestedTests": ["..."], "involvedConstructs": ["..."], "reasoning": "..." }`;
 
   const { content } = await callQuantRecommendChain(systemPrompt);
   const clean = content.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  const parsed = JSON.parse(clean);
+  if (!Array.isArray(parsed.suggestedTests) && parsed.suggestedTest) {
+    parsed.suggestedTests = [parsed.suggestedTest];
+  }
+  if (!Array.isArray(parsed.suggestedTests)) {
+    parsed.suggestedTests = [];
+  }
+  return parsed;
 }
 
 // CHUNK 4 — combine rule-based scan + LLM suggestion into final output
@@ -182,15 +190,24 @@ export async function POST(req: Request) {
     let userPlan = null;
     if (profile.hasResearchFramework) {
       const llmSuggestion = await callRecommendationLLM(profile);
-      const validated = structural[llmSuggestion.suggestedTest];
+      const suggestedTests: string[] = llmSuggestion.suggestedTests || [];
+      const testPlans = suggestedTests.map((test: string) => {
+        const validated = structural[test];
+        return {
+          suggestedTest: test,
+          eligible: validated?.eligible ?? false,
+          eligibilityNote: validated?.eligible
+            ? 'Confirmed: your data supports this test.'
+            : (validated?.reason || 'This test is not in the supported list.'),
+        };
+      });
       userPlan = {
-        suggestedTest: llmSuggestion.suggestedTest,
+        suggestedTest: testPlans[0]?.suggestedTest || '',
+        suggestedTests: testPlans,
         involvedConstructs: llmSuggestion.involvedConstructs,
         reasoning: llmSuggestion.reasoning,
-        eligible: validated?.eligible ?? false,
-        eligibilityNote: validated?.eligible
-          ? 'Confirmed: your data supports this test.'
-          : (validated?.reason || 'This test is not in the supported list.'),
+        eligible: testPlans[0]?.eligible ?? false,
+        eligibilityNote: testPlans[0]?.eligibilityNote || '',
       };
     }
 
