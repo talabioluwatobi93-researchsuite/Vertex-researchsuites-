@@ -6,6 +6,7 @@ interface RecommendationResult {
   appRecommendation: { test: string; reason: string };
   userPlan: {
     suggestedTest: string;
+    suggestedTests?: { suggestedTest: string; eligible: boolean; eligibilityNote: string }[];
     involvedConstructs: string[];
     reasoning: string;
     eligible: boolean;
@@ -64,17 +65,25 @@ export default function TestRecommendation({
           </div>
 
           {result.userPlan && (
-            <div style={{ border: '1px solid #ccc', borderRadius: 6, padding: 12 }}>
-              <strong style={{ fontSize: 13 }}>Based on Your Stated Plan: {result.userPlan.suggestedTest}</strong>
-              <p style={{ fontSize: 13, color: '#444', margin: '6px 0' }}>{result.userPlan.reasoning}</p>
-              <p style={{ fontSize: 12, color: result.userPlan.eligible ? '#0a7d2f' : '#b00020' }}>
-                {result.userPlan.eligibilityNote}
+        <div style={{ border: '1px solid #ccc', borderRadius: 6, padding: 12 }}>
+          <strong style={{ fontSize: 13 }}>Based on Your Stated Plan</strong>
+          <p style={{ fontSize: 13, color: '#444', margin: '6px 0' }}>{result.userPlan.reasoning}</p>
+          {(result.userPlan.suggestedTests && result.userPlan.suggestedTests.length > 0
+            ? result.userPlan.suggestedTests
+            : [{ suggestedTest: result.userPlan.suggestedTest, eligible: result.userPlan.eligible, eligibilityNote: result.userPlan.eligibilityNote }]
+          ).map((plan, idx) => (
+            <div key={idx} style={{ marginTop: 8, paddingTop: idx > 0 ? 8 : 0, borderTop: idx > 0 ? '1px solid #eee' : 'none' }}>
+              <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>{plan.suggestedTest}</p>
+              <p style={{ fontSize: 12, color: plan.eligible ? '#0a7d2f' : '#b00020', margin: '4px 0' }}>
+                {plan.eligibilityNote}
               </p>
-              {result.userPlan.eligible && (
-                <button onClick={() => onSelect(result.userPlan!.suggestedTest)}>Use this test</button>
+              {plan.eligible && (
+                <button onClick={() => onSelect(plan.suggestedTest)}>Use this test</button>
               )}
             </div>
-          )}
+          ))}
+        </div>
+      )}
 
           {!result.userPlan && (
             <p style={{ fontSize: 12, color: '#777' }}>
