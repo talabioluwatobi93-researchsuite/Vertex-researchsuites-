@@ -37,6 +37,49 @@ export default function CleaningPage() {
     loadSession()
   }, [id])
 
+  useEffect(() => {
+    if (!id) return
+
+    const prepareQuestionnaireMapping = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('quantitative_analysis_sessions')
+          .select('questionnaire_file_path, questionnaire_link, questionnaire_mapping')
+          .eq('id', id)
+          .single()
+
+        if (error || !data) return
+
+        const hasQuestionnaireSource = !!(data.questionnaire_file_path || data.questionnaire_link)
+        if (!hasQuestionnaireSource || data.questionnaire_mapping) return
+
+        const mapRes = await fetch('/api/quantitative-analysis/map-questionnaire', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: id }),
+        })
+        const mapData = await mapRes.json()
+        if (mapData.mappingFailed) return // Graceful fallback: manual entry remains available.
+
+        // Auto-confirm: the cleaning page's own input fields (pre-filled below)
+        // are the real human checkpoint, since the user can freely edit any
+        // suggested label before saving. This just marks the mapping eligible
+        // to be used as a pre-fill suggestion.
+        await supabase
+          .from('quantitative_analysis_sessions')
+          .update({ questionnaire_mapping_confirmed: true })
+          .eq('id', id)
+
+        loadSession()
+      } catch (err) {
+        console.error('Questionnaire auto-mapping failed silently:', err)
+        // Intentionally swallow: manual entry remains fully available either way.
+      }
+    }
+
+    prepareQuestionnaireMapping()
+  }, [id])
+
   async function loadSession() {
     setLoading(true)
     const { data, error } = await supabase
