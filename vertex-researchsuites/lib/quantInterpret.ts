@@ -36,8 +36,8 @@ function stripFences(text: string): string {
 
 
 const CITATION_STYLE_WRITING_RULES: Record<string, string> = {
-  APA7: "Report statistics in APA7 style: italicize statistical symbols and report as e.g. *t*(28) = 2.45, *p* = .019. Use two decimal places for most statistics and three for p-values below .001 (report as *p* < .001).",
-  APA6: "Report statistics in APA6 style: italicize statistical symbols and report as e.g. *t*(28) = 2.45, *p* = .019. Use two decimal places for most statistics.",
+  APA7: "Report statistics in APA7 style: report statistical symbols in plain text with no italics and no asterisks, as e.g. t(28) = 2.45, p = .019. Use two decimal places for most statistics and three for p-values below .001 (report as p < .001).",
+  APA6: "Report statistics in APA6 style: report statistical symbols in plain text with no italics and no asterisks, as e.g. t(28) = 2.45, p = .019. Use two decimal places for most statistics.",
   Vancouver: "Report statistics in Vancouver/biomedical style: do not italicize symbols, use plain text (e.g. t=2.45, P=.019), and capitalize P for p-values.",
   AMA: "Report statistics in AMA style: do not italicize symbols, use plain text (e.g. t=2.45, P=.019), and capitalize P for p-values.",
   IEEE: "Report statistics in a compact, technical, IEEE-appropriate style: minimal prose, values reported plainly and concisely without italics.",

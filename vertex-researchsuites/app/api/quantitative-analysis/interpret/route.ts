@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
     let interpretation: string
     let discussion: string
     try {
-      const result = await runQuantInterpretation(session)
+      const citationStyle = session.research_framework?.apaVersion || 'APA7'
+    const result = await runQuantInterpretation(session, citationStyle)
       interpretation = result.interpretation
       discussion = result.discussion
     } catch (err: any) {
