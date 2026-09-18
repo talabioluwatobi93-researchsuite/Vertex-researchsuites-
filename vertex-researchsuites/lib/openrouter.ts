@@ -205,3 +205,37 @@ export async function callQuantRecommendChain(prompt: string): Promise<OpenRoute
     return { content, providerUsed: 'gpt4o-mini-fallback' };
   }
 }
+
+export const QUANT_QUESTIONNAIRE_MAP_MODEL_ROUTES = {
+  primary: 'anthropic/claude-sonnet-4.6',
+  fallback: 'openai/gpt-4o-mini',
+};
+
+export async function callQuestionnaireMapChain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUANT_QUESTIONNAIRE_MAP_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'sonnet5-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Questionnaire Map primary failed, falling back:', err);
+    const content = await callOpenRouterStreaming(QUANT_QUESTIONNAIRE_MAP_MODEL_ROUTES.fallback, prompt);
+    return { content, providerUsed: 'gpt4o-mini-fallback' };
+  }
+}
+
+export const QUANT_CHAPTER3_EXTRACT_MODEL_ROUTES = {
+  primary: 'anthropic/claude-sonnet-4.6',
+  fallback: 'openai/gpt-4o-mini',
+};
+
+export async function callChapter3ExtractChain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUANT_CHAPTER3_EXTRACT_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'sonnet5-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Chapter 3 Extract primary failed, falling back:', err);
+    const content = await callOpenRouterStreaming(QUANT_CHAPTER3_EXTRACT_MODEL_ROUTES.fallback, prompt);
+    return { content, providerUsed: 'gpt4o-mini-fallback' };
+  }
+}
