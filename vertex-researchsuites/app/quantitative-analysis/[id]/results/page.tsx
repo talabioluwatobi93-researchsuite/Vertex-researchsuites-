@@ -66,6 +66,7 @@ export default function ResultsPage() {
   const [status, setStatus] = useState('Calculating results...')
   const [results, setResults] = useState<any>(null)
   const [interpretation, setInterpretation] = useState('')
+  const [tableInterpretations, setTableInterpretations] = useState<Record<string, string>>({})
   const [discussion, setDiscussion] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [revealed, setRevealed] = useState(false)
@@ -278,6 +279,7 @@ export default function ResultsPage() {
         .eq('id', id)
 
       setInterpretation(finalInterpretation || '')
+    setTableInterpretations(interpData.tableInterpretations || {})
       setDiscussion(finalDiscussion || '')
 
       const readyTime = new Date(readyAt).getTime()
@@ -1171,7 +1173,26 @@ export default function ResultsPage() {
         <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, margin: 0 }}>✓ Saved to your Bunker</p>
       </div>
 
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
+      
+        {interpretation && Object.keys(tableInterpretations || {}).length > 0 && (
+          <div style={{ maxWidth: '800px', margin: '32px auto', padding: '24px 16px', borderTop: '2px solid #D4AF37' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '16px' }}>Interpretation</h2>
+            {Object.entries(tableInterpretations).map(([title, block], idx) => (
+              <div key={idx} style={{ marginBottom: '24px' }}>
+                <p style={{ fontWeight: 600, fontSize: '13px', color: '#333333', marginBottom: '6px' }}>{title}</p>
+                <p style={{ fontSize: '14px', color: '#333333', lineHeight: 1.6 }}>{String(block)}</p>
+              </div>
+            ))}
+            {discussion && (
+              <div style={{ marginTop: '24px' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Discussion</h3>
+                <p style={{ fontSize: '14px', color: '#333333', lineHeight: 1.6 }}>{discussion}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+<div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
         <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Want a complete Chapter 5?</p>
         <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
           Summary, Conclusion, Limitations & Recommendations — built from these results. Optional, paid add-on.
