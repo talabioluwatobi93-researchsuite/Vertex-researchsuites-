@@ -144,6 +144,24 @@ export default function CleaningPage() {
         }
       })
     })
+
+    // Pre-fill from confirmed AI questionnaire mapping (Phase 2A), if present.
+    // Only fills in codes the user has not already set, and only for columns
+    // where the mapping was confirmed by the user beforehand.
+    const qMapping = (session as any)?.questionnaire_mapping
+    const qMappingConfirmed = (session as any)?.questionnaire_mapping_confirmed
+    if (qMapping && qMappingConfirmed) {
+      Object.entries(demoMappingsNeeded).forEach(([colIndex, m]: [string, any]) => {
+        const aiEntry = qMapping[m.columnLabel]
+        if (!aiEntry || !aiEntry.valueLabels) return
+        Object.keys(m.codes).forEach((code) => {
+          if (!m.codes[code] && aiEntry.valueLabels[code]) {
+            demoMappingsNeeded[colIndex].codes[code] = aiEntry.valueLabels[code]
+          }
+        })
+      })
+    }
+
     setDemoMappings(demoMappingsNeeded)
 
     // 4. Straight-lining detection (same value across every item in a construct with 3+ items)
