@@ -1320,6 +1320,76 @@ export default function ResultsPage() {
           )}
         </div>
       )}
+
+      {results.logisticRegression && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Model Summary</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>-2 Log Likelihood</th>
+                <th style={thStyle}>McFadden R²</th>
+                <th style={thStyle}>Chi-Square</th>
+                <th style={thStyle}>df</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{results.logisticRegression.n}</td>
+                <td style={tdStyle}>{(-2 * results.logisticRegression.logLikelihood).toFixed(3)}</td>
+                <td style={tdStyle}>{results.logisticRegression.mcFaddenR2.toFixed(3)}</td>
+                <td style={tdStyle}>{results.logisticRegression.chiSq.toFixed(3)}</td>
+                <td style={tdStyle}>{results.logisticRegression.df}</td>
+                <td style={tdStyle}>{formatSpssValue(results.logisticRegression.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Model {results.logisticRegression.converged ? 'converged' : 'did not converge'} after {results.logisticRegression.iterations} iteration(s).</p>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[19] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[19]}
+            </div>
+          )}
+        </div>
+      )}
+
+      {results.logisticRegression && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Variables in the Equation</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Variable</th>
+                <th style={thStyle}>B</th>
+                <th style={thStyle}>S.E.</th>
+                <th style={thStyle}>z</th>
+                <th style={thStyle}>Sig.</th>
+                <th style={thStyle}>Exp(B)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.logisticRegression.coefficients.map((c: any, i: number) => (
+                <tr key={i}>
+                  <td style={tdStyle}>{c.name}</td>
+                  <td style={tdStyle}>{c.B.toFixed(3)}</td>
+                  <td style={tdStyle}>{c.SE.toFixed(3)}</td>
+                  <td style={tdStyle}>{c.z.toFixed(3)}</td>
+                  <td style={tdStyle}>{formatSpssValue(c.p, 3)}</td>
+                  <td style={tdStyle}>{c.oddsRatio.toFixed(3)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Dependent Variable is binary (0/1). Exp(B) represents the odds ratio for each predictor.</p>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[20] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[20]}
+            </div>
+          )}
+        </div>
+      )}
 ✓ Saved to your Bunker</p>
       </div>
 
