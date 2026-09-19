@@ -450,6 +450,18 @@ export default function VoiceTranscription() {
             {saving ? "Saving..." : "Save to My Bunker"}
           </button>
           {savedMsg && <p style={{ color: savedMsg.includes("successfully") ? "#1D8A4C" : "#C0392B", fontSize: "13px", fontWeight: 600, marginTop: "12px", textAlign: "center" }}>{savedMsg}</p>}
+
+            <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}`, marginTop: "16px" }}>
+              <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "6px" }}>Full Academic Document</p>
+              <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>Generate a publication-ready document with corrected diacritics, translated code-switched terms, and a glossary — built from your transcript and language hint.</p>
+              <button onClick={handleGenerateDocument} disabled={generatingDocument || !transcript.trim()} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
+                {generatingDocument ? "Generating document..." : "Generate Full Document"}
+              </button>
+              {documentError && <p style={{ color: "#C0392B", fontSize: "13px", marginTop: "12px" }}>{documentError}</p>}
+              {fullDocument && (
+                <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "13px", color: DARK, lineHeight: "1.6", margin: "16px 0 0 0", padding: "16px", backgroundColor: "#FAFAFA", borderRadius: "10px", border: `1px solid ${BORDER}` }}>{fullDocument}</pre>
+              )}
+            </div>
         </div>
       )}
     </div>
