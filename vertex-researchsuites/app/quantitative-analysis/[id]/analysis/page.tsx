@@ -828,7 +828,7 @@ export default function AnalysisTypePage() {
               <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Variable that changes the relationship (Moderator)</label>
               <select value={moderationModeratorId} onChange={(e) => { setModerationModeratorId(e.target.value); if (moderationOutcomeId === e.target.value) setModerationOutcomeId('') }} disabled={!moderationPredictorId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
                 <option value="">Select a variable...</option>
-                {numericEligibleConstructs.filter((c) => c.id !== moderationPredictorId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                {roleEligibleConstructs.filter((c) => c.id !== moderationPredictorId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
               <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Final outcome</label>
               <select value={moderationOutcomeId} onChange={(e) => setModerationOutcomeId(e.target.value)} disabled={!moderationModeratorId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}>
