@@ -54,6 +54,9 @@ export default function VoiceTranscription() {
   const [file, setFile] = useState<File | null>(null);
   const [language, setLanguage] = useState<string>("auto");
   const [languageHint, setLanguageHint] = useState<string>("");
+  const [generatingDocument, setGeneratingDocument] = useState(false);
+  const [fullDocument, setFullDocument] = useState("");
+  const [documentError, setDocumentError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [audioUrl, setAudioUrl] = useState("");
   const [transcribingUrl, setTranscribingUrl] = useState(false);
@@ -279,6 +282,24 @@ export default function VoiceTranscription() {
       setErrorMsg("Something went wrong generating notes. Please try again.");
     }
     setGeneratingNotes(false);
+  };
+
+  const handleGenerateDocument = async () => {
+    setGeneratingDocument(true);
+    setDocumentError("");
+    try {
+      const res = await fetch("/api/voice-transcription/generate-document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript, languageHint }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Document generation failed. Please try again.");
+      setFullDocument(data.document as string);
+    } catch (err: any) {
+      setDocumentError(err.message || "Something went wrong generating the document. Please try again.");
+    }
+    setGeneratingDocument(false);
   };
 
   const handleSaveToBunker = async () => {
