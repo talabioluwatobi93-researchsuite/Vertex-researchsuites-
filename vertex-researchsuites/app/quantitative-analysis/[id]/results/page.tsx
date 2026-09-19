@@ -1181,7 +1181,80 @@ export default function ResultsPage() {
         )}
         
       <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '14px 16px', border: '1px solid #D4AF37', marginBottom: '16px', textAlign: 'center' }}>
-        <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, margin: 0 }}>✓ Saved to your Bunker</p>
+        <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, margin: 0 }}>
+      {results.pairedTtest && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Paired Samples Test</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}></th>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>Mean</th>
+                <th style={thStyle}>Std. Deviation</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>Measurement 1</td>
+                <td style={tdStyle}>{results.pairedTtest.n}</td>
+                <td style={tdStyle}>{results.pairedTtest.before.mean.toFixed(2)}</td>
+                <td style={tdStyle}>{results.pairedTtest.before.sd.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>Measurement 2</td>
+                <td style={tdStyle}>{results.pairedTtest.n}</td>
+                <td style={tdStyle}>{results.pairedTtest.after.mean.toFixed(2)}</td>
+                <td style={tdStyle}>{results.pairedTtest.after.sd.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Paired-samples comparison of the same participants across two measurements.</p>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[16] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[16]}
+            </div>
+          )}
+        </div>
+      )}
+
+      {results.pairedTtest && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Paired Samples Test Statistics</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Mean Diff.</th>
+                <th style={thStyle}>Std. Deviation</th>
+                <th style={thStyle}>Std. Error Mean</th>
+                <th style={thStyle}>95% CI Lower</th>
+                <th style={thStyle}>95% CI Upper</th>
+                <th style={thStyle}>t</th>
+                <th style={thStyle}>df</th>
+                <th style={thStyle}>Sig. (2-tailed)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{results.pairedTtest.meanDiff.toFixed(3)}</td>
+                <td style={tdStyle}>{results.pairedTtest.sdDiff.toFixed(3)}</td>
+                <td style={tdStyle}>{results.pairedTtest.semDiff.toFixed(3)}</td>
+                <td style={tdStyle}>{results.pairedTtest.ciLower.toFixed(3)}</td>
+                <td style={tdStyle}>{results.pairedTtest.ciUpper.toFixed(3)}</td>
+                <td style={tdStyle}>{results.pairedTtest.t.toFixed(3)}</td>
+                <td style={tdStyle}>{results.pairedTtest.df}</td>
+                <td style={tdStyle}>{formatSpssValue(results.pairedTtest.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[17] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[17]}
+            </div>
+          )}
+        </div>
+      )}
+✓ Saved to your Bunker</p>
       </div>
 
       
