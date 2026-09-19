@@ -800,7 +800,7 @@ export default function AnalysisTypePage() {
               <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Main cause (Predictor)</label>
               <select value={mediationPredictorId} onChange={(e) => { setMediationPredictorId(e.target.value); if (mediationMediatorId === e.target.value) setMediationMediatorId(''); if (mediationOutcomeId === e.target.value) setMediationOutcomeId('') }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
                 <option value="">Select a variable...</option>
-                {numericEligibleConstructs.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                {roleEligibleConstructs.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
               <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>In-between variable (Mediator) - carries the effect</label>
               <select value={mediationMediatorId} onChange={(e) => { setMediationMediatorId(e.target.value); if (mediationOutcomeId === e.target.value) setMediationOutcomeId('') }} disabled={!mediationPredictorId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
@@ -823,7 +823,7 @@ export default function AnalysisTypePage() {
               <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Main cause (Predictor)</label>
               <select value={moderationPredictorId} onChange={(e) => { setModerationPredictorId(e.target.value); if (moderationModeratorId === e.target.value) setModerationModeratorId(''); if (moderationOutcomeId === e.target.value) setModerationOutcomeId('') }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
                 <option value="">Select a variable...</option>
-                {numericEligibleConstructs.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                {roleEligibleConstructs.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
               <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Variable that changes the relationship (Moderator)</label>
               <select value={moderationModeratorId} onChange={(e) => { setModerationModeratorId(e.target.value); if (moderationOutcomeId === e.target.value) setModerationOutcomeId('') }} disabled={!moderationPredictorId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }}>
