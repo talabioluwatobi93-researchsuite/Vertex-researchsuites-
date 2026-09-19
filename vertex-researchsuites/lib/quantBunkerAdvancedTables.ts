@@ -13,7 +13,7 @@ export function buildCorrelationTables(corr: any, tableNumber: number, citationS
       ...row.cells.map((c: any, j: number) => {
         if (i === j) return "—";
         const stars = c.p !== null && c.p < 0.001 ? "***" : c.p !== null && c.p < 0.01 ? "**" : c.p !== null && c.p < 0.05 ? "*" : "";
-        return `${fmt(c.r)}${stars}`;
+        return `${fmt(c.r, 3)}${stars}`;
       }),
     ]);
 

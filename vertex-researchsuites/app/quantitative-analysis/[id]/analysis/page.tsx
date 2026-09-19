@@ -261,6 +261,8 @@ export default function AnalysisTypePage() {
   // Scale/numeric constructs usable as a Predictor/Mediator/Moderator/Outcome/
   // paired-measurement (anything that isn't Demographic and has data mapped to it)
   const numericEligibleConstructs = constructs.filter((c) => c.role !== 'Demographic' && c.columnIndexes && c.columnIndexes.length > 0)
+  const demographicEligibleConstructs = constructs.filter((c) => c.role === 'Demographic' && c.columnIndexes && c.columnIndexes.length > 0)
+  const roleEligibleConstructs = [...numericEligibleConstructs, ...demographicEligibleConstructs]
 
   // A binary DV (exactly 2 distinct values) is required for logistic regression
   const binaryDvConstructs = dvConstructs.filter((c) => c.columnIndexes && c.columnIndexes.length === 1 && getDistinctValues(c.columnIndexes[0]).length === 2)
