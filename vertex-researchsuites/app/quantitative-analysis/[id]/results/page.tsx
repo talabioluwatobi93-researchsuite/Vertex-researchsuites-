@@ -1493,6 +1493,69 @@ export default function ResultsPage() {
           )}
         </div>
       )}
+
+      {results.kruskalWallis && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Kruskal-Wallis Test Ranks</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Group</th>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>Median</th>
+                <th style={thStyle}>Mean Rank</th>
+                <th style={thStyle}>Rank Sum</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.kruskalWallis.groups.map((g: any, idx: number) => (
+                <tr key={idx}>
+                  <td style={tdStyle}>{results.kruskalWallis.groupLabels?.[idx] ?? `Group ${idx + 1}`}</td>
+                  <td style={tdStyle}>{g.n}</td>
+                  <td style={tdStyle}>{g.median.toFixed(2)}</td>
+                  <td style={tdStyle}>{g.meanRank.toFixed(2)}</td>
+                  <td style={tdStyle}>{g.rankSum.toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[24] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[24]}
+            </div>
+          )}
+        </div>
+      )}
+
+      {results.kruskalWallis && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Kruskal-Wallis Test Statistics</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>H (Chi-Square)</th>
+                <th style={thStyle}>df</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{results.kruskalWallis.N}</td>
+                <td style={tdStyle}>{results.kruskalWallis.h.toFixed(3)}</td>
+                <td style={tdStyle}>{results.kruskalWallis.df}</td>
+                <td style={tdStyle}>{formatSpssValue(results.kruskalWallis.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Kruskal-Wallis H Test for k independent samples.</p>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[25] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[25]}
+            </div>
+          )}
+        </div>
+      )}
 ✓ Saved to your Bunker</p>
       </div>
 
