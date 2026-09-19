@@ -85,7 +85,7 @@ export default function DefensePrepPage() {
       .select('price')
       .eq('feature_name', 'defense_prep')
       .single()
-    setPrice(priceRow?.price ?? 0)
+    setPrice(0) // Defense Prep unlocked for all users
 
     const { data: userData } = await supabase.auth.getUser()
     if (userData?.user?.id) {

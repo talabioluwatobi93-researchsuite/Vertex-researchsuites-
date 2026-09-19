@@ -73,9 +73,17 @@ TASK:
 Extract and structure ONLY the mathematical parameters. Explicitly identify and structure whichever of the following are present:
 - Pearson/Spearman Correlation (r, p-value, strength and direction)
 - Linear/Multiple Regression (R, R-squared, Adjusted R-squared, Std. Error, Beta coefficients, t-values, p-values per predictor)
+- Logistic Regression (B, S.E., Wald statistic, df, p-value, Exp(B)/odds ratio per predictor)
 - ANOVA/Model Fit (F-statistic, df, significance)
+- Two-Way ANOVA (F-statistic and p-value for each main effect and the interaction, df for each)
+- Independent-Samples t-test (t value, df, p-value, mean difference, group means)
+- Paired-Samples t-test (t value, df, p-value, mean difference between the two measurements)
+- Mann-Whitney U Test (U statistic, Z, p-value, mean ranks per group)
+- Wilcoxon Signed-Rank Test (Z, p-value, sum of ranks)
+- Kruskal-Wallis Test (H statistic, df, p-value, mean ranks per group)
 - Chi-Square Test of Independence (chi-square value, df, p-value)
-- t-test / ANOVA (t or F value, df, p-value, mean differences)
+- Mediation Analysis (path a: predictor to mediator coefficient/p-value, path b: mediator to outcome coefficient/p-value, indirect effect, Sobel z or bootstrap CI if available)
+- Moderation Analysis (main effect B/SE/t/p for predictor and moderator, interaction term B/SE/t/p, R-squared change)
 
 For each test present, also state WHY that specific test was appropriate for this research design, based only on the actual IV/DV/grouping-variable roles and data types already established for this session \u2014 do not invent methodological reasoning beyond what those roles support.
 

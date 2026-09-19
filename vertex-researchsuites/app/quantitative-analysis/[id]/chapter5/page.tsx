@@ -87,7 +87,7 @@ export default function Chapter5Page() {
       .select('price')
       .eq('feature_name', 'chapter_5')
       .single()
-    setPrice(priceRow?.price ?? 0)
+    setPrice(0) // Chapter 5 unlocked for all users
 
     const { data: userData } = await supabase.auth.getUser()
     if (userData?.user?.id) {
@@ -136,10 +136,6 @@ export default function Chapter5Page() {
   }
 
   async function handleProceedToForm() {
-    if (price > 0 && balance < price) {
-      setErrorMsg('Your balance is not enough for this add-on. Kindly top up.')
-      return
-    }
     setErrorMsg('')
     setStage('form')
   }
