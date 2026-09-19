@@ -11,7 +11,7 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { sessionId, audioPath, language } = await req.json();
+    const { sessionId, audioPath, language, languageHint } = await req.json();
 
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage
       .from("interview-audio")
@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
     form.append("response_format", "text");
     if (language && language !== "auto") {
       form.append("language", language);
+    }
+    if (languageHint && languageHint.trim().length > 0) {
+      form.append("prompt", languageHint.trim());
     }
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {

@@ -53,6 +53,7 @@ export default function VoiceTranscription() {
 
   const [file, setFile] = useState<File | null>(null);
   const [language, setLanguage] = useState<string>("auto");
+  const [languageHint, setLanguageHint] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [audioUrl, setAudioUrl] = useState("");
   const [transcribingUrl, setTranscribingUrl] = useState(false);
@@ -112,7 +113,7 @@ export default function VoiceTranscription() {
     const res = await fetch("/api/voice-transcription/transcribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: currentSessionId, audioPath, language: lang }),
+      body: JSON.stringify({ sessionId: currentSessionId, audioPath, language: lang, languageHint }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Transcription failed. Please try again.");
@@ -135,7 +136,7 @@ export default function VoiceTranscription() {
       const res = await fetch("/api/voice-transcription/chunk-transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audioPath, startSeconds: start, durationSeconds: chunkDuration, language: lang }),
+        body: JSON.stringify({ audioPath, startSeconds: start, durationSeconds: chunkDuration, language: lang, languageHint }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Transcription failed on part ${chunkIndex}. Please try again.`);
@@ -339,14 +340,53 @@ export default function VoiceTranscription() {
           </label>
             <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#333333", marginBottom: "6px" }}>Audio language</label>
             <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ width: "100%", padding: "10px 12px", fontSize: "14px", borderRadius: "10px", border: "1px solid #CCCCCC", color: "#333333", marginBottom: "12px" }}>
-              <option value="auto">Auto-detect</option>
-              <option value="en">English</option>
-              <option value="yo">Yoruba</option>
-              <option value="ha">Hausa</option>
-              <option value="fr">French</option>
-              <option value="de">German</option>
-              <option value="ig">Igbo (not officially supported - accuracy may be poor)</option>
-            </select>
+                <option value="auto">Auto-detect</option>
+                <optgroup label="Tier 1: Excellent (WER 2.7%-10%)">
+                  <option value="en">English</option>
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
+                  <option value="de">German</option>
+                  <option value="it">Italian</option>
+                  <option value="pt">Portuguese</option>
+                  <option value="ja">Japanese</option>
+                </optgroup>
+                <optgroup label="Tier 2: Strong (WER 10%-20%)">
+                  <option value="zh">Mandarin</option>
+                  <option value="ko">Korean</option>
+                  <option value="tr">Turkish</option>
+                  <option value="ar">Arabic</option>
+                  <option value="uk">Ukrainian</option>
+                  <option value="vi">Vietnamese</option>
+                  <option value="el">Greek</option>
+                </optgroup>
+                <optgroup label="Tier 3: Moderate (WER 20%-40%)">
+                  <option value="hi">Hindi</option>
+                  <option value="ms">Malay</option>
+                  <option value="tl">Tagalog</option>
+                  <option value="ur">Urdu</option>
+                  <option value="sw">Swahili</option>
+                  <option value="bn">Bengali</option>
+                  <option value="fa">Persian</option>
+                </optgroup>
+                <optgroup label="Tier 4: Low Resource (WER 40%+, correction recommended)">
+                  <option value="yo">Yoruba</option>
+                  <option value="ig">Igbo</option>
+                  <option value="ha">Hausa</option>
+                  <option value="am">Amharic</option>
+                  <option value="zu">Zulu</option>
+                  <option value="cy">Welsh</option>
+                  <option value="ne">Nepali</option>
+                </optgroup>
+              </select>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#333333", marginBottom: "6px" }}>Language hint (optional)</label>
+              <input
+                type="text"
+                value={languageHint}
+                onChange={(e) => setLanguageHint(e.target.value)}
+                placeholder="e.g. Nigerian Pidgin mixed with Yoruba and English"
+                style={{ width: "100%", padding: "10px 12px", fontSize: "14px", borderRadius: "10px", border: "1px solid #CCCCCC", color: "#333333", marginBottom: "12px" }}
+              />
+              <p style={{ color: "#888888", fontSize: 12, marginTop: "-8px", marginBottom: "12px" }}>If your audio mixes languages or dialects, type them here (e.g. "code-switched Yoruba and English") to help the model identify speech more accurately.</p>
             <p style={{ color: "#888888", fontSize: 12, marginBottom: "12px" }}>Built for spoken interviews and voice notes. Songs or music will likely transcribe poorly.</p>
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           <button onClick={handleUploadAndTranscribe} disabled={!file || uploading} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
