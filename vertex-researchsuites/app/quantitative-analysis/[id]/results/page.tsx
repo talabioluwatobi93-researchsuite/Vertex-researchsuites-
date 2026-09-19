@@ -67,6 +67,7 @@ export default function ResultsPage() {
   const [results, setResults] = useState<any>(null)
   const [interpretation, setInterpretation] = useState('')
   const [tableInterpretations, setTableInterpretations] = useState<Record<string, string>>({})
+  const [viewMode, setViewMode] = useState<'tables' | 'fullDocument'>('tables')
   const [discussion, setDiscussion] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [revealed, setRevealed] = useState(false)
@@ -616,6 +617,16 @@ export default function ResultsPage() {
         </div>
       ))}
 
+      {interpretation && Object.keys(tableInterpretations).length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+          <button
+            onClick={() => setViewMode(viewMode === 'tables' ? 'fullDocument' : 'tables')}
+            style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #D4AF37', backgroundColor: viewMode === 'fullDocument' ? '#D4AF37' : '#ffffff', color: viewMode === 'fullDocument' ? '#ffffff' : '#333333', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            {viewMode === 'fullDocument' ? 'View Tables Only' : 'Get Full Document'}
+          </button>
+        </div>
+      )}
       {results.descriptives?.length > 0 && (
         <div style={tableWrap}>
           <p style={tableTitle}>Table {nextTable()}. Descriptive Statistics for Study Variables</p>
