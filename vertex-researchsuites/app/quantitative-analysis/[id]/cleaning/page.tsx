@@ -10,10 +10,13 @@ const supabase = createClient(
 )
 
 export default function CleaningPage() {
+  const [showDemoEditForm, setShowDemoEditForm] = useState(false);
+
   const { id } = useParams()
   const router = useRouter()
 
   const [session, setSession] = useState<any>(null)
+  const qMappingConfirmed = (session as any)?.questionnaire_mapping_confirmed;
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -192,8 +195,7 @@ export default function CleaningPage() {
     // Only fills in codes the user has not already set, and only for columns
     // where the mapping was confirmed by the user beforehand.
     const qMapping = (session as any)?.questionnaire_mapping
-    const qMappingConfirmed = (session as any)?.questionnaire_mapping_confirmed
-    if (qMapping && qMappingConfirmed) {
+        if (qMapping && qMappingConfirmed) {
       Object.entries(demoMappingsNeeded).forEach(([colIndex, m]: [string, any]) => {
         const aiEntry = qMapping[m.columnLabel]
         if (!aiEntry || !aiEntry.valueLabels) return
@@ -367,7 +369,34 @@ export default function CleaningPage() {
       {hasDemoMappings && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
           <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '6px' }}>Demographic Coding</h2>
-          <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
+          {qMappingConfirmed && !showDemoEditForm ? (
+            <div>
+              <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
+                We detected the following code meanings from your questionnaire. Please confirm they're correct.
+              </p>
+              {Object.entries(demoMappings).map(([colIndex, m]: any) => (
+                <div key={colIndex} style={{ marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid #F5F5F5' }}>
+                  <p style={{ fontSize: '13px', fontWeight: 600, color: '#333333', marginBottom: '6px' }}>{m.columnLabel}</p>
+                  {Object.keys(m.codes).map((code) => (
+                    <div key={code} style={{ display: 'flex', gap: '10px', fontSize: '13px', color: '#333333', marginBottom: '4px' }}>
+                      <span style={{ color: '#777777' }}>{code} →</span>
+                      <span>{m.codes[code]}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+                <button onClick={() => setShowDemoEditForm(false)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #D4AF37', backgroundColor: '#D4AF37', color: '#ffffff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                  Looks correct, continue
+                </button>
+                <button onClick={() => setShowDemoEditForm(true)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #EEEEEE', backgroundColor: '#ffffff', color: '#333333', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                  Let me edit this myself
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
             Some of your demographic answers use number codes. Tell us what each code means for each question below.
           </p>
           {Object.entries(demoMappings).map(([colIndex, m]: any) => (
@@ -389,8 +418,14 @@ export default function CleaningPage() {
           ))}
         </div>
       )}
-
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+              {qMappingConfirmed && (
+                <button onClick={() => setShowDemoEditForm(false)} style={{ marginTop: '10px', padding: '10px 16px', borderRadius: '8px', border: '1px solid #D4AF37', backgroundColor: '#D4AF37', color: '#ffffff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                  Done editing
+                </button>
+              )}
+            </div>
+          )}
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Missing Values</h2>
         {constructs.length === 0 && <p style={{ fontSize: '13px', color: '#777777' }}>No constructs found for this session.</p>}
         {constructs.map((c: any) => {
