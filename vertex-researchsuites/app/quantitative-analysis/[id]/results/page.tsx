@@ -1254,6 +1254,72 @@ export default function ResultsPage() {
           )}
         </div>
       )}
+
+      {results.anovaTwoWay && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Tests of Between-Subjects Effects</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Source</th>
+                <th style={thStyle}>Sum of Squares</th>
+                <th style={thStyle}>df</th>
+                <th style={thStyle}>Mean Square</th>
+                <th style={thStyle}>F</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>Factor A</td>
+                <td style={tdStyle}>{results.anovaTwoWay.factorA.ss.toFixed(3)}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.factorA.df}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.factorA.ms.toFixed(3)}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.factorA.f.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(results.anovaTwoWay.factorA.p, 3)}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>Factor B</td>
+                <td style={tdStyle}>{results.anovaTwoWay.factorB.ss.toFixed(3)}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.factorB.df}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.factorB.ms.toFixed(3)}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.factorB.f.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(results.anovaTwoWay.factorB.p, 3)}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>Factor A * Factor B</td>
+                <td style={tdStyle}>{results.anovaTwoWay.interaction.ss.toFixed(3)}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.interaction.df}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.interaction.ms.toFixed(3)}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.interaction.f.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(results.anovaTwoWay.interaction.p, 3)}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>Error</td>
+                <td style={tdStyle}>{results.anovaTwoWay.error.ss.toFixed(3)}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.error.df}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.error.ms.toFixed(3)}</td>
+                <td style={tdStyle}></td>
+                <td style={tdStyle}></td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>Total</td>
+                <td style={tdStyle}>{results.anovaTwoWay.total.ss.toFixed(3)}</td>
+                <td style={tdStyle}>{results.anovaTwoWay.total.df}</td>
+                <td style={tdStyle}></td>
+                <td style={tdStyle}></td>
+                <td style={tdStyle}></td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Two-way ANOVA testing main effects of Factor A and Factor B, and their interaction, on the outcome variable.</p>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[18] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[18]}
+            </div>
+          )}
+        </div>
+      )}
 ✓ Saved to your Bunker</p>
       </div>
 
