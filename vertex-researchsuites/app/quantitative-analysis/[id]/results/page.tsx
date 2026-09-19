@@ -1390,6 +1390,46 @@ export default function ResultsPage() {
           )}
         </div>
       )}
+
+      {results.wilcoxon && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Wilcoxon Signed-Rank Test</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>N Excluded (Ties=0)</th>
+                <th style={thStyle}>W+</th>
+                <th style={thStyle}>W-</th>
+                <th style={thStyle}>W</th>
+                <th style={thStyle}>Mean W</th>
+                <th style={thStyle}>SD W</th>
+                <th style={thStyle}>Z</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{results.wilcoxon.n}</td>
+                <td style={tdStyle}>{results.wilcoxon.nExcludedZero}</td>
+                <td style={tdStyle}>{results.wilcoxon.wPlus.toFixed(1)}</td>
+                <td style={tdStyle}>{results.wilcoxon.wMinus.toFixed(1)}</td>
+                <td style={tdStyle}>{results.wilcoxon.w.toFixed(1)}</td>
+                <td style={tdStyle}>{results.wilcoxon.meanW.toFixed(2)}</td>
+                <td style={tdStyle}>{results.wilcoxon.sigmaW.toFixed(2)}</td>
+                <td style={tdStyle}>{results.wilcoxon.z.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(results.wilcoxon.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Wilcoxon Signed-Rank Test for two related samples.</p>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[21] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[21]}
+            </div>
+          )}
+        </div>
+      )}
 ✓ Saved to your Bunker</p>
       </div>
 
