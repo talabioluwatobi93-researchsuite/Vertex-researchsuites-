@@ -1430,6 +1430,69 @@ export default function ResultsPage() {
           )}
         </div>
       )}
+
+      {results.mannWhitney && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Mann-Whitney U Test Ranks</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Group</th>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>Median</th>
+                <th style={thStyle}>Rank Sum</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{results.mannWhitney.group1Label}</td>
+                <td style={tdStyle}>{results.mannWhitney.group1.n}</td>
+                <td style={tdStyle}>{results.mannWhitney.group1.median.toFixed(2)}</td>
+                <td style={tdStyle}>{results.mannWhitney.group1.rankSum.toFixed(1)}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>{results.mannWhitney.group2Label}</td>
+                <td style={tdStyle}>{results.mannWhitney.group2.n}</td>
+                <td style={tdStyle}>{results.mannWhitney.group2.median.toFixed(2)}</td>
+                <td style={tdStyle}>{results.mannWhitney.group2.rankSum.toFixed(1)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[22] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[22]}
+            </div>
+          )}
+        </div>
+      )}
+
+      {results.mannWhitney && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Mann-Whitney U Test Statistics</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>U</th>
+                <th style={thStyle}>Z</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{results.mannWhitney.u.toFixed(1)}</td>
+                <td style={tdStyle}>{results.mannWhitney.z.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(results.mannWhitney.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Mann-Whitney U Test for two independent samples.</p>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[23] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[23]}
+            </div>
+          )}
+        </div>
+      )}
 ✓ Saved to your Bunker</p>
       </div>
 
