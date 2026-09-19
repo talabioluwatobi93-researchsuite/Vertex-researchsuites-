@@ -1556,6 +1556,154 @@ export default function ResultsPage() {
           )}
         </div>
       )}
+
+      {results.moderation && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Moderation Model Summary</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>R</th>
+                <th style={thStyle}>R²</th>
+                <th style={thStyle}>Adjusted R²</th>
+                <th style={thStyle}>Std. Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{results.moderation.modelSummary.r.toFixed(3)}</td>
+                <td style={tdStyle}>{results.moderation.modelSummary.rSquared.toFixed(3)}</td>
+                <td style={tdStyle}>{results.moderation.modelSummary.adjRSquared.toFixed(3)}</td>
+                <td style={tdStyle}>{results.moderation.modelSummary.stdError.toFixed(3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[26] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[26]}
+            </div>
+          )}
+        </div>
+      )}
+
+      {results.moderation && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Moderation Coefficients</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Term</th>
+                <th style={thStyle}>B</th>
+                <th style={thStyle}>SE</th>
+                <th style={thStyle}>Beta</th>
+                <th style={thStyle}>t</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.moderation.coefficients.map((c: any, i: number) => (
+                <tr key={i}>
+                  <td style={tdStyle}>{c.name}</td>
+                  <td style={tdStyle}>{c.B.toFixed(3)}</td>
+                  <td style={tdStyle}>{c.SE.toFixed(3)}</td>
+                  <td style={tdStyle}>{c.beta !== null ? c.beta.toFixed(3) : '-'}</td>
+                  <td style={tdStyle}>{c.t.toFixed(3)}</td>
+                  <td style={tdStyle}>{formatSpssValue(c.p, 3)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Moderation of {results.moderation.predictorName} x {results.moderation.moderatorName} on {results.moderation.outcomeName}.</p>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[27] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[27]}
+            </div>
+          )}
+        </div>
+      )}
+
+      {results.mediation && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Mediation Path Coefficients</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Path</th>
+                <th style={thStyle}>Coefficient</th>
+                <th style={thStyle}>SE</th>
+                <th style={thStyle}>t</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>a (Predictor -&gt; Mediator)</td>
+                <td style={tdStyle}>{results.mediation.pathA.coefficient.toFixed(3)}</td>
+                <td style={tdStyle}>{results.mediation.pathA.se.toFixed(3)}</td>
+                <td style={tdStyle}>{results.mediation.pathA.t.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(results.mediation.pathA.p, 3)}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>b (Mediator -&gt; Outcome)</td>
+                <td style={tdStyle}>{results.mediation.pathB.coefficient.toFixed(3)}</td>
+                <td style={tdStyle}>{results.mediation.pathB.se.toFixed(3)}</td>
+                <td style={tdStyle}>{results.mediation.pathB.t.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(results.mediation.pathB.p, 3)}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>c' (Direct Effect)</td>
+                <td style={tdStyle}>{results.mediation.pathCPrime.coefficient.toFixed(3)}</td>
+                <td style={tdStyle}>{results.mediation.pathCPrime.se.toFixed(3)}</td>
+                <td style={tdStyle}>{results.mediation.pathCPrime.t.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(results.mediation.pathCPrime.p, 3)}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>c (Total Effect)</td>
+                <td style={tdStyle}>{results.mediation.totalEffect.coefficient.toFixed(3)}</td>
+                <td style={tdStyle}>{results.mediation.totalEffect.se.toFixed(3)}</td>
+                <td style={tdStyle}>{results.mediation.totalEffect.t.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(results.mediation.totalEffect.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[28] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[28]}
+            </div>
+          )}
+        </div>
+      )}
+
+      {results.mediation && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Sobel Test for Indirect Effect</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Indirect Effect (a*b)</th>
+                <th style={thStyle}>Sobel SE</th>
+                <th style={thStyle}>Sobel Z</th>
+                <th style={thStyle}>Sobel p</th>
+                <th style={thStyle}>Proportion Mediated</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{results.mediation.indirectEffect.toFixed(3)}</td>
+                <td style={tdStyle}>{results.mediation.sobelSE.toFixed(3)}</td>
+                <td style={tdStyle}>{results.mediation.sobelZ.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(results.mediation.sobelP, 3)}</td>
+                <td style={tdStyle}>{results.mediation.proportionMediated !== null ? (results.mediation.proportionMediated * 100).toFixed(1) + '%' : '-'}</td>
+              </tr>
+            </tbody>
+          </table>
+          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[29] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {Object.values(tableInterpretations)[29]}
+            </div>
+          )}
+        </div>
+      )}
 ✓ Saved to your Bunker</p>
       </div>
 
