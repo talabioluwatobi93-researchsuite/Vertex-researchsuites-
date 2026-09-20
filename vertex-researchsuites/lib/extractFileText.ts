@@ -65,9 +65,12 @@ async function extractTextFromGoogleForm(url: string): Promise<string> {
 
   for (const field of fields) {
     try {
+      const fieldType = field?.[3]
+      if (fieldType === 8) continue // section header / page break -- not a question
+
       const title = field?.[1]
       const optionGroups = field?.[4]
-      if (!title || typeof title !== "string") continue
+      if (!title || typeof title !== "string" || !title.trim()) continue
 
       qNum += 1
       lines.push(`${qNum}. ${title}`)
