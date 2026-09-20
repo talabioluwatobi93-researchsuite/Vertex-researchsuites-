@@ -370,7 +370,10 @@ export default function ResultsPage() {
         <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '10px' }}>
           Analyzing your data...
         </h2>
-        <p style={{ fontSize: '14px', color: '#777777', lineHeight: 1.6, marginBottom: '6px' }}>
+        <p style={{ fontSize: '20px', fontWeight: 700, color: '#D4AF37', marginBottom: '10px' }}>
+                {mins}:{secs.toString().padStart(2, '0')}
+              </p>
+              <p style={{ fontSize: '14px', color: '#777777', lineHeight: 1.6, marginBottom: '6px' }}>
           Please kindly be patient — we are analyzing your data to give you the most appropriate result.
         </p>
         <p style={{ fontSize: '14px', color: '#777777', lineHeight: 1.6 }}>
