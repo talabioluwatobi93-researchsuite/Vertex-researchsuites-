@@ -29,6 +29,7 @@ export default function CleaningPage() {
   })
   const [textMappings, setTextMappings] = useState<any>({})
   const [demoMappings, setDemoMappings] = useState<any>({})
+  const [mappingFailedReason, setMappingFailedReason] = useState<string>("");
   const [straightLining, setStraightLining] = useState<any>({
     detected_row_indexes: [],
     action: 'excluded'
@@ -62,7 +63,10 @@ export default function CleaningPage() {
           body: JSON.stringify({ sessionId: id }),
         })
         const mapData = await mapRes.json()
-        if (mapData.mappingFailed) return // Graceful fallback: manual entry remains available.
+        if (mapData.mappingFailed) {
+          setMappingFailedReason(mapData.reason || 'unknown_error')
+          return
+        }
 
         // Auto-confirm: the cleaning page's own input fields (pre-filled below)
         // are the real human checkpoint, since the user can freely edit any
@@ -76,6 +80,7 @@ export default function CleaningPage() {
         loadSession()
       } catch (err) {
         console.error('Questionnaire auto-mapping failed silently:', err)
+        setMappingFailedReason('network_or_unexpected_error')
         // Intentionally swallow: manual entry remains fully available either way.
       }
     }
@@ -366,7 +371,14 @@ export default function CleaningPage() {
         </div>
       )}
 
-      {hasDemoMappings && (
+      {mappingFailedReason && (
+            <div style={{ backgroundColor: "#FFF3CD", border: "1px solid #FFECB5", borderRadius: "12px", padding: "14px 16px", marginBottom: "16px" }}>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "#664D03", marginBottom: "4px" }}>We couldn't automatically detect answer labels from your questionnaire.</p>
+              <p style={{ fontSize: "12px", color: "#664D03" }}>Reason: {mappingFailedReason}. Please enter the meaning of each code manually below, or check that your questionnaire file/link is accessible and try re-uploading.</p>
+            </div>
+          )}
+
+          {hasDemoMappings && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
           <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '6px' }}>Demographic Coding</h2>
           {qMappingConfirmed && !showDemoEditForm ? (
