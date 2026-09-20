@@ -51,7 +51,7 @@ export default function ColumnsPage() {
     const load = async () => {
       const { data, error } = await supabase
         .from('quantitative_analysis_sessions')
-        .select('column_headers')
+        .select('column_headers, questionnaire_mapping')
         .eq('id', sessionId)
         .single()
 
@@ -61,7 +61,33 @@ export default function ColumnsPage() {
         return
       }
       setColumnHeaders(data.column_headers || [])
-      setLoading(false)
+        setLoading(false)
+
+        // Auto-populate one construct per detected demographic question,
+        // fully generic -- works for any questionnaire's own demographic items.
+        const qMapping = (data as any)?.questionnaire_mapping
+        const headers: string[] = data.column_headers || []
+        if (qMapping && typeof qMapping === 'object') {
+          const autoConstructs: Construct[] = []
+          headers.forEach((header, colIndex) => {
+            const entry = qMapping[header]
+            if (!entry || entry.role !== 'Demographic') return
+            autoConstructs.push({
+              id: `demo_${colIndex}_${Date.now()}`,
+              name: entry.questionText || header,
+              role: 'Demographic',
+              columnIndexes: [colIndex],
+              reverseIndexes: [],
+              scaleMin: 1,
+              scaleMax: 5,
+              scaleReversed: false,
+              presetLabel: PRESETS[0].label,
+            })
+          })
+          if (autoConstructs.length > 0) {
+            setConstructs((prev) => [...prev, ...autoConstructs])
+          }
+        }
     }
     load()
   }, [sessionId])

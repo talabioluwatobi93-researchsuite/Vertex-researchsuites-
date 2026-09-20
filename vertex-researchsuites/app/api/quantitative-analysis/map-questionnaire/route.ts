@@ -83,6 +83,10 @@ field or a survey question), determine:
 3. Whether the item appears to be reverse-worded (i.e. negatively phrased relative to the
    construct it measures, such that a high raw score means a low level of the construct).
    Set "reverseWorded": true only if you are confident; otherwise false.
+4. Whether this item is a demographic / respondent-profile question (e.g. age, gender,
+    education, income, occupation, location, marital status) as opposed to a construct or
+    survey item measuring an attitude, behavior, or belief. Set "role" to exactly
+    "Demographic" or "Construct".
 
 Only include columns you can confidently match to a questionnaire item. Skip columns you
 cannot match (e.g. auto-generated IDs, timestamps) — do not guess.
@@ -93,7 +97,8 @@ Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this s
     "<column_header>": {
       "questionText": "<full question text>",
       "valueLabels": { "<raw value as string>": "<label>", ... },
-      "reverseWorded": false
+      "reverseWorded": false,
+        "role": "Demographic"
     }
   }
 }`
