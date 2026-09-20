@@ -43,7 +43,7 @@ async function extractTextFromGoogleForm(url: string): Promise<string> {
   }
   const html = await res.text()
 
-  const match = html.match(/FB_PUBLIC_LOAD_DATA_\s*=\s*(\[[\s\S]*?\]);/) || html.match(/FB_PUBLIC_LOAD_DATA_\s*=\s*(\[[\s\S]*\])\s*<\/script>/)
+  const match = html.match(/FB_PUBLIC_LOAD_DATA_\s*=\s*(\[.*?\]);/s) || html.match(/FB_PUBLIC_LOAD_DATA_\s*=\s*(\[.*\])\s*<\/script>/s)
   if (!match) {
     throw new Error("Could not locate form data in the page. This link may not be a public Google Form.")
   }
