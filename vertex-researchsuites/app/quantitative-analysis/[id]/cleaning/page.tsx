@@ -200,6 +200,7 @@ export default function CleaningPage() {
     // Only fills in codes the user has not already set, and only for columns
     // where the mapping was confirmed by the user beforehand.
     const qMapping = (session as any)?.questionnaire_mapping
+    ;(window as any).__DEBUG_QMAPPING = qMapping
         if (qMapping && qMappingConfirmed) {
       Object.entries(demoMappingsNeeded).forEach(([colIndex, m]: [string, any]) => {
         const aiEntry = qMapping[m.columnLabel]
@@ -381,6 +382,8 @@ export default function CleaningPage() {
           {hasDemoMappings && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
           <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '6px' }}>Demographic Coding</h2>
+      <pre style={{ fontSize: '10px', background: '#f5f5f5', color: '#000', padding: '8px', overflow: 'auto', maxHeight: '300px', border: '2px solid red' }}>{JSON.stringify((window as any).__DEBUG_QMAPPING, null, 2)}</pre>
+      <pre style={{ fontSize: '10px', background: '#f5f5f5', color: '#000', padding: '8px', overflow: 'auto', maxHeight: '300px', border: '2px solid red' }}>{JSON.stringify((window as any).__DEBUG_QMAPPING, null, 2)}</pre>
           {qMappingConfirmed && !showDemoEditForm ? (
             <div>
               <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
