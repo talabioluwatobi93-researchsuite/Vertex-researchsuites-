@@ -10,7 +10,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 )
 
-const HOLD_MS = 3 * 60 * 1000 // 3 minutes
+const HOLD_MS = 2 * 60 * 1000 // 3 minutes
 
 const thStyle: React.CSSProperties = {
   textAlign: 'center', padding: '6px 10px', fontSize: '13px', fontWeight: 700,
@@ -386,60 +386,8 @@ export default function ResultsPage() {
     )
   }
 
-  if (status === 'awaiting-interpretation' && results) {
-    const gate = checkInterpretationGate(gateInfo)
-    return (
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#333333', marginBottom: '4px' }}>
-          Results
-        </h1>
-        <p style={{ fontSize: '13px', color: '#777777', marginBottom: '24px' }}>
-          Your data has been calculated. Review below, then proceed to generate the full interpretation.
-        </p>
-
-        {gate.hasMissingScaleLabels && (
-          <div style={{ backgroundColor: '#FFF8E7', borderRadius: '12px', padding: '14px', marginBottom: '16px', border: '1px solid #D4AF37' }}>
-            <p style={{ color: '#333333', fontSize: '13px', margin: 0 }}>
-              Some scales are missing meaning labels. Interpretation will note this rather than guess.
-            </p>
-          </div>
-        )}
-
-        {!gate.ready && (
-          <div style={{ backgroundColor: '#FDEDEC', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
-            <p style={{ color: '#C0392B', fontSize: '13px', margin: 0, fontWeight: 600 }}>
-              Cannot proceed to interpretation yet:
-            </p>
-            <ul style={{ color: '#C0392B', fontSize: '13px', margin: '4px 0 0 18px', padding: 0 }}>
-              {gate.reasons.map((r: string, idx: number) => (
-                <li key={idx}>{r}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <button
-          onClick={handleProceed}
-          disabled={!gate.ready}
-          style={{
-            width: '100%',
-            backgroundColor: gate.ready ? '#D4AF37' : '#EEEEEE',
-            color: gate.ready ? '#333333' : '#999999',
-            border: 'none',
-            borderRadius: '10px',
-            padding: '14px',
-            fontSize: '14px',
-            fontWeight: 700,
-            cursor: gate.ready ? 'pointer' : 'not-allowed'
-          }}
-        >
-          Proceed to Full Document Interpretation
-        </button>
-      </div>
-    )
-  }
-
-  if (status !== 'done' || !results) {
+  
+  if ((status !== 'done' && status !== 'awaiting-interpretation') || !results) {
     return (
       <div style={{ padding: '60px 20px', textAlign: 'center' }}>
         <p style={{ color: '#777777', fontSize: '14px' }}>{status}</p>
@@ -620,7 +568,60 @@ export default function ResultsPage() {
         </div>
       ))}
 
-      {interpretation && Object.keys(tableInterpretations).length > 0 && (
+          {status === 'awaiting-interpretation' && (() => {
+      const gate = checkInterpretationGate(gateInfo)
+      return (
+      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
+        <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#333333', marginBottom: '4px' }}>
+          Results
+        </h1>
+        <p style={{ fontSize: '13px', color: '#777777', marginBottom: '24px' }}>
+          Your data has been calculated. Review below, then proceed to generate the full interpretation.
+        </p>
+
+        {gate.hasMissingScaleLabels && (
+          <div style={{ backgroundColor: '#FFF8E7', borderRadius: '12px', padding: '14px', marginBottom: '16px', border: '1px solid #D4AF37' }}>
+            <p style={{ color: '#333333', fontSize: '13px', margin: 0 }}>
+              Some scales are missing meaning labels. Interpretation will note this rather than guess.
+            </p>
+          </div>
+        )}
+
+        {!gate.ready && (
+          <div style={{ backgroundColor: '#FDEDEC', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
+            <p style={{ color: '#C0392B', fontSize: '13px', margin: 0, fontWeight: 600 }}>
+              Cannot proceed to interpretation yet:
+            </p>
+            <ul style={{ color: '#C0392B', fontSize: '13px', margin: '4px 0 0 18px', padding: 0 }}>
+              {gate.reasons.map((r: string, idx: number) => (
+                <li key={idx}>{r}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <button
+          onClick={handleProceed}
+          disabled={!gate.ready}
+          style={{
+            width: '100%',
+            backgroundColor: gate.ready ? '#D4AF37' : '#EEEEEE',
+            color: gate.ready ? '#333333' : '#999999',
+            border: 'none',
+            borderRadius: '10px',
+            padding: '14px',
+            fontSize: '14px',
+            fontWeight: 700,
+            cursor: gate.ready ? 'pointer' : 'not-allowed'
+          }}
+        >
+          Proceed to Full Document Interpretation
+        </button>
+      </div>
+      )
+    })()}
+
+{interpretation && Object.keys(tableInterpretations).length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
           <button
             onClick={() => setViewMode(viewMode === 'tables' ? 'fullDocument' : 'tables')}
