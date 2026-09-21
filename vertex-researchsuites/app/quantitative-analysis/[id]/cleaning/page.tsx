@@ -199,9 +199,10 @@ export default function CleaningPage() {
     // Pre-fill from confirmed AI questionnaire mapping (Phase 2A), if present.
     // Only fills in codes the user has not already set, and only for columns
     // where the mapping was confirmed by the user beforehand.
-    const qMapping = (session as any)?.questionnaire_mapping
+    const qMapping = (data as any)?.questionnaire_mapping
+    const freshMappingConfirmed = (data as any)?.questionnaire_mapping_confirmed
     ;(window as any).__DEBUG_QMAPPING = qMapping
-        if (qMapping && qMappingConfirmed) {
+        if (qMapping && freshMappingConfirmed) {
       Object.entries(demoMappingsNeeded).forEach(([colIndex, m]: [string, any]) => {
         const aiEntry = qMapping[m.columnLabel]
         if (!aiEntry || !aiEntry.valueLabels) return
