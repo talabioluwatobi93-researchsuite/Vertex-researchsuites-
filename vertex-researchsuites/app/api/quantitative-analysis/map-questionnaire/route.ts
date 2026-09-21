@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 })
     }
 
-    const { data: session, error } = await supabase
+    console.log("MAP-QUESTIONNAIRE ROUTE HIT, sessionId:", sessionId); const { data: session, error } = await supabase
       .from('quantitative_analysis_sessions')
       .select('*')
       .eq('id', sessionId)
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Session not found.' }, { status: 404 })
     }
 
-    if (!session.questionnaire_file_path && !session.questionnaire_link) {
+    console.log("SESSION FIELDS:", { file_path: session.questionnaire_file_path, link: session.questionnaire_link, column_headers_len: session.column_headers?.length }); if (!session.questionnaire_file_path && !session.questionnaire_link) {
       return NextResponse.json(
         { error: 'No questionnaire file or link found for this session.' },
         { status: 400 }
