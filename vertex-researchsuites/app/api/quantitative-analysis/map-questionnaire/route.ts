@@ -120,7 +120,7 @@ Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this s
       return NextResponse.json({ mappingFailed: true, reason: 'parse_failed' }, { status: 200 })
     }
 
-    if (!parsed || typeof parsed.mappings !== 'object') {
+    console.log("PARSED MAPPINGS:", JSON.stringify(parsed.mappings)); if (!parsed || typeof parsed.mappings !== 'object') {
       return NextResponse.json({ mappingFailed: true, reason: 'invalid_shape' }, { status: 200 })
     }
 
