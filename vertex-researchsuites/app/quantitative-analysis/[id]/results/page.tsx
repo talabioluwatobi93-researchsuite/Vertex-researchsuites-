@@ -256,16 +256,74 @@ export default function ResultsPage() {
   async function handleProceed() {
     try {
       setStatus('Analyzing results...')
-      const interpRes = await fetch('/api/quantitative-analysis/interpret', {
+
+      const planRes = await fetch('/api/quantitative-analysis/interpret', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: id })
+        body: JSON.stringify({ sessionId: id, phase: 'get_batch_plan' }),
       })
-      const interpData = await interpRes.json()
-      if (!interpRes.ok) {
+      const planData = await planRes.json()
+      if (!planRes.ok) {
+        setErrorMsg(planData.error || 'Interpretation failed.')
+        return
+      }
+      const total3aBatches = planData.totalBatches || 0
+
+      let allTables: any[] = []
+      for (let i = 0; i < total3aBatches; i++) {
+        setStatus(`Analyzing results (${i + 1} of ${total3aBatches})...`)
+        const res3a = await fetch('/api/quantitative-analysis/interpret', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: id, phase: '3a', batchIndex: i }),
+        })
+        const data3a = await res3a.json()
+        if (!res3a.ok) {
+          setErrorMsg(data3a.error || 'Interpretation failed.')
+          return
+        }
+        allTables = allTables.concat(data3a.tables || [])
+      }
+
+      const BATCH_SIZE_3B = 4
+      const total3bBatches = Math.ceil(allTables.length / BATCH_SIZE_3B)
+      let allTableInterpretations: Record<string, string> = {}
+      let allHypothesisTesting: any[] = []
+
+      for (let i = 0; i < total3bBatches; i++) {
+        setStatus(`Interpreting tables (${i * BATCH_SIZE_3B + 1}-${Math.min((i + 1) * BATCH_SIZE_3B, allTables.length)} of ${allTables.length})...`)
+        const res3b = await fetch('/api/quantitative-analysis/interpret', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: id, phase: '3b', batchIndex: i, resultTables: allTables }),
+        })
+        const data3b = await res3b.json()
+        if (!res3b.ok) {
+          setErrorMsg(data3b.error || 'Interpretation failed.')
+          return
+        }
+        allTableInterpretations = { ...allTableInterpretations, ...(data3b.tableInterpretations || {}) }
+        allHypothesisTesting = allHypothesisTesting.concat(data3b.hypothesisTesting || [])
+      }
+
+      setStatus('Finalizing interpretation...')
+      const resFinal = await fetch('/api/quantitative-analysis/interpret', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: id,
+          phase: 'finalize',
+          resultTables: allTables,
+          tableInterpretations: allTableInterpretations,
+          hypothesisTesting: allHypothesisTesting,
+        }),
+      })
+      const interpData = await resFinal.json()
+      if (!resFinal.ok) {
         setErrorMsg(interpData.error || 'Interpretation failed.')
         return
       }
+
       const finalInterpretation = interpData.interpretation
       const finalDiscussion = interpData.discussion || ''
       const readyAt = new Date().toISOString()
@@ -280,7 +338,7 @@ export default function ResultsPage() {
         .eq('id', id)
 
       setInterpretation(finalInterpretation || '')
-    setTableInterpretations(interpData.tableInterpretations || {})
+      setTableInterpretations(interpData.tableInterpretations || {})
       setDiscussion(finalDiscussion || '')
 
       const readyTime = new Date(readyAt).getTime()

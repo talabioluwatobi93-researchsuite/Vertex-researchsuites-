@@ -215,3 +215,157 @@ Respond ONLY with valid JSON, no preamble, no markdown fences:
 
   return { interpretation, discussion, tableInterpretations };
 }
+
+// ===== BATCHED INTERPRETATION PIPELINE (added to fit Vercel Hobby 60s limit) =====
+
+export const ANALYSIS_KEY_BATCH_GROUPS: string[][] = [
+  ['descriptives', 'frequencyTables', 'itemDescriptives'],
+  ['correlation', 'regression', 'logistic'],
+  ['ttest', 'paired', 'mannwhitney', 'wilcoxon'],
+  ['anova', 'twowayanova', 'kruskalwallis'],
+  ['chisquare', 'moderation', 'mediation'],
+]
+
+export function getPresentAnalysisBatches(results: any): string[][] {
+  const batches: string[][] = []
+  for (const group of ANALYSIS_KEY_BATCH_GROUPS) {
+    const present = group.filter((k) => results && results[k] !== undefined && results[k] !== null)
+    if (present.length > 0) batches.push(present)
+  }
+  return batches
+}
+
+export async function runStep3aBatch(resultsSlice: any, citationStyle?: string): Promise<any[]> {
+  const prompt3aBatch = `You are analyzing quantitative statistical results (SPSS outputs) for an undergraduate research submission under NUC guidelines. This is Step 3a of the chunked pipeline, run on ONE BATCH of the full results at a time.
+
+INPUT DATA (this batch only):
+- SPSS Statistical Results/Tables: ${JSON.stringify(resultsSlice)}
+
+TASK:
+Extract and structure ONLY the mathematical parameters present in this batch (correlation, regression, logistic regression, ANOVA/model fit, two-way ANOVA, t-tests, Mann-Whitney, Wilcoxon, Kruskal-Wallis, Chi-Square, mediation, moderation - whichever apply). For each test present, also state WHY that specific test was appropriate for this research design, based only on the actual IV/DV/grouping-variable roles and data types already established for this session. Reproduce the key result table for each test as structured data.
+
+GUARDRAILS (do not skip):
+1. Do NOT decide Supported/Rejected, and do NOT reference questionnaire scale labels - that belongs to Step 3b, never here. The test-appropriateness justification is the one exception.
+2. Only structure tests actually present in this batch's results. Never invent a test, value, or table not provided.
+3. If the results in this batch are missing/unreadable/insufficient, return "insufficient_data" naming which test could not be structured and why.
+4. Every table title appears ABOVE the table, plain text, NEVER italicized.
+5. Report every source number exactly as given, no rounding beyond the source, no rephrasing into words.
+
+Respond ONLY with valid JSON, no preamble, no markdown fences:
+{
+  "quantitative_statistical_breakdown": {
+    "insufficient_data": "string or null",
+    "result_tables": [
+      { "table_title": "string, plain text, no italics", "test_type": "string", "why_appropriate": "string, grounded only in this session's IV/DV/grouping-variable roles and data types", "columns": ["string"], "rows": [["string"]] }
+    ]
+  }
+}`
+
+  let raw: string
+  try {
+    const result = await callQuantInterpretChain(prompt3aBatch)
+    raw = result.content
+  } catch (err: any) {
+    throw new Error(err.message || 'Step 3a batch failed')
+  }
+
+  let parsed: any
+  try {
+    parsed = JSON.parse(stripFences(raw))
+  } catch (err: any) {
+    throw new Error('Step 3a batch returned invalid JSON: ' + raw.slice(0, 300))
+  }
+
+  return parsed?.quantitative_statistical_breakdown?.result_tables || []
+}
+
+export async function runStep3bBatch(
+  tablesBatch: any[],
+  framework: any,
+  scaleInfo: Record<string, any>,
+  reliabilityInfo: any,
+  responseRateInfo: any,
+  citationStyle?: string
+): Promise<{ tableInterpretations: Record<string, string>; hypothesisTesting: any[] }> {
+  const prompt3bBatch = `You are producing hypothesis decisions and contextual findings for an undergraduate research submission under NUC guidelines. This is one batch of a multi-batch run - it receives a SLICE of the full set of result tables. Only decide a hypothesis if its full evidence is contained in THIS batch's tables; otherwise leave it out (a later batch with the right table will cover it).
+
+INPUT DATA:
+- Result Tables (this batch only): ${JSON.stringify(tablesBatch)}
+- Research Questions: ${JSON.stringify(framework?.researchQuestions || [])}
+- Research Hypotheses: ${JSON.stringify(framework?.hypotheses || [])}
+- Questionnaire Scale Labels (per construct): ${JSON.stringify(scaleInfo)}
+- Reliability Info (if provided): ${JSON.stringify(reliabilityInfo)}
+- Response Rate Info (if provided): ${JSON.stringify(responseRateInfo)}
+
+TASK:
+For each table in this batch, write a concise interpretation of MAXIMUM 6 lines, phrased using the actual questionnaire scale labels (e.g. "most respondents Agree"), not a bare restatement of the coefficient. For each hypothesis fully covered by this batch, state explicitly Supported or Rejected.
+
+CITATION STYLE REQUIREMENT:\n${getCitationWritingRule(citationStyle)}\n\nSTRICT TONE & GRAMMAR CONSTRAINTS:
+1. Write in clear, simple, direct English.
+2. Use STRICT THIRD-PERSON PERSPECTIVE. NEVER use 'I', 'we', or 'our'.
+3. Link every statistical interpretation directly to its hypothesis.
+
+GUARDRAILS (do not skip):
+4. Do not treat significance alone as the full picture. Where significant but effect size is small, or p is borderline (0.045-0.050), note this nuance rather than an unqualified framing.
+5. Only interpret tables actually provided in this batch. Never invent a result not present.
+6. If tablesBatch is empty, return "insufficient_data" naming which hypothesis could not be tested and why.
+7. Every table gets its OWN distinct interpretation - never combine tables.
+8. Keep every interpretation to a MAXIMUM of 6 lines. Be concise, precise, and academically excellent - no filler, no restating the raw numbers, no repeating the hypothesis wording verbatim.
+
+Respond ONLY with valid JSON, no preamble, no markdown fences:
+{
+  "quantitative_hypothesis_findings": {
+    "insufficient_data": "string or null",
+    "table_interpretations": [
+      { "table_title": "string, must match a table_title from this batch", "interpretation": "string, MAXIMUM 6 lines" }
+    ],
+    "hypothesis_testing": [
+      { "hypothesis_id": 1, "statement": "string", "statistical_test_used": "string", "key_metric_value": "string", "effect_size_note": "string", "decision": "string, Supported or Rejected", "academic_interpretation": "string, 3-4 sentences" }
+    ]
+  }
+}`
+
+  let raw: string
+  try {
+    const result = await callQuantInterpretChain(prompt3bBatch)
+    raw = result.content
+  } catch (err: any) {
+    throw new Error(err.message || 'Step 3b batch failed')
+  }
+
+  let parsed: any
+  try {
+    parsed = JSON.parse(stripFences(raw))
+  } catch (err: any) {
+    throw new Error('Step 3b batch returned invalid JSON: ' + raw.slice(0, 300))
+  }
+
+  const findings = parsed?.quantitative_hypothesis_findings || {}
+  const tableInterpretations: Record<string, string> = {}
+  ;(findings.table_interpretations || []).forEach((ti: any) => {
+    if (ti?.table_title) tableInterpretations[ti.table_title] = ti.interpretation || ''
+  })
+
+  return { tableInterpretations, hypothesisTesting: findings.hypothesis_testing || [] }
+}
+
+export function finalizeInterpretation(
+  resultTables: any[],
+  tableInterpretations: Record<string, string>,
+  hypothesisTesting: any[]
+): { interpretation: string; discussion: string; tableInterpretations: Record<string, string> } {
+  let interpretation = ''
+  for (const t of resultTables) {
+    let block = `${t.table_title}\n${t.why_appropriate ? 'Rationale: ' + t.why_appropriate + '\n' : ''}`
+    const found = tableInterpretations[t.table_title]
+    if (found) block += `${found}\n\n`
+    interpretation += block
+  }
+
+  let discussion = ''
+  for (const h of hypothesisTesting) {
+    discussion += `${h.statement} (${h.decision}): ${h.academic_interpretation}${h.effect_size_note ? ' ' + h.effect_size_note : ''}\n\n`
+  }
+
+  return { interpretation, discussion, tableInterpretations }
+}
