@@ -141,7 +141,7 @@ INPUT DATA:
 - Response Rate Info (if provided): ${JSON.stringify(responseRateInfo)}
 
 TASK:
-For each table in Step 3a's result_tables, write a distinct interpretation paragraph. Every contextual finding must be phrased in terms of the actual questionnaire scale labels the respondents saw (e.g. "most respondents Agree", "the mean falls in the Neutral (Undecided) range") rather than a bare restatement of the coefficient or p-value. Then, for each hypothesis, state explicitly whether it is Supported or Rejected.
+For each table in Step 3a's result_tables, write a concise, excellent-quality interpretation of MAXIMUM 6 lines. Every contextual finding must be phrased in terms of the actual questionnaire scale labels the respondents saw (e.g. "most respondents Agree", "the mean falls in the Neutral (Undecided) range") rather than a bare restatement of the coefficient or p-value. Then, for each hypothesis, state explicitly whether it is Supported or Rejected.
 
 CITATION STYLE REQUIREMENT:\n${getCitationWritingRule(citationStyle)}\n\nSTRICT TONE & GRAMMAR CONSTRAINTS:
 1. Write in clear, simple, direct English.
@@ -153,6 +153,7 @@ GUARDRAILS (do not skip):
 5. Only interpret tables actually provided by Step 3a. Never invent a result not present in step3aResultTables.
 6. If step3aResultTables is missing/empty for a hypothesis, return "insufficient_data" naming which hypothesis could not be tested and why.
 7. Every table gets its OWN distinct interpretation paragraph \u2014 never combine multiple tables into one shared interpretation.
+    8. Keep every table's interpretation to a MAXIMUM of 6 lines. Be concise, precise, and academically excellent — no filler, no restating the raw numbers already shown in the table, no repeating the hypothesis wording verbatim.
 
 Respond ONLY with valid JSON, no preamble, no markdown fences:
 
@@ -162,7 +163,7 @@ Respond ONLY with valid JSON, no preamble, no markdown fences:
 "table_interpretations": [
 {
 "table_title": "string, must match a table_title from Step 3a",
-"interpretation": "string, mapped to questionnaire scale labels"
+"interpretation": "string, MAXIMUM 6 lines, concise and academically excellent, mapped to questionnaire scale labels"
 }
 ],
 "hypothesis_testing": [
