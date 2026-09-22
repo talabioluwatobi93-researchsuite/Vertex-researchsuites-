@@ -811,3 +811,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message || 'Calculation failed' }, { status: 500 })
   }
 }
+
+// ===== Item-level variable resolution (added: allows single questionnaire items, not just composite constructs, as outcome/continuous variables) =====
+function resolveVariableConstruct(id: string, constructs: any[], columnHeaders: string[]): any | null {
+  if (!id) return null
+  if (id.startsWith('item::')) {
+    const parts = id.split('::')
+    const parentId = parts[1]
+    const colIndex = Number(parts[2])
+    const parent = constructs.find((c: any) => c.id === parentId)
+    if (!parent || Number.isNaN(colIndex)) return null
+    const reversed = (parent.reverseIndexes || []).includes(colIndex)
+    return {
+      id,
+      name: columnHeaders?.[colIndex] || `${parent.name} - Item ${colIndex + 1}`,
+      role: parent.role,
+      columnIndexes: [colIndex],
+      reverseIndexes: reversed ? [colIndex] : [],
+      scaleMin: parent.scaleMin,
+      scaleMax: parent.scaleMax,
+    }
+  }
+  return constructs.find((c: any) => c.id === id) || null
+}
