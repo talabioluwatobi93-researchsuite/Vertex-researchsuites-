@@ -88,7 +88,9 @@ export async function POST(req: NextRequest) {
 
       const document = `1. EXECUTIVE OVERVIEW\n${overview?.text || ''}\n\n2. CORRECTED & FORMATTED TRANSCRIPT\n${chunkTexts}\n\n3. GLOSSARY\n${glossary?.text || ''}`;
 
-      return NextResponse.json({ document, providerUsed: overview?.providerUsed || 'chunked' });
+      const providerUsed = (overview as any)?.providerUsed || 'chunked';
+
+      return NextResponse.json({ document, providerUsed });
     } catch (err: any) {
       return NextResponse.json(
         { error: err?.message || 'Something went wrong generating the document. Please try again.' },
