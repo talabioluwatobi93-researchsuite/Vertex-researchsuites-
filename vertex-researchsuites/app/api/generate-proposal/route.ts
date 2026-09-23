@@ -1,67 +1,85 @@
 export const maxDuration = 60;
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server';
+import { callProposalChain } from '@/lib/openrouter';
 
-export async function POST(req: NextRequest) {
-  try {
-    const { institution, course, department, interest, sequence, chosenTopic, researchType, problemStatement } = await req.json()
+const SECTIONS = [
+  { key: 'background', title: '1. Background of the Study', instruction: 'Provide detailed context for this topic, explaining the general area and why it is worth studying.' },
+  { key: 'problem', title: '2. Statement of the Problem', instruction: 'Clearly articulate the specific gap or issue this study addresses.' },
+  { key: 'objectives', title: '3. Objectives of the Study', instruction: 'State one general objective and 3-4 specific objectives, each briefly explained.' },
+  { key: 'questions', title: '4. Research Questions', instruction: 'State 3-4 clear research questions, each with a brief explanation of what it investigates.' },
+  { key: 'significance', title: '5. Significance of the Study', instruction: 'Explain who benefits from this study and how.' },
+  { key: 'methodology', title: '6. Research Methodology', instruction: 'Describe the research design, population/sample, data collection method, and analysis approach in real detail.' },
+  { key: 'feasibility', title: '7. Feasibility Note', instruction: 'Explain honestly why this topic is realistic for a Nigerian undergraduate/postgraduate student to complete within a typical academic timeframe, considering data access, cost, and local context.' },
+  { key: 'feedback', title: "8. Supervisor's Likely Feedback", instruction: 'Write 2-3 realistic points a supervisor might push back on regarding this proposal, and suggest how the student could address each one.' },
+];
 
-    const prompt = `You are an experienced academic research supervisor in Nigeria, writing a complete, full-length research proposal for a student. Write with genuine depth and detail — this must be a comprehensive, submission-ready document of approximately 15 pages (around 4,000-4,500 words), not a summary.
+function buildSectionPrompt(studentDetails: string, chosenTopic: string, researchType: string, problemStatement: string, section: { title: string; instruction: string }) {
+  return `You are an experienced academic research supervisor in Nigeria, writing one section of a student's full-length research proposal.
 
-Student details:
-Institution: ${institution}
-Course of study: ${course}
-Department: ${department}
-${interest ? `Research interest: ${interest}` : ''}
-${sequence ? `Additional focus: ${sequence}` : ''}
-${researchType === 'applied' ? `This is APPLIED research. The student described the underlying problem as: "${problemStatement}". The Statement of the Problem, Significance, and Methodology sections must clearly stay grounded in solving this real problem.` : `This is PURE (basic) research, aimed at generating new knowledge/theory rather than solving one specific applied problem.`}
+${studentDetails}
+${researchType === 'applied' ? `This is APPLIED research addressing this real-world problem: "${problemStatement || 'researcher'}".` : `This is PURE (basic) research, aimed at generating new knowledge/theory rather than solving one specific applied problem.`}
 
 Chosen topic:
 ${chosenTopic}
 
-Write the full proposal with these sections, each thoroughly developed:
+Write ONLY the section "${section.title}".
+${section.instruction}
 
-1. Background of the Study (detailed context, several paragraphs)
-2. Statement of the Problem (clear articulation of the gap/issue)
-3. Objectives of the Study (one general objective, 3-4 specific objectives, each explained)
-4. Research Questions (3-4 clear questions, each with brief explanation of what it investigates)
-5. Significance of the Study (who benefits and how, several paragraphs)
-6. Research Methodology (research design, population/sample, data collection method, analysis approach — described in real detail)
+STRICT RULES:
+- Maximum 8 lines of text. Be concise and precise, not verbose.
+- Write in clear, professional academic English appropriate for a Nigerian university context.
+- Do NOT include the section title/heading in your output — just the body text.
+- Do NOT include any preamble, introduction, or closing remarks.
+- No markdown formatting, no bullet points unless the section is Research Questions or Objectives (then use plain numbered lines, no markdown symbols).`;
+}
 
-After the 6 sections, add TWO more sections:
+function buildReferencesPrompt(studentDetails: string, chosenTopic: string) {
+  return `You are an experienced academic research supervisor in Nigeria.
 
-7. Feasibility Note
-Explain honestly why this topic is realistic for a Nigerian undergraduate/postgraduate student to complete within a typical academic timeframe — consider data access, cost, and local context.
+${studentDetails}
 
-8. Supervisor's Likely Feedback
-Write 2-3 realistic points a supervisor might push back on regarding this proposal, and suggest how the student could address each one.
+Chosen topic:
+${chosenTopic}
 
-Finally, add:
+Provide a short list of 5-6 illustrative example references in APA 7th edition format relevant to this topic area.
+Start your output with exactly this line: "Note: These are illustrative examples only. Verify all references independently and replace with real, current sources before submission."
+Then list the 5-6 references, each on its own line, properly APA formatted.
+Do not present these as verified real papers. No other commentary.`;
+}
 
-9. Suggested References
-Provide a short list of illustrative example references in APA format relevant to this topic area. Clearly label this section: "Note: These are illustrative examples only. Verify all references independently and replace with real, current sources before submission." Do not present these as verified real papers.
+export async function POST(req: NextRequest) {
+  try {
+    const { institution, course, department, interest, sequence, chosenTopic, researchType, problemStatement } = await req.json();
 
-Write in clear, professional academic English appropriate for a Nigerian university context. Do not include any preamble or closing remarks outside the numbered sections.`
+    if (!chosenTopic) {
+      return NextResponse.json({ proposal: 'No topic was provided to expand into a proposal.' }, { status: 400 });
+    }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-5',
-        max_tokens: 8000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
+    const studentDetails = `Student details:
+Institution: ${institution}
+Course of study: ${course}
+Department: ${department}
+${interest ? `Research interest: ${interest}` : ''}
+${sequence ? `Additional focus: ${sequence}` : ''}`;
 
-    const data = await response.json()
-    const proposal = data.content?.[0]?.text || 'Could not generate the full proposal at this time.'
+    try {
+      const sectionPromises = SECTIONS.map((section) =>
+        callProposalChain(buildSectionPrompt(studentDetails, chosenTopic, researchType, problemStatement, section))
+          .then((r) => ({ title: section.title, text: (r.content || '').trim() }))
+      );
+      const referencesPromise = callProposalChain(buildReferencesPrompt(studentDetails, chosenTopic))
+        .then((r) => ({ title: '9. Suggested References', text: (r.content || '').trim() }));
 
-    return NextResponse.json({ proposal })
-  } catch (error) {
-    return NextResponse.json({ proposal: 'Something went wrong generating the proposal. Please try again.' }, { status: 500 })
+      const results = await Promise.all([...sectionPromises, referencesPromise]);
+
+      const proposal = results.map((r) => `${r.title}\n${r.text}`).join('\n\n');
+
+      return NextResponse.json({ proposal });
+    } catch (err: any) {
+      return NextResponse.json({ proposal: 'Something went wrong generating the proposal. Please try again.', error: err.message }, { status: 500 });
+    }
+  } catch (error: any) {
+    return NextResponse.json({ proposal: 'Something went wrong generating the proposal. Please try again.', error: error.message }, { status: 500 });
   }
 }

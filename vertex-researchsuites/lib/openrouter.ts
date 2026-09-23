@@ -239,3 +239,37 @@ export async function callChapter3ExtractChain(prompt: string): Promise<OpenRout
     return { content, providerUsed: 'gpt4o-mini-fallback' };
   }
 }
+
+export const TOPICS_MODEL_ROUTES = {
+  primary: 'openai/gpt-4o-mini',
+  fallback: 'anthropic/claude-sonnet-4.6',
+};
+
+export async function callTopicsChain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(TOPICS_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'gpt4o-mini-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Topics primary failed, falling back:', err);
+    const content = await callOpenRouterStreaming(TOPICS_MODEL_ROUTES.fallback, prompt);
+    return { content, providerUsed: 'sonnet5-fallback' };
+  }
+}
+
+export const PROPOSAL_MODEL_ROUTES = {
+  primary: 'deepseek/deepseek-v4-pro',
+  fallback: 'openai/gpt-4o-mini',
+};
+
+export async function callProposalChain(prompt: string): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(PROPOSAL_MODEL_ROUTES.primary, prompt);
+    return { content, providerUsed: 'deepseek-openrouter' };
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
+    console.error('Proposal primary failed, falling back:', err);
+    const content = await callOpenRouterStreaming(PROPOSAL_MODEL_ROUTES.fallback, prompt);
+    return { content, providerUsed: 'gpt4o-mini-fallback' };
+  }
+}
