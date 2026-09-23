@@ -631,6 +631,14 @@ export default function ResultsPage() {
         </div>
       ))}
 
+              {results.itemDescriptives?.map((c: any, ci: number) => (
+                (tableInterpretations[`Table ${c.constructName}`] || tableInterpretations[c.constructName]) ? (
+                  <div key={`interp-${ci}`} style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 16px', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+                    {tableInterpretations[`Table ${c.constructName}`] || tableInterpretations[c.constructName]}
+                  </div>
+                ) : null
+              ))}
+
           {status === 'awaiting-interpretation' && (() => {
       const gate = checkInterpretationGate(gateInfo)
       return (
