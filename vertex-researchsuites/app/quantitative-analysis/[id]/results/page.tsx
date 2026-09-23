@@ -1285,9 +1285,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Paired-samples comparison of the same participants across two measurements.</p>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[16] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Paired Samples Test'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[16]}
+              {tableInterpretations['Paired Samples Test']}
             </div>
           )}
         </div>
@@ -1322,9 +1322,9 @@ export default function ResultsPage() {
               </tr>
             </tbody>
           </table>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[17] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Paired Samples Test Statistics'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[17]}
+              {tableInterpretations['Paired Samples Test Statistics']}
             </div>
           )}
         </div>
@@ -1388,9 +1388,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Two-way ANOVA testing main effects of Factor A and Factor B, and their interaction, on the outcome variable.</p>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[18] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Tests of Between-Subjects Effects'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[18]}
+              {tableInterpretations['Tests of Between-Subjects Effects']}
             </div>
           )}
         </div>
@@ -1422,9 +1422,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Model {results.logisticRegression.converged ? 'converged' : 'did not converge'} after {results.logisticRegression.iterations} iteration(s).</p>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[19] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Model Summary'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[19]}
+              {tableInterpretations['Model Summary']}
             </div>
           )}
         </div>
@@ -1458,9 +1458,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Dependent Variable is binary (0/1). Exp(B) represents the odds ratio for each predictor.</p>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[20] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Variables in the Equation'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[20]}
+              {tableInterpretations['Variables in the Equation']}
             </div>
           )}
         </div>
@@ -1498,9 +1498,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Wilcoxon Signed-Rank Test for two related samples.</p>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[21] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Wilcoxon Signed-Rank Test'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[21]}
+              {tableInterpretations['Wilcoxon Signed-Rank Test']}
             </div>
           )}
         </div>
@@ -1533,9 +1533,9 @@ export default function ResultsPage() {
               </tr>
             </tbody>
           </table>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[22] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Mann-Whitney U Test Ranks'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[22]}
+              {tableInterpretations['Mann-Whitney U Test Ranks']}
             </div>
           )}
         </div>
@@ -1561,9 +1561,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Mann-Whitney U Test for two independent samples.</p>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[23] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Mann-Whitney U Test Statistics'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[23]}
+              {tableInterpretations['Mann-Whitney U Test Statistics']}
             </div>
           )}
         </div>
@@ -1594,9 +1594,9 @@ export default function ResultsPage() {
               ))}
             </tbody>
           </table>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[24] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Kruskal-Wallis Test Ranks'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[24]}
+              {tableInterpretations['Kruskal-Wallis Test Ranks']}
             </div>
           )}
         </div>
@@ -1624,9 +1624,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Kruskal-Wallis H Test for k independent samples.</p>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[25] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Kruskal-Wallis Test Statistics'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[25]}
+              {tableInterpretations['Kruskal-Wallis Test Statistics']}
             </div>
           )}
         </div>
@@ -1653,9 +1653,9 @@ export default function ResultsPage() {
               </tr>
             </tbody>
           </table>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[26] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Moderation Model Summary'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[26]}
+              {tableInterpretations['Moderation Model Summary']}
             </div>
           )}
         </div>
@@ -1689,9 +1689,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Moderation of {results.moderation.predictorName} x {results.moderation.moderatorName} on {results.moderation.outcomeName}.</p>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[27] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Moderation Coefficients'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[27]}
+              {tableInterpretations['Moderation Coefficients']}
             </div>
           )}
         </div>
@@ -1741,9 +1741,9 @@ export default function ResultsPage() {
               </tr>
             </tbody>
           </table>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[28] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Mediation Path Coefficients'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[28]}
+              {tableInterpretations['Mediation Path Coefficients']}
             </div>
           )}
         </div>
@@ -1772,9 +1772,9 @@ export default function ResultsPage() {
               </tr>
             </tbody>
           </table>
-          {viewMode === 'fullDocument' && Object.values(tableInterpretations)[29] && (
+          {viewMode === 'fullDocument' && tableInterpretations['Sobel Test for Indirect Effect'] && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {Object.values(tableInterpretations)[29]}
+              {tableInterpretations['Sobel Test for Indirect Effect']}
             </div>
           )}
         </div>
