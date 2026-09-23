@@ -401,6 +401,40 @@ export default function CleaningPage() {
                   ))}
                 </div>
               ))}
+              <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #EEEEEE' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#333333', marginBottom: '10px' }}>Questionnaire Items (Construct Questions)</h4>
+                <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
+                  We detected the following scale meanings for each questionnaire item. Please confirm they're correct.
+                </p>
+                {constructs.filter((c: any) => c.role === 'Construct').map((c: any) => (
+                  <div key={c.id} style={{ marginBottom: '18px' }}>
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: '#333333', marginBottom: '6px' }}>{c.name}</p>
+                    {(c.columnIndexes || []).map((colIndex: number) => {
+                      const colLabel = (session as any)?.column_headers?.[colIndex] || `Column ${colIndex + 1}`
+                      const aiEntry = ((session as any)?.questionnaire_mapping as any)?.[colLabel]
+                      const valueLabels = aiEntry?.valueLabels || {}
+                      const hasLabels = Object.keys(valueLabels).length > 0
+                      return (
+                        <div key={colIndex} style={{ marginBottom: '10px', paddingLeft: '10px', borderLeft: '2px solid #F5F5F5' }}>
+                          <p style={{ fontSize: '12px', color: '#333333', marginBottom: '4px' }}>{colLabel}</p>
+                          {hasLabels ? (
+                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                              {Object.keys(valueLabels).map((code) => (
+                                <div key={code} style={{ display: 'flex', gap: '4px', fontSize: '12px' }}>
+                                  <span style={{ color: '#777777' }}>{code} =</span>
+                                  <span>{valueLabels[code]}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p style={{ fontSize: '11px', color: '#AAAAAA' }}>No scale meaning detected for this item.</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
                 <button onClick={() => setShowDemoEditForm(false)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #D4AF37', backgroundColor: '#D4AF37', color: '#ffffff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
                   Looks correct, continue
