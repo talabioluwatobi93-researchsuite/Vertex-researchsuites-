@@ -244,6 +244,24 @@ INPUT DATA (this batch only):
 TASK:
 Extract and structure ONLY the mathematical parameters present in this batch (correlation, regression, logistic regression, ANOVA/model fit, two-way ANOVA, t-tests, Mann-Whitney, Wilcoxon, Kruskal-Wallis, Chi-Square, mediation, moderation - whichever apply). For each test present, also state WHY that specific test was appropriate for this research design, based only on the actual IV/DV/grouping-variable roles and data types already established for this session. Reproduce the key result table for each test as structured data.
 
+MANDATORY EXACT TABLE TITLES - use these exact strings for table_title, do not invent your own wording, so titles match the results page exactly:
+- Correlation (Pearson): "Pearson Correlations Among Study Variables (Default)"
+- Correlation (Spearman): "Spearman's Rank Correlations Among Study Variables (Supplementary)"
+- Regression: "Variables Entered/Removed", "Model Summary", "ANOVA", "Coefficients"
+- t-test: "Group Statistics", "Independent Samples Test"
+- Paired t-test: "Paired Samples Test", "Paired Samples Statistics"
+- Mann-Whitney: "Mann-Whitney U Test Ranks", "Mann-Whitney U Test Statistics"
+- Wilcoxon: "Wilcoxon Signed-Rank Test"
+- ANOVA (one-way): "Descriptive Statistics for {outcome} by {group}", "One-Way ANOVA: {outcome} by {group}", "Post Hoc Tests - Tukey HSD Multiple Comparisons"
+- Kruskal-Wallis: "Kruskal-Wallis Test Ranks", "Kruskal-Wallis Test Statistics"
+- Two-way ANOVA: "Tests of Between-Subjects Effects"
+- Chi-Square: "{row} x {col} Crosstabulation", "Chi-Square Tests"
+- Moderation: "Moderation Model Summary", "Moderation Coefficients"
+- Mediation: "Mediation Path Coefficients", "Sobel Test for Indirect Effect"
+- Logistic Regression: "Model Summary", "Variables in the Equation"
+
+Use the actual outcome/group/row/col variable names from the input data in place of {outcome}, {group}, {row}, {col}.
+
 GUARDRAILS (do not skip):
 1. Do NOT decide Supported/Rejected, and do NOT reference questionnaire scale labels - that belongs to Step 3b, never here. The test-appropriateness justification is the one exception.
 2. Only structure tests actually present in this batch's results. Never invent a test, value, or table not provided.
