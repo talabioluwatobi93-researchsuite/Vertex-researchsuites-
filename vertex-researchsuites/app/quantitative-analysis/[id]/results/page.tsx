@@ -564,10 +564,15 @@ export default function ResultsPage() {
                   </ResponsiveContainer>
                 </div>
               )}
-            </div>
-          ))}
+                    {(tableInterpretations[`Table ${f.name}`] || tableInterpretations[f.name]) ? (
+                      <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+                        {tableInterpretations[`Table ${f.name}`] || tableInterpretations[f.name]}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
 
-      {results.itemDescriptives?.map((c: any, ci: number) => (
+              {results.itemDescriptives?.map((c: any, ci: number) => (
         <div key={ci} style={tableWrap}>
           <p style={tableTitle}>Table {nextTable()}. Item Descriptive Statistics for {c.constructName}</p>
           <table style={table}>
