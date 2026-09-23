@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { Document, Packer, Paragraph } from "docx";
+import { Document, Packer, Paragraph, TextRun } from "docx";
 import { runQuantInterpretation } from "@/lib/quantInterpret";
 import { TableGroup, CitationStyle } from "@/lib/quantBunkerDocx";
 import {
@@ -32,7 +32,7 @@ const supabaseAdmin = createClient(
 );
 
 // ---- Build the full ordered list of TableGroups from session.results ----
-function buildAllTableGroups(results: any, citationStyle?: CitationStyle): TableGroup[] {
+async function buildAllTableGroups(results: any, citationStyle?: CitationStyle): Promise<TableGroup[]> {
   let groups: TableGroup[] = [];
   let n = 1;
 
@@ -43,12 +43,12 @@ function buildAllTableGroups(results: any, citationStyle?: CitationStyle): Table
     n += g.length;
   }
   if (results.frequencyTables) {
-    const g = buildFrequencyTables(results.frequencyTables, n, citationStyle);
+    const g = await buildFrequencyTables(results.frequencyTables, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   }
   if (results.itemDescriptives) {
-    const g = buildItemDescriptivesTables(results.itemDescriptives, n, citationStyle);
+    const g = await buildItemDescriptivesTables(results.itemDescriptives, n, citationStyle);
     groups = groups.concat(g);
     n += g.length;
   }
@@ -150,9 +150,17 @@ export async function POST(req: Request) {
       tableInterpretations = result.tableInterpretations;
     }
 
-    const tableGroupsA = buildAllTableGroups(session.results);
+    const tableGroupsA = await buildAllTableGroups(session.results);
     const citationStyle = session.citation_style as CitationStyle | undefined;
-    const tableGroupsB = buildAllTableGroups(session.results, citationStyle);
+    let tableGroupsB: TableGroup[];
+    let tableGroupsBError: string | null = null;
+    try {
+      tableGroupsB = await buildAllTableGroups(session.results, citationStyle);
+    } catch (e: any) {
+      tableGroupsBError = e?.message || String(e);
+      tableGroupsB = [];
+      console.error("buildAllTableGroups (Doc B) FAILED:", e);
+    }
 
     // ---- Doc A: raw tables only ----
     const docA = new Document({
@@ -165,6 +173,20 @@ export async function POST(req: Request) {
 
     // ---- Doc B: tables + interpretation interleaved ----
     const docBChildren: any[] = [];
+    if (tableGroupsBError) {
+      docBChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `TABLE GENERATION FAILED: ${tableGroupsBError}`,
+              bold: true,
+              color: "CC0000",
+            }),
+          ],
+          spacing: { after: 300 },
+        })
+      );
+    }
     for (const g of tableGroupsB) {
       docBChildren.push(...g.blocks);
       const interp = tableInterpretations[g.title];
@@ -216,7 +238,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Could not save full report file." }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, pathA, pathB });
+    return NextResponse.json({ success: true, pathA, pathB, tableGroupsBError });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Bunker file generation failed" }, { status: 500 });
   }
