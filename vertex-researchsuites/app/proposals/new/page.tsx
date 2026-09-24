@@ -358,6 +358,9 @@ export default function NewProposal() {
       {fullProposal && (
         <div style={{ marginTop: "16px" }}>
           <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}` }}>
+            <button onClick={() => { setFullProposal(''); setSelectedTopic(null); setSavedMsg(''); }} style={{ backgroundColor: 'transparent', color: '#333333', border: '1px solid #DDDDDD', borderRadius: '10px', padding: '10px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginBottom: '14px' }}>
+              ← Back to Topics
+            </button>
             <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "14px", color: "#333333", lineHeight: "1.6", margin: 0 }}>{fullProposal}</pre>
           </div>
           <button onClick={handleSaveToBunker} disabled={saving} style={{ width: "100%", backgroundColor: GOLD, color: "#333333", border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "16px" }}>

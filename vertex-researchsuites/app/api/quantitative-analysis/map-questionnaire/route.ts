@@ -80,6 +80,19 @@ field or a survey question), determine:
 2. A label for each distinct raw coded value seen in the sample rows for that column
    (e.g. if the column contains 1 and 2, and the questionnaire shows "1 = Male, 2 = Female",
    map "1" -> "Male", "2" -> "Female"). Use the exact raw value (as a string) as the key.
+
+   IMPORTANT for Likert-scale / construct items: many questionnaires state the scale
+   legend ONCE, above or below a whole block/table of items (e.g. "Scale: 1 = Strongly
+   Disagree, 2 = Disagree, 3 = Neutral, 4 = Agree, 5 = Strongly Agree"), rather than
+   repeating it next to every single item. When you see a shared scale legend like
+   this covering multiple items, you MUST apply that same valueLabels mapping to
+   EVERY column/item in that group - do not leave valueLabels empty just because the
+   legend wasn't repeated next to that specific item. If different items in the same
+   construct genuinely use different scales (e.g. some reverse-worded items relabeled,
+   or a different range), map each one individually according to whichever legend
+   actually applies to it. Every Likert/construct column should end up with a
+   populated valueLabels object one way or another - either from its own explicit
+   legend or from the shared group legend that covers it.
 3. Whether the item appears to be reverse-worded (i.e. negatively phrased relative to the
    construct it measures, such that a high raw score means a low level of the construct).
    Set "reverseWorded": true only if you are confident; otherwise false.
