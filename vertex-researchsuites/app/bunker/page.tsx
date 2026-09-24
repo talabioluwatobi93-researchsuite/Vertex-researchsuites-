@@ -130,12 +130,37 @@ export default function Bunker() {
           } else {
             setBunkerFileError('Could not prepare download.');
           }
+
+          // Auto-download the full styled report at the same moment as the
+          // raw dataset, instead of waiting for a later "View full document" click.
+          try {
+            const reportUrlRes = await fetch('/api/quantitative-analysis/get-bunker-file-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sessionId: item.content_reference, fileType: 'report' }),
+            });
+            const reportUrlData = await reportUrlRes.json();
+            if (reportUrlData.success) {
+              setDocBUrl(reportUrlData.url);
+              setDocBViewed(true);
+              const rb = document.createElement('a');
+              rb.href = reportUrlData.url;
+              rb.download = 'report-full.docx';
+              document.body.appendChild(rb);
+              rb.click();
+              document.body.removeChild(rb);
+            } else {
+              setBunkerFileError((prev) => prev || 'Could not prepare full report download.');
+            }
+          } catch (reportErr) {
+            setBunkerFileError((prev) => prev || 'Could not prepare full report download.');
+          }
         } catch (e) {
           setBunkerFileError('Could not prepare download.');
         }
         setPreparingFiles(false);
-      return
-    }
+        return
+      }
 
     if (item.item_type === 'qualitative_analysis_dataset' || item.item_type === 'qualitative_analysis_report') {
       setDetailLoading(true)

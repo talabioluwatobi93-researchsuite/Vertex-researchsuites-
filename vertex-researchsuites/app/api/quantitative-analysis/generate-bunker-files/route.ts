@@ -36,76 +36,66 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle):
   let groups: TableGroup[] = [];
   let n = 1;
 
-  // Always-present blocks
-  if (results.descriptives) {
-    const g = buildDescriptivesTable(results.descriptives, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
-  }
-  if (results.frequencyTables) {
-    const g = await buildFrequencyTables(results.frequencyTables, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
-  }
-  if (results.itemDescriptives) {
-    const g = await buildItemDescriptivesTables(results.itemDescriptives, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+  function safeBuild(label: string, fn: () => TableGroup[]) {
+    try {
+      const g = fn();
+      groups = groups.concat(g);
+      n += g.length;
+    } catch (e: any) {
+      const msg = `[${label}] ${e?.message || String(e)}`;
+      console.error(`buildAllTableGroups block "${label}" FAILED:`, e);
+      throw new Error(msg);
+    }
   }
 
-  // Mutually-exclusive test type (only one should be populated)
+  async function safeBuildAsync(label: string, fn: () => Promise<TableGroup[]>) {
+    try {
+      const g = await fn();
+      groups = groups.concat(g);
+      n += g.length;
+    } catch (e: any) {
+      const msg = `[${label}] ${e?.message || String(e)}`;
+      console.error(`buildAllTableGroups block "${label}" FAILED:`, e);
+      throw new Error(msg);
+    }
+  }
+
+  if (results.descriptives) {
+    safeBuild("descriptives", () => buildDescriptivesTable(results.descriptives, n, citationStyle));
+  }
+  if (results.frequencyTables) {
+    await safeBuildAsync("frequencyTables", () => buildFrequencyTables(results.frequencyTables, n, citationStyle));
+  }
+  if (results.itemDescriptives) {
+    await safeBuildAsync("itemDescriptives", () => buildItemDescriptivesTables(results.itemDescriptives, n, citationStyle));
+  }
+
   if (results.ttest) {
-    const g = buildTTestTables(results.ttest, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("ttest", () => buildTTestTables(results.ttest, n, citationStyle));
   } else if (results.paired) {
-    const g = buildPairedTTestTable(results.paired, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("paired", () => buildPairedTTestTable(results.paired, n, citationStyle));
   } else if (results.mannwhitney) {
-    const g = buildMannWhitneyTable(results.mannwhitney, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("mannwhitney", () => buildMannWhitneyTable(results.mannwhitney, n, citationStyle));
   } else if (results.wilcoxon) {
-    const g = buildWilcoxonTable(results.wilcoxon, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("wilcoxon", () => buildWilcoxonTable(results.wilcoxon, n, citationStyle));
   } else if (results.anova) {
-    const g = buildAnovaTables(results.anova, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("anova", () => buildAnovaTables(results.anova, n, citationStyle));
   } else if (results.chisquare) {
-    const g = buildChiSquareTables(results.chisquare, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("chisquare", () => buildChiSquareTables(results.chisquare, n, citationStyle));
   } else if (results.kruskalwallis) {
-    const g = buildKruskalWallisTables(results.kruskalwallis, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("kruskalwallis", () => buildKruskalWallisTables(results.kruskalwallis, n, citationStyle));
   } else if (results.correlation) {
-    const g = buildCorrelationTables(results.correlation, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("correlation", () => buildCorrelationTables(results.correlation, n, citationStyle));
   } else if (results.regression) {
-    const g = buildRegressionTables(results.regression, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("regression", () => buildRegressionTables(results.regression, n, citationStyle));
   } else if (results.moderation) {
-    const g = buildModerationTables(results.moderation, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("moderation", () => buildModerationTables(results.moderation, n, citationStyle));
   } else if (results.twowayanova) {
-    const g = buildTwoWayAnovaTables(results.twowayanova, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("twowayanova", () => buildTwoWayAnovaTables(results.twowayanova, n, citationStyle));
   } else if (results.mediation) {
-    const g = buildMediationTables(results.mediation, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("mediation", () => buildMediationTables(results.mediation, n, citationStyle));
   } else if (results.logistic) {
-    const g = buildLogisticTables(results.logistic, n, citationStyle);
-    groups = groups.concat(g);
-    n += g.length;
+    safeBuild("logistic", () => buildLogisticTables(results.logistic, n, citationStyle));
   }
 
   return groups;
