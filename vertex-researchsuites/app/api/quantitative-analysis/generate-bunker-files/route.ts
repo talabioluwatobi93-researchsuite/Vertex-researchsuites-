@@ -36,15 +36,28 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle):
   let groups: TableGroup[] = [];
   let n = 1;
 
+  function errorGroup(label: string, e: any): TableGroup {
+    const msg = e?.message || String(e);
+    console.error(`buildAllTableGroups block "${label}" FAILED:`, e);
+    return {
+      title: `[Table generation error: ${label}]`,
+      blocks: [
+        new Paragraph({
+          spacing: { after: 300 },
+          children: [new TextRun({ text: `TABLE GENERATION FAILED for "${label}": ${msg}`, bold: true, color: "CC0000" })],
+        }),
+      ],
+    };
+  }
+
   function safeBuild(label: string, fn: () => TableGroup[]) {
     try {
       const g = fn();
       groups = groups.concat(g);
       n += g.length;
     } catch (e: any) {
-      const msg = `[${label}] ${e?.message || String(e)}`;
-      console.error(`buildAllTableGroups block "${label}" FAILED:`, e);
-      throw new Error(msg);
+      groups = groups.concat([errorGroup(label, e)]);
+      n += 1;
     }
   }
 
@@ -54,9 +67,8 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle):
       groups = groups.concat(g);
       n += g.length;
     } catch (e: any) {
-      const msg = `[${label}] ${e?.message || String(e)}`;
-      console.error(`buildAllTableGroups block "${label}" FAILED:`, e);
-      throw new Error(msg);
+      groups = groups.concat([errorGroup(label, e)]);
+      n += 1;
     }
   }
 
