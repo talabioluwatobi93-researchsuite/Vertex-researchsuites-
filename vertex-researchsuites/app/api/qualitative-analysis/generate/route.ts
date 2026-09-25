@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
       const synthesisPart = settled.find((s) => s.key === 'synthesis');
       if (synthesisPart) narrativeParts.push(synthesisPart.text);
 
-      const narrative = narrativeParts.join('\n\n');
+      const narrative = 'Methodological Framework: Inductive Thematic Analysis adhering to Braun & Clarke (2006) protocol.\n\n' + narrativeParts.join('\n\n');
 
       const results = {
         themeCount: themes.length,

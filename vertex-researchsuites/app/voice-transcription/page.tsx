@@ -440,11 +440,11 @@ export default function VoiceTranscription() {
         <div>
           <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}`, marginBottom: "16px" }}>
             <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "10px" }}>Interpretive Notes</p>
-            <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "14px", color: DARK, lineHeight: "1.6", margin: 0 }}>{notes}</pre>
+            <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "14px", color: DARK, lineHeight: "1.6", margin: 0 }}>{(notes || '').replace(/^#{1,6}\s*/gm, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/^-{3,}$/gm, '')}</pre>
           </div>
           <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}` }}>
             <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "10px" }}>Full Transcript</p>
-            <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "13px", color: MUTED, lineHeight: "1.6", margin: 0 }}>{transcript}</pre>
+            <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "13px", color: MUTED, lineHeight: "1.6", margin: 0 }}>{(transcript || '').replace(/^#{1,6}\s*/gm, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/^-{3,}$/gm, '')}</pre>
           </div>
           <button onClick={handleSaveToBunker} disabled={saving} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "16px" }}>
             {saving ? "Saving..." : "Save to My Bunker"}
@@ -459,7 +459,7 @@ export default function VoiceTranscription() {
               </button>
               {documentError && <p style={{ color: "#C0392B", fontSize: "13px", marginTop: "12px" }}>{documentError}</p>}
               {fullDocument && (
-                <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "13px", color: DARK, lineHeight: "1.6", margin: "16px 0 0 0", padding: "16px", backgroundColor: "#FAFAFA", borderRadius: "10px", border: `1px solid ${BORDER}` }}>{fullDocument}</pre>
+                <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "13px", color: DARK, lineHeight: "1.6", margin: "16px 0 0 0", padding: "16px", backgroundColor: "#FAFAFA", borderRadius: "10px", border: `1px solid ${BORDER}` }}>{(fullDocument || '').replace(/^#{1,6}\s*/gm, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/^-{3,}$/gm, '')}</pre>
               )}
             </div>
         </div>
