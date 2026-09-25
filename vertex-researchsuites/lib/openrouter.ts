@@ -263,6 +263,10 @@ export const PROPOSAL_MODEL_ROUTES = {
 };
 
 export async function callProposalChain(prompt: string): Promise<OpenRouterResult> {
+  prompt = prompt + `
+
+IMPORTANT ADDITIONAL REQUIREMENT: This proposal MUST include a dedicated section titled "Theoretical Framework" (its own heading, not folded into Methodology). In it, name and briefly explain TWO theories relevant to this topic, and state clearly how each one applies to this specific study.`;
+
   try {
     const content = await callOpenRouterStreaming(PROPOSAL_MODEL_ROUTES.primary, prompt);
     return { content, providerUsed: 'deepseek-openrouter' };
