@@ -84,29 +84,41 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle):
 
   if (results.ttest) {
     safeBuild("ttest", () => buildTTestTables(results.ttest, n, citationStyle));
-  } else if (results.paired) {
+  }
+  if (results.paired) {
     safeBuild("paired", () => buildPairedTTestTable(results.paired, n, citationStyle));
-  } else if (results.mannwhitney) {
+  }
+  if (results.mannwhitney) {
     safeBuild("mannwhitney", () => buildMannWhitneyTable(results.mannwhitney, n, citationStyle));
-  } else if (results.wilcoxon) {
+  }
+  if (results.wilcoxon) {
     safeBuild("wilcoxon", () => buildWilcoxonTable(results.wilcoxon, n, citationStyle));
-  } else if (results.anova) {
+  }
+  if (results.anova) {
     safeBuild("anova", () => buildAnovaTables(results.anova, n, citationStyle));
-  } else if (results.chisquare) {
+  }
+  if (results.chisquare) {
     safeBuild("chisquare", () => buildChiSquareTables(results.chisquare, n, citationStyle));
-  } else if (results.kruskalwallis) {
+  }
+  if (results.kruskalwallis) {
     safeBuild("kruskalwallis", () => buildKruskalWallisTables(results.kruskalwallis, n, citationStyle));
-  } else if (results.correlation) {
+  }
+  if (results.correlation) {
     safeBuild("correlation", () => buildCorrelationTables(results.correlation, n, citationStyle));
-  } else if (results.regression) {
+  }
+  if (results.regression) {
     safeBuild("regression", () => buildRegressionTables(results.regression, n, citationStyle));
-  } else if (results.moderation) {
+  }
+  if (results.moderation) {
     safeBuild("moderation", () => buildModerationTables(results.moderation, n, citationStyle));
-  } else if (results.twowayanova) {
+  }
+  if (results.twowayanova) {
     safeBuild("twowayanova", () => buildTwoWayAnovaTables(results.twowayanova, n, citationStyle));
-  } else if (results.mediation) {
+  }
+  if (results.mediation) {
     safeBuild("mediation", () => buildMediationTables(results.mediation, n, citationStyle));
-  } else if (results.logistic) {
+  }
+  if (results.logistic) {
     safeBuild("logistic", () => buildLogisticTables(results.logistic, n, citationStyle));
   }
 
