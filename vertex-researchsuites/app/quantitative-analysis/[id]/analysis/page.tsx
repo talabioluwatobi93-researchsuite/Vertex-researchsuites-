@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import TestRecommendation from '../../components/TestRecommendation'
@@ -80,7 +80,26 @@ export default function AnalysisTypePage() {
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  const [constructs, setConstructs] = useState<Construct[]>([])
+  const [rawConstructs, setRawConstructs] = useState<Construct[]>([]);
+
+  const constructs = useMemo<Construct[]>(() => {
+    const out: Construct[] = [];
+    for (const c of rawConstructs) {
+      if (c.role === 'Demographic' && c.columnIndexes && c.columnIndexes.length > 1) {
+        c.columnIndexes.forEach((colIndex: number, i: number) => {
+          out.push({
+            ...c,
+            id: `item::${c.id}:${colIndex}`,
+            name: `${c.name} - Item ${i + 1}`,
+            columnIndexes: [colIndex],
+          } as Construct);
+        });
+      } else {
+        out.push(c);
+      }
+    }
+    return out;
+  }, [rawConstructs]);
   const [selected, setSelected] = useState<AnalysisType[]>([])
   const [modelConfirmed, setModelConfirmed] = useState(false)
 
@@ -125,7 +144,7 @@ export default function AnalysisTypePage() {
         return
       }
 
-      setConstructs(data.constructs || [])
+      setRawConstructs(data.constructs || [])
       setRawData(data.raw_data || [])
       if (data.analysis_type && Array.isArray(data.analysis_type)) {
         setSelected(data.analysis_type)
