@@ -1,3 +1,5 @@
+export const maxDuration = 60;
+
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Document, Packer, Paragraph, TextRun } from "docx";
