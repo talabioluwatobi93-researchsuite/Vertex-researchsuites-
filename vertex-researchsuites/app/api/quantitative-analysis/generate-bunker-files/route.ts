@@ -155,13 +155,14 @@ export async function POST(req: Request) {
 
       await supabaseAdmin
         .from("quantitative_analysis_sessions")
-        .update({ interpretation, discussion })
+        .update({ interpretation, discussion, table_interpretations: tableInterpretations })
         .eq("id", sessionId);
     } else {
-      // interpretation/discussion already existed in DB, but tableInterpretations
-      // is not persisted anywhere - must recompute it to get per-table splits for Doc B.
-      const result = await runQuantInterpretation(session, session.citation_style);
-      tableInterpretations = result.tableInterpretations;
+      // Per-table interpretations are saved when the interpretation is generated, so no AI call
+      // runs here and this route cannot time out. Older sessions have none saved; their full
+      // interpretation text is added to the report below so nothing is lost.
+      const savedTables = (session as any).table_interpretations;
+      tableInterpretations = savedTables && typeof savedTables === "object" ? savedTables : {};
     }
 
     const tableGroupsA = await buildAllTableGroups(session.results);
@@ -201,9 +202,33 @@ export async function POST(req: Request) {
         })
       );
     }
+    const normTitle = (t: string) =>
+      String(t || "")
+        .toLowerCase()
+        .replace(/^\s*table\s+(?:[0-9]+|[ivxlc]+)\b[\s.:)\-–—]*/i, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+    const interpEntries = Object.entries(tableInterpretations || {}).map(([key, text]) => ({
+      norm: normTitle(key),
+      text: String(text || ""),
+      used: false,
+    }));
+    const findInterp = (title: string): string | undefined => {
+      const n = normTitle(title);
+      if (!n) return undefined;
+      let hit = interpEntries.find((e) => !e.used && e.norm === n);
+      if (!hit) {
+        hit = interpEntries.find(
+          (e) => !e.used && n.length >= 8 && e.norm.length >= 8 && (e.norm.includes(n) || n.includes(e.norm))
+        );
+      }
+      if (!hit) return undefined;
+      hit.used = true;
+      return hit.text;
+    };
     for (const g of tableGroupsB) {
       docBChildren.push(...g.blocks);
-      const interp = tableInterpretations[g.title];
+      const interp = findInterp(g.title);
       if (interp) {
         docBChildren.push(
           new Paragraph({
@@ -218,6 +243,30 @@ export async function POST(req: Request) {
         }
       }
     }
+    const unmatchedInterps = interpEntries.filter((e) => !e.used && e.text.trim().length > 0);
+    if (unmatchedInterps.length > 0) {
+      console.warn("Doc B: " + unmatchedInterps.length + " table interpretation(s) could not be matched to a table title");
+      docBChildren.push(
+        new Paragraph({ text: "Additional table interpretations", heading: "Heading1" as any, spacing: { before: 400, after: 200 } })
+      );
+      for (const e of unmatchedInterps) {
+        for (const line of e.text.split("\n")) {
+          if (line.trim().length > 0) {
+            docBChildren.push(new Paragraph({ text: line, spacing: { after: 120 } }));
+          }
+        }
+      }
+    } else if (interpEntries.length === 0 && interpretation && String(interpretation).trim()) {
+      docBChildren.push(
+        new Paragraph({ text: "Interpretation", heading: "Heading1" as any, spacing: { before: 400, after: 200 } })
+      );
+      for (const line of String(interpretation).split("\n")) {
+        if (line.trim().length > 0) {
+          docBChildren.push(new Paragraph({ text: line, spacing: { after: 120 } }));
+        }
+      }
+    }
+
     // Append overall discussion at the end of Doc B
     if (discussion) {
       docBChildren.push(new Paragraph({ text: "Discussion", heading: "Heading1" as any, spacing: { before: 400, after: 200 } }));

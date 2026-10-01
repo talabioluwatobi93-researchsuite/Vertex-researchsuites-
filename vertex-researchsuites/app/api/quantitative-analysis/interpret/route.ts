@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
 
       await supabase
         .from('quantitative_analysis_sessions')
-        .update({ interpretation: final.interpretation, discussion: final.discussion })
+        .update({ interpretation: final.interpretation, discussion: final.discussion, table_interpretations: final.tableInterpretations || {} })
         .eq('id', sessionId)
 
       return NextResponse.json(final)
