@@ -213,22 +213,35 @@ export async function POST(req: Request) {
       text: String(text || ""),
       used: false,
     }));
-    const findInterp = (title: string): string | undefined => {
-      const n = normTitle(title);
-      if (!n) return undefined;
-      let hit = interpEntries.find((e) => !e.used && e.norm === n);
-      if (!hit) {
-        hit = interpEntries.find(
-          (e) => !e.used && n.length >= 8 && e.norm.length >= 8 && (e.norm.includes(n) || n.includes(e.norm))
-        );
+    const assigned = new Map<number, string>();
+    tableGroupsB.forEach((g, idx) => {
+      const n = normTitle(g.title);
+      if (!n) return;
+      const hit = interpEntries.find((e) => !e.used && e.norm === n);
+      if (hit) {
+        hit.used = true;
+        assigned.set(idx, hit.text);
       }
-      if (!hit) return undefined;
-      hit.used = true;
-      return hit.text;
-    };
-    for (const g of tableGroupsB) {
+    });
+    tableGroupsB.forEach((g, idx) => {
+      if (assigned.has(idx)) return;
+      const n = normTitle(g.title);
+      if (n.length < 8) return;
+      const cands = interpEntries.filter(
+        (e) => !e.used && e.norm.length >= 8 && (e.norm.includes(n) || n.includes(e.norm))
+      );
+      if (cands.length === 1) {
+        cands[0].used = true;
+        assigned.set(idx, cands[0].text);
+      }
+    });
+    const untitled = tableGroupsB.filter((_, idx) => !assigned.has(idx)).map((g) => g.title);
+    if (untitled.length > 0) console.warn("Doc B: tables without a matched interpretation:", JSON.stringify(untitled));
+    const findInterp = (idx: number): string | undefined => assigned.get(idx);
+    for (let gi = 0; gi < tableGroupsB.length; gi++) {
+      const g = tableGroupsB[gi];
       docBChildren.push(...g.blocks);
-      const interp = findInterp(g.title);
+      const interp = findInterp(gi);
       if (interp) {
         docBChildren.push(
           new Paragraph({
@@ -245,7 +258,7 @@ export async function POST(req: Request) {
     }
     const unmatchedInterps = interpEntries.filter((e) => !e.used && e.text.trim().length > 0);
     if (unmatchedInterps.length > 0) {
-      console.warn("Doc B: " + unmatchedInterps.length + " table interpretation(s) could not be matched to a table title");
+      console.warn("Doc B: " + unmatchedInterps.length + " table interpretation(s) could not be matched to a table title:", JSON.stringify(unmatchedInterps.map((e) => e.norm)));
       docBChildren.push(
         new Paragraph({ text: "Additional table interpretations", heading: "Heading1" as any, spacing: { before: 400, after: 200 } })
       );
