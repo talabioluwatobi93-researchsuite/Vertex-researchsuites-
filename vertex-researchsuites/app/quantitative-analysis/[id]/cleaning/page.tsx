@@ -60,6 +60,24 @@ export default function CleaningPage() {
     setItemDirty(true)
   }
 
+  function mergeItemEdits() {
+    const current: any = (session as any)?.questionnaire_mapping || {}
+    const merged: any = { ...current }
+    Object.entries(itemEdits).forEach(([colLabel, e]: [string, any]) => {
+      const base = current[colLabel] || {}
+      const vl: any = { ...(base.valueLabels || {}), ...(e.valueLabels || {}) }
+      Object.keys(vl).forEach((k) => {
+        if (!String(vl[k] ?? '').trim()) delete vl[k]
+      })
+      merged[colLabel] = {
+        ...base,
+        questionText: e.questionText !== undefined ? e.questionText : (base.questionText || ''),
+        valueLabels: vl,
+      }
+    })
+    return merged
+  }
+
   async function saveItemEdits() {
     setItemSaving(true)
     setItemSaveMsg('')
@@ -393,7 +411,7 @@ export default function CleaningPage() {
 
     const { error } = await supabase
       .from('quantitative_analysis_sessions')
-      .update({ cleaning_config, chart_preferences: chartPrefs, citation_style: citationStyle, status: 'cleaning_complete' })
+      .update({ cleaning_config, chart_preferences: chartPrefs, citation_style: citationStyle, status: 'cleaning_complete', ...(itemDirty ? { questionnaire_mapping: mergeItemEdits() } : {}) })
       .eq('id', id)
 
     setSaving(false)
@@ -481,7 +499,7 @@ export default function CleaningPage() {
               <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #EEEEEE' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#333333', marginBottom: '10px' }}>Questionnaire Items (Construct Questions)</h4>
                 <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
-                  For each item, check the question wording from your questionnaire and what each number in your spreadsheet means. Edit anything that is wrong, then tap Save item edits.
+                  <strong>You are in control.</strong> Check the question wording from your questionnaire and what each number in your spreadsheet means. If you edit anything here, your edits are used and saved automatically when you continue. Anything you leave alone stays as detected.
                 </p>
                 {constructs.filter((c: any) => c.role !== 'Demographic').map((c: any) => (
                   <div key={c.id} style={{ marginBottom: '18px' }}>
@@ -544,7 +562,7 @@ export default function CleaningPage() {
                   {itemSaving ? 'Saving...' : 'Save item edits'}
                 </button>
                 <p style={{ fontSize: '12px', marginTop: '8px', color: itemDirty ? '#B45309' : '#1D8A4C' }}>
-                  {itemDirty ? 'You have unsaved item edits.' : itemSaveMsg}
+                  {itemDirty ? 'Your edits will be saved automatically when you continue.' : itemSaveMsg}
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
