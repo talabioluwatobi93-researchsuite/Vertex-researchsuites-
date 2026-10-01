@@ -22,7 +22,7 @@ export default function CleaningPage() {
   const [itemSaveMsg, setItemSaveMsg] = useState('')
 
   // Distinct numeric values found in each construct column of the uploaded spreadsheet.
-  // More than 12 distinct values means it is not a coded scale, so no code rows are listed.
+  // A column holding decimal values is not a coded scale, so no code rows are listed for it.
   const sheetCodes = useMemo(() => {
     const out: Record<string, string[]> = {}
     const s: any = session
@@ -39,7 +39,7 @@ export default function CleaningPage() {
           const n = Number(v)
           if (isNaN(n)) continue
           seen.add(n)
-          if (seen.size > 12) { tooMany = true; break }
+          if (!Number.isInteger(n)) { tooMany = true; break }
         }
         out[String(ci)] = tooMany ? ['__MANY__'] : Array.from(seen).sort((a, b) => a - b).map((n) => String(n))
       })
@@ -527,7 +527,7 @@ export default function CleaningPage() {
                           />
                           {codes.length === 0 ? (
                             <p style={{ fontSize: '11px', color: '#AAAAAA' }}>
-                              {many ? 'This column has many different numeric values, so no code meanings are needed.' : 'No numeric codes found in this column.'}
+                              {many ? 'This column holds decimal values, so no code meanings are needed.' : 'No numeric codes found in this column.'}
                             </p>
                           ) : (
                             codes.map((code) => {
