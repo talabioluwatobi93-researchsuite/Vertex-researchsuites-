@@ -406,7 +406,7 @@ export default function CleaningPage() {
                 <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
                   We detected the following scale meanings for each questionnaire item. Please confirm they're correct.
                 </p>
-                {constructs.filter((c: any) => c.role === 'Construct').map((c: any) => (
+                {constructs.filter((c: any) => c.role !== 'Demographic').map((c: any) => (
                   <div key={c.id} style={{ marginBottom: '18px' }}>
                     <p style={{ fontSize: '13px', fontWeight: 600, color: '#333333', marginBottom: '6px' }}>{c.name}</p>
                     {(c.columnIndexes || []).map((colIndex: number) => {
