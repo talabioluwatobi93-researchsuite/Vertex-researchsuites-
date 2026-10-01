@@ -262,7 +262,7 @@ export default function NewProposal() {
     "10. Supervisor-Style Feedback\nSupervisor feedback could not be generated for this proposal. Please generate again.";
 
   const handleGenerateFullProposal = async (_topic: TopicPreview) => {
-    const list = topics;
+    const list = [_topic];
     setGeneratingFull(true);
     setSavedMsg("");
     setErrorMsg("");
@@ -271,7 +271,7 @@ export default function NewProposal() {
     const done: ProposalDoc[] = [];
     let failed = 0;
     for (let i = 0; i < list.length; i++) {
-      setProgressMsg(`Writing proposal ${i + 1} of ${list.length}...`);
+      setProgressMsg("Writing your proposal...");
       try {
         const base = {
           institution, course, department, interest, sequence,
@@ -347,7 +347,7 @@ export default function NewProposal() {
 
   const citationSelect = (
     <div>
-      <label style={labelStyle}>Citation Style (applies to all 5 proposals)</label>
+      <label style={labelStyle}>Citation Style (applies to your proposals)</label>
       <select value={citationStyle} onChange={(e) => setCitationStyle(e.target.value)} style={inputStyle}>
         {CITATION_STYLES.map((s) => (
           <option key={s.value} value={s.value}>{s.label}</option>
@@ -449,7 +449,7 @@ export default function NewProposal() {
                   <p style={{ fontSize: "15px", fontWeight: 700, color: "#333333", marginBottom: "8px" }}>{topic.title}</p>
                   <p style={{ fontSize: "13px", color: "#555555", lineHeight: "1.6", marginBottom: "14px" }}>{topic.summary}</p>
                   <button onClick={() => handleChooseTopic(topic)} disabled={generatingFull} style={{ backgroundColor: "#333333", color: "#ffffff", border: "none", borderRadius: "10px", padding: "10px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
-                    {generatingFull && selectedTopic?.title === topic.title ? "Generating full proposal..." : "Get All 5 Full Proposals"}
+                    {generatingFull && selectedTopic?.title === topic.title ? "Generating full proposal..." : "Get Full Proposal"}
                   </button>
                 </div>
               ))}
@@ -535,7 +535,7 @@ export default function NewProposal() {
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", zIndex: 100 }}>
           <div style={{ backgroundColor: "#ffffff", borderRadius: "18px", padding: "24px", maxWidth: "340px", width: "100%", textAlign: "center" }}>
             <p style={{ color: "#333333", fontSize: 16, fontWeight: 700, marginBottom: "8px" }}>Confirm Payment</p>
-            <p style={{ color: "#555555", fontSize: 14, marginBottom: "20px" }}>₦{fullPrice} will be deducted from your wallet to generate all 5 full proposals. Do you want to proceed?</p>
+            <p style={{ color: "#555555", fontSize: 14, marginBottom: "20px" }}>₦{fullPrice} will be deducted from your wallet to generate the full proposal. Do you want to proceed?</p>
             <div style={{ display: "flex", gap: "10px" }}>
               <button onClick={() => setShowFullConfirm(false)} style={{ flex: 1, backgroundColor: "#EEEEEE", color: "#333333", border: "none", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>Reject</button>
               <button onClick={handleAcceptFull} style={{ flex: 1, backgroundColor: "#D4AF37", color: "#333333", border: "none", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>Accept</button>
