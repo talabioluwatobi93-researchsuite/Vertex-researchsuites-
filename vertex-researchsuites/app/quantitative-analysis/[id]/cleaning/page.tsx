@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { CITATION_STYLES, CitationStyleValue } from '@/lib/citationStyles'
@@ -16,6 +16,85 @@ export default function CleaningPage() {
   const router = useRouter()
 
   const [session, setSession] = useState<any>(null)
+  const [itemEdits, setItemEdits] = useState<any>({})
+  const [itemDirty, setItemDirty] = useState(false)
+  const [itemSaving, setItemSaving] = useState(false)
+  const [itemSaveMsg, setItemSaveMsg] = useState('')
+
+  // Distinct numeric values found in each construct column of the uploaded spreadsheet.
+  // More than 12 distinct values means it is not a coded scale, so no code rows are listed.
+  const sheetCodes = useMemo(() => {
+    const out: Record<string, string[]> = {}
+    const s: any = session
+    const raw: any[] = Array.isArray(s?.raw_data) ? s.raw_data : []
+    const cons: any[] = Array.isArray(s?.constructs) ? s.constructs : []
+    cons.forEach((c: any) => {
+      if (c.role === 'Demographic') return
+      ;(c.columnIndexes || []).forEach((ci: number) => {
+        const seen = new Set<number>()
+        let tooMany = false
+        for (let r = 0; r < raw.length; r++) {
+          const v = raw[r] ? raw[r][ci] : undefined
+          if (v === null || v === undefined || String(v).trim() === '') continue
+          const n = Number(v)
+          if (isNaN(n)) continue
+          seen.add(n)
+          if (seen.size > 12) { tooMany = true; break }
+        }
+        out[String(ci)] = tooMany ? ['__MANY__'] : Array.from(seen).sort((a, b) => a - b).map((n) => String(n))
+      })
+    })
+    return out
+  }, [session])
+
+  function editItemQuestion(colLabel: string, text: string) {
+    setItemEdits((prev: any) => ({ ...prev, [colLabel]: { ...(prev[colLabel] || {}), questionText: text } }))
+    setItemDirty(true)
+  }
+
+  function editItemLabel(colLabel: string, code: string, label: string) {
+    setItemEdits((prev: any) => {
+      const cur = prev[colLabel] || {}
+      return { ...prev, [colLabel]: { ...cur, valueLabels: { ...(cur.valueLabels || {}), [code]: label } } }
+    })
+    setItemDirty(true)
+  }
+
+  async function saveItemEdits() {
+    setItemSaving(true)
+    setItemSaveMsg('')
+    try {
+      const current: any = (session as any)?.questionnaire_mapping || {}
+      const merged: any = { ...current }
+      Object.entries(itemEdits).forEach(([colLabel, e]: [string, any]) => {
+        const base = current[colLabel] || {}
+        const vl: any = { ...(base.valueLabels || {}), ...(e.valueLabels || {}) }
+        Object.keys(vl).forEach((k) => {
+          if (!String(vl[k] ?? '').trim()) delete vl[k]
+        })
+        merged[colLabel] = {
+          ...base,
+          questionText: e.questionText !== undefined ? e.questionText : (base.questionText || ''),
+          valueLabels: vl,
+        }
+      })
+      const { error } = await supabase
+        .from('quantitative_analysis_sessions')
+        .update({ questionnaire_mapping: merged })
+        .eq('id', id)
+      if (error) {
+        setItemSaveMsg('Could not save your edits. Please try again.')
+      } else {
+        setSession((prev: any) => ({ ...prev, questionnaire_mapping: merged }))
+        setItemDirty(false)
+        setItemSaveMsg('Item edits saved.')
+      }
+    } catch {
+      setItemSaveMsg('Something went wrong. Please try again.')
+    }
+    setItemSaving(false)
+  }
+
   const qMappingConfirmed = (session as any)?.questionnaire_mapping_confirmed;
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -402,36 +481,71 @@ export default function CleaningPage() {
               <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #EEEEEE' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#333333', marginBottom: '10px' }}>Questionnaire Items (Construct Questions)</h4>
                 <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
-                  We detected the following scale meanings for each questionnaire item. Please confirm they're correct.
+                  For each item, check the question wording from your questionnaire and what each number in your spreadsheet means. Edit anything that is wrong, then tap Save item edits.
                 </p>
                 {constructs.filter((c: any) => c.role !== 'Demographic').map((c: any) => (
                   <div key={c.id} style={{ marginBottom: '18px' }}>
-                    <p style={{ fontSize: '13px', fontWeight: 600, color: '#333333', marginBottom: '6px' }}>{c.name}</p>
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: '#333333', marginBottom: '8px' }}>{c.name}</p>
                     {(c.columnIndexes || []).map((colIndex: number) => {
                       const colLabel = (session as any)?.column_headers?.[colIndex] || `Column ${colIndex + 1}`
-                      const aiEntry = ((session as any)?.questionnaire_mapping as any)?.[colLabel]
-                      const valueLabels = aiEntry?.valueLabels || {}
-                      const hasLabels = Object.keys(valueLabels).length > 0
+                      const ai = ((session as any)?.questionnaire_mapping as any)?.[colLabel] || {}
+                      const ed = itemEdits[colLabel] || {}
+                      const qText = ed.questionText !== undefined ? ed.questionText : (ai.questionText || '')
+                      const aiLabels = ai.valueLabels || {}
+                      const edLabels = ed.valueLabels || {}
+                      const sheet = sheetCodes[String(colIndex)] || []
+                      const many = sheet[0] === '__MANY__'
+                      const codes = many
+                        ? Object.keys(aiLabels)
+                        : Array.from(new Set([...sheet, ...Object.keys(aiLabels)])).sort((a, b) => (Number(a) - Number(b)) || a.localeCompare(b))
                       return (
-                        <div key={colIndex} style={{ marginBottom: '10px', paddingLeft: '10px', borderLeft: '2px solid #F5F5F5' }}>
-                          <p style={{ fontSize: '12px', color: '#333333', marginBottom: '4px' }}>{colLabel}</p>
-                          {hasLabels ? (
-                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                              {Object.keys(valueLabels).map((code) => (
-                                <div key={code} style={{ display: 'flex', gap: '4px', fontSize: '12px' }}>
-                                  <span style={{ color: '#777777' }}>{code} =</span>
-                                  <span>{valueLabels[code]}</span>
-                                </div>
-                              ))}
-                            </div>
+                        <div key={colIndex} style={{ marginBottom: '14px', paddingLeft: '10px', borderLeft: '2px solid #F5F5F5' }}>
+                          <p style={{ fontSize: '12px', color: '#777777', marginBottom: '4px' }}>Spreadsheet column: {colLabel}</p>
+                          <textarea
+                            value={qText}
+                            onChange={(e) => editItemQuestion(colLabel, e.target.value)}
+                            placeholder="Question wording from your questionnaire (type it if it is missing)"
+                            style={{ width: '100%', minHeight: '56px', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px', color: '#333333', marginBottom: '8px', boxSizing: 'border-box', resize: 'vertical' }}
+                          />
+                          {codes.length === 0 ? (
+                            <p style={{ fontSize: '11px', color: '#AAAAAA' }}>
+                              {many ? 'This column has many different numeric values, so no code meanings are needed.' : 'No numeric codes found in this column.'}
+                            </p>
                           ) : (
-                            <p style={{ fontSize: '11px', color: '#AAAAAA' }}>No scale meaning detected for this item.</p>
+                            codes.map((code) => {
+                              const label = edLabels[code] !== undefined ? edLabels[code] : (aiLabels[code] || '')
+                              const inSheet = sheet.includes(code)
+                              return (
+                                <div key={code} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                                  <span style={{ width: '40px', fontSize: '13px', color: '#333333', fontWeight: 600 }}>{code} =</span>
+                                  <input
+                                    type="text"
+                                    value={label}
+                                    onChange={(e) => editItemLabel(colLabel, code, e.target.value)}
+                                    placeholder="Meaning of this number"
+                                    style={{ flex: 1, padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }}
+                                  />
+                                  {inSheet && !String(label).trim() && <span style={{ fontSize: '11px', color: '#B45309' }}>needs a label</span>}
+                                  {!inSheet && !many && <span style={{ fontSize: '11px', color: '#B45309' }}>not in data</span>}
+                                </div>
+                              )
+                            })
                           )}
                         </div>
                       )
                     })}
                   </div>
                 ))}
+                <button
+                  onClick={saveItemEdits}
+                  disabled={itemSaving || !itemDirty}
+                  style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', backgroundColor: itemDirty ? '#D4AF37' : '#EEEEEE', color: '#333333', fontSize: '13px', fontWeight: 600, cursor: itemDirty ? 'pointer' : 'default' }}
+                >
+                  {itemSaving ? 'Saving...' : 'Save item edits'}
+                </button>
+                <p style={{ fontSize: '12px', marginTop: '8px', color: itemDirty ? '#B45309' : '#1D8A4C' }}>
+                  {itemDirty ? 'You have unsaved item edits.' : itemSaveMsg}
+                </p>
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
                 <button onClick={() => setShowDemoEditForm(false)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #D4AF37', backgroundColor: '#D4AF37', color: '#ffffff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
