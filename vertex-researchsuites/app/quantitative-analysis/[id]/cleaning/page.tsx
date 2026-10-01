@@ -541,7 +541,7 @@ export default function CleaningPage() {
                                     value={label}
                                     onChange={(e) => editItemLabel(colLabel, code, e.target.value)}
                                     placeholder="Meaning of this number"
-                                    style={{ flex: 1, padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }}
+                                    style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #999999', backgroundColor: '#ffffff', color: '#111111', fontSize: '14px', fontWeight: 500 }}
                                   />
                                   {inSheet && !String(label).trim() && <span style={{ fontSize: '11px', color: '#B45309' }}>needs a label</span>}
                                   {!inSheet && !many && <span style={{ fontSize: '11px', color: '#B45309' }}>not in data</span>}
@@ -590,7 +590,7 @@ export default function CleaningPage() {
                     value={m.codes[code]}
                     onChange={(e) => updateDemoMapping(Number(colIndex), code, e.target.value)}
                     placeholder="e.g. Male"
-                    style={{ width: '120px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }}
+                    style={{ width: '120px', padding: '8px 10px', borderRadius: '8px', border: '1px solid #999999', backgroundColor: '#ffffff', color: '#111111', fontSize: '14px', fontWeight: 500 }}
                   />
                 </div>
               ))}
