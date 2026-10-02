@@ -307,8 +307,8 @@ export async function POST(req: NextRequest) {
     let ttest: any = null
     if (analysisTypes.includes('ttest') && session.ttest_config) {
       const { groupConstructId, outcomeConstructId } = session.ttest_config
-      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
-      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
 
       if (groupConstruct && outcomeConstruct) {
         const groupCol = groupConstruct.columnIndexes[0]
@@ -392,8 +392,8 @@ export async function POST(req: NextRequest) {
           const before = group1Scores.slice(0, n)
           const after = group2Scores.slice(0, n)
           const pairedResult = pairedTTest(before, after)
-          const group1Name = group1Label || (constructs.find((c: any) => c.id === group1ConstructId) || {}).name || 'Group 1'
-          const group2Name = group2Label || (constructs.find((c: any) => c.id === group2ConstructId) || {}).name || 'Group 2'
+          const group1Name = group1Label || (resolveVariableConstruct(group1ConstructId, constructs, columnHeaders) || {}).name || 'Group 1'
+          const group2Name = group2Label || (resolveVariableConstruct(group2ConstructId, constructs, columnHeaders) || {}).name || 'Group 2'
           paired = {
             group1Name,
             group2Name,
@@ -406,8 +406,8 @@ export async function POST(req: NextRequest) {
     let mannwhitney: any = null
     if (analysisTypes.includes('mannwhitney') && session.mannwhitney_config) {
       const { groupConstructId, outcomeConstructId } = session.mannwhitney_config
-      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
-      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
 
       if (groupConstruct && outcomeConstruct) {
         const groupCol = groupConstruct.columnIndexes[0]
@@ -449,8 +449,8 @@ export async function POST(req: NextRequest) {
           const before = group1Scores.slice(0, n)
           const after = group2Scores.slice(0, n)
           const wilcoxonResult = wilcoxonSignedRank(before, after)
-          const group1Name = group1Label || (constructs.find((c: any) => c.id === group1ConstructId) || {}).name || 'Group 1'
-          const group2Name = group2Label || (constructs.find((c: any) => c.id === group2ConstructId) || {}).name || 'Group 2'
+          const group1Name = group1Label || (resolveVariableConstruct(group1ConstructId, constructs, columnHeaders) || {}).name || 'Group 1'
+          const group2Name = group2Label || (resolveVariableConstruct(group2ConstructId, constructs, columnHeaders) || {}).name || 'Group 2'
           wilcoxon = {
             group1Name,
             group2Name,
@@ -463,8 +463,8 @@ export async function POST(req: NextRequest) {
     let anova: any = null
     if (analysisTypes.includes('anova') && session.anova_config) {
       const { groupConstructId, outcomeConstructId } = session.anova_config
-      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
-      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
 
       if (groupConstruct && outcomeConstruct) {
         const groupCol = groupConstruct.columnIndexes[0]
@@ -531,8 +531,8 @@ export async function POST(req: NextRequest) {
     let kruskalwallis: any = null
     if (analysisTypes.includes('kruskalwallis') && session.kruskalwallis_config) {
       const { groupConstructId, outcomeConstructId } = session.kruskalwallis_config
-      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
-      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
 
       if (groupConstruct && outcomeConstruct) {
         const groupCol = groupConstruct.columnIndexes[0]
@@ -568,9 +568,9 @@ export async function POST(req: NextRequest) {
     let twowayanova: any = null
     if (analysisTypes.includes('twowayanova') && session.twowayanova_config) {
       const { factorAConstructId, factorBConstructId, outcomeConstructId } = session.twowayanova_config
-      const factorAConstruct = constructs.find((c: any) => c.id === factorAConstructId)
-      const factorBConstruct = constructs.find((c: any) => c.id === factorBConstructId)
-      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+      const factorAConstruct = resolveVariableConstruct(factorAConstructId, constructs, columnHeaders)
+      const factorBConstruct = resolveVariableConstruct(factorBConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
 
       if (factorAConstruct && factorBConstruct && outcomeConstruct) {
         const colA = factorAConstruct.columnIndexes[0]
@@ -660,8 +660,8 @@ export async function POST(req: NextRequest) {
     let chisquare: any = null
     if (analysisTypes.includes('chisquare') && session.chisquare_config) {
       const { rowConstructId, colConstructId } = session.chisquare_config
-      const rowConstruct = constructs.find((c: any) => c.id === rowConstructId)
-      const colConstruct = constructs.find((c: any) => c.id === colConstructId)
+      const rowConstruct = resolveVariableConstruct(rowConstructId, constructs, columnHeaders)
+      const colConstruct = resolveVariableConstruct(colConstructId, constructs, columnHeaders)
 
       if (rowConstruct && colConstruct) {
         const rowCol = rowConstruct.columnIndexes[0]
@@ -818,13 +818,15 @@ export async function POST(req: NextRequest) {
 function resolveVariableConstruct(id: string, constructs: any[], columnHeaders: string[]): any | null {
   if (!id) return null
   if (id.startsWith('item::')) {
-    const parts = id.split('::')
-    const parentId = parts[1]
-    const colIndex = Number(parts[2])
+    // PHASE6: accept item::<id>:<col> and item::<id>::<col>
+    const _m = id.slice(6).match(/^(.*?)(?:::|:)(\d+)$/)
+    const parentId = _m ? _m[1] : ''
+    const colIndex = _m ? Number(_m[2]) : NaN
     const parent = constructs.find((c: any) => c.id === parentId)
     if (!parent || Number.isNaN(colIndex)) return null
     const reversed = (parent.reverseIndexes || []).includes(colIndex)
     return {
+      ...parent,
       id,
       name: columnHeaders?.[colIndex] || `${parent.name} - Item ${colIndex + 1}`,
       role: parent.role,
