@@ -2,6 +2,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { CITATION_STYLES } from "@/lib/citationStyles";
+import { parseProposal, linkify } from "@/lib/proposalFormat";
+import { proposalToDocxBlob, triggerDownload, safeFileName } from "@/lib/proposalDocx";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,6 +27,24 @@ function parseTopics(text: string): TopicPreview[] {
     const summary = chunk.replace(/Topic\s*\d+:\s*.+/i, "").trim();
     return { title, summary, raw: chunk };
   });
+}
+
+type ProposalDoc = { title: string; text: string };
+
+function Runs({ text }: { text: string }) {
+  return (
+    <>
+      {linkify(text).map((r, k) =>
+        r.href ? (
+          <a key={k} href={r.href} target="_blank" rel="noopener noreferrer" style={{ color: "#1D6FB8", wordBreak: "break-all" }}>
+            {r.text}
+          </a>
+        ) : (
+          <span key={k}>{r.text}</span>
+        )
+      )}
+    </>
+  );
 }
 
 function problemLabel(category: string) {
@@ -63,6 +84,9 @@ export default function NewProposal() {
   const [showFullConfirm, setShowFullConfirm] = useState(false);
   const [generatingFull, setGeneratingFull] = useState(false);
   const [fullProposal, setFullProposal] = useState("");
+  const [proposals, setProposals] = useState<ProposalDoc[]>([]);
+  const [progressMsg, setProgressMsg] = useState("");
+  const [citationStyle, setCitationStyle] = useState("APA7");
 
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
@@ -206,19 +230,89 @@ export default function NewProposal() {
     }
   };
 
-  const handleGenerateFullProposal = async (topic: TopicPreview) => {
-    setGeneratingFull(true);
+  const downloadDoc = async (d: ProposalDoc) => {
+    try {
+      const blob = await proposalToDocxBlob(d.text);
+      triggerDownload(blob, `${safeFileName(d.title)}.docx`);
+    } catch {
+      setErrorMsg("Could not prepare the Word file. Tap the Download button on that proposal to try again.");
+    }
+  };
+
+  const saveProposalsToBunker = async (docs: ProposalDoc[]) => {
+    if (!docs.length) return;
+    setSaving(true);
     setSavedMsg("");
     try {
-      const res = await fetch("/api/generate-proposal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ institution, course, department, interest, sequence, researchType, problemStatement, chosenTopic: topic.raw }),
-      });
-      const data = await res.json();
-      setFullProposal(data.proposal);
+      const { error } = await supabase.from("bunker_items").insert(
+        docs.map((d) => ({
+          user_id: userId,
+          item_name: `${course} Proposal — ${d.title}`,
+          content_reference: d.text,
+        }))
+      );
+      setSavedMsg(error ? "Could not save to Bunker. Please try again." : "Saved to My Bunker successfully!");
     } catch {
-      setErrorMsg("Something went wrong generating the full proposal. Please try again.");
+      setSavedMsg("Something went wrong. Please try again.");
+    }
+    setSaving(false);
+  };
+
+  const FEEDBACK_FALLBACK =
+    "10. Supervisor-Style Feedback\nSupervisor feedback could not be generated for this proposal. Please generate again.";
+
+  const handleGenerateFullProposal = async (_topic: TopicPreview) => {
+    const list = [_topic];
+    setGeneratingFull(true);
+    setSavedMsg("");
+    setErrorMsg("");
+    setProposals([]);
+    setFullProposal("generating"); // opens the results area while the proposals are written
+    const done: ProposalDoc[] = [];
+    let failed = 0;
+    for (let i = 0; i < list.length; i++) {
+      setProgressMsg("Writing your proposal...");
+      try {
+        const base = {
+          institution, course, department, interest, sequence,
+          researchType, problemStatement, chosenTopic: list[i].raw, citationStyle,
+        };
+        const res = await fetch("/api/generate-proposal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(base),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.proposal) throw new Error("proposal failed");
+        let text: string = data.proposal;
+        try {
+          const fres = await fetch("/api/generate-proposal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...base, part: "feedback", draft: text }),
+          });
+          const fdata = await fres.json();
+          text += "\n\n" + (fres.ok && fdata.feedback ? fdata.feedback : FEEDBACK_FALLBACK);
+        } catch {
+          text += "\n\n" + FEEDBACK_FALLBACK;
+        }
+        const doc: ProposalDoc = { title: data.topicTitle || list[i].title, text };
+        done.push(doc);
+        setProposals([...done]);
+        await downloadDoc(doc);
+        await new Promise((r) => setTimeout(r, 400));
+      } catch {
+        failed++;
+      }
+    }
+    setProgressMsg("");
+    if (done.length === 0) {
+      setFullProposal("");
+      setErrorMsg("Something went wrong generating the full proposals. Please try again.");
+    } else {
+      setFullProposal(done.map((d) => d.text).join("\n\n----------\n\n"));
+      if (failed > 0) setErrorMsg(`${failed} of ${list.length} proposals could not be generated.`);
+      await saveProposalsToBunker(done);
     }
     setGeneratingFull(false);
   };
@@ -250,6 +344,17 @@ export default function NewProposal() {
     fontSize: "14px", color: "#333333", marginBottom: "14px", boxSizing: "border-box" as const,
   };
   const labelStyle = { fontSize: "13px", fontWeight: 600, color: "#333333", marginBottom: "6px", display: "block" as const };
+
+  const citationSelect = (
+    <div>
+      <label style={labelStyle}>Citation Style (applies to your proposals)</label>
+      <select value={citationStyle} onChange={(e) => setCitationStyle(e.target.value)} style={inputStyle}>
+        {CITATION_STYLES.map((s) => (
+          <option key={s.value} value={s.value}>{s.label}</option>
+        ))}
+      </select>
+    </div>
+  );
 
   if (stage === "loading") {
     return (
@@ -310,7 +415,8 @@ export default function NewProposal() {
           <label style={labelStyle}>Specific Focus (optional)</label>
           <input style={inputStyle} value={sequence} onChange={(e) => setSequence(e.target.value)} placeholder="e.g. Artificial Intelligence, Renewable Energy" />
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
-          <button onClick={handleGenerateTopics} disabled={loading || !canGeneratePure} style={{ width: "100%", backgroundColor: GOLD, color: "#333333", border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "8px" }}>
+          {citationSelect}
+            <button onClick={handleGenerateTopics} disabled={loading || !canGeneratePure} style={{ width: "100%", backgroundColor: GOLD, color: "#333333", border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "8px" }}>
             {loading ? "Generating your topics..." : "Generate 5 Topics"}
           </button>
         </div>
@@ -327,7 +433,8 @@ export default function NewProposal() {
           <label style={labelStyle}>{problemLabel(userCategory)}</label>
           <textarea style={{ ...inputStyle, minHeight: "90px", resize: "vertical" as const }} value={problemStatement} onChange={(e) => setProblemStatement(e.target.value)} placeholder="Describe the specific problem or challenge you want your research to address" />
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
-          <button onClick={handleGenerateTopics} disabled={loading || !canGenerateApplied} style={{ width: "100%", backgroundColor: GOLD, color: "#333333", border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "8px" }}>
+          {citationSelect}
+            <button onClick={handleGenerateTopics} disabled={loading || !canGenerateApplied} style={{ width: "100%", backgroundColor: GOLD, color: "#333333", border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "8px" }}>
             {loading ? "Generating your topics..." : "Generate 5 Topics"}
           </button>
         </div>
@@ -356,23 +463,75 @@ export default function NewProposal() {
       )}
 
       {fullProposal && (
-        <div style={{ marginTop: "16px" }}>
-          <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}` }}>
-            <button onClick={() => { setFullProposal(''); setSelectedTopic(null); setSavedMsg(''); }} style={{ backgroundColor: 'transparent', color: '#333333', border: '1px solid #DDDDDD', borderRadius: '10px', padding: '10px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginBottom: '14px' }}>
+          <div style={{ marginTop: "16px", paddingBottom: "130px" }}>
+            <button
+              onClick={() => { setFullProposal(""); setProposals([]); setSelectedTopic(null); setSavedMsg(""); setErrorMsg(""); }}
+              disabled={generatingFull}
+              style={{ backgroundColor: "transparent", color: "#333333", border: "1px solid #DDDDDD", borderRadius: "10px", padding: "10px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer", marginBottom: "14px" }}
+            >
               ← Back to Topics
             </button>
-            <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "14px", color: "#333333", lineHeight: "1.6", margin: 0 }}>{fullProposal}</pre>
+            {generatingFull && (
+              <p style={{ color: MUTED, fontSize: "14px", lineHeight: 1.6, marginBottom: "12px" }}>
+                {progressMsg || "Preparing..."} Each proposal downloads automatically when it is ready. Please keep this page open.
+              </p>
+            )}
+            {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
+            {proposals.map((p, i) => {
+              const parsed = parseProposal(p.text);
+              return (
+                <div key={i} style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}`, marginBottom: "16px" }}>
+                  <p style={{ fontSize: "17px", fontWeight: 700, color: DARK, lineHeight: 1.4, margin: "0 0 14px" }}>{parsed.title}</p>
+                  {parsed.blocks.map((b, j) =>
+                    b.kind === "heading" ? (
+                      <p key={j} style={{ fontSize: "15px", fontWeight: 700, color: DARK, margin: "22px 0 8px" }}>{b.text}</p>
+                    ) : (
+                      <p key={j} style={{ fontSize: "14px", lineHeight: 1.7, color: DARK, margin: "0 0 10px" }}>
+                        {b.label && <strong>{b.label}: </strong>}
+                        <Runs text={b.text} />
+                      </p>
+                    )
+                  )}
+                  <button
+                    onClick={() => downloadDoc(p)}
+                    style={{ marginTop: "12px", backgroundColor: "#333333", color: "#ffffff", border: "none", borderRadius: "10px", padding: "10px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Download Word file
+                  </button>
+                </div>
+              );
+            })}
+            {!generatingFull && proposals.length > 0 && (
+              <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, backgroundColor: "#ffffff", borderTop: `1px solid ${BORDER}`, padding: "10px 16px calc(10px + env(safe-area-inset-bottom))", zIndex: 50, boxSizing: "border-box" }}>
+                {savedMsg && (
+                  <p style={{ color: savedMsg.includes("successfully") ? "#1D8A4C" : "#C0392B", fontSize: "13px", fontWeight: 600, margin: "0 0 8px", textAlign: "center" }}>{savedMsg}</p>
+                )}
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    onClick={() => saveProposalsToBunker(proposals)}
+                    disabled={saving}
+                    style={{ flex: 1, backgroundColor: GOLD, color: "#333333", border: "none", borderRadius: "10px", padding: "13px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    {saving ? "Saving..." : "Save to My Bunker"}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      for (const d of proposals) {
+                        await downloadDoc(d);
+                        await new Promise((r) => setTimeout(r, 400));
+                      }
+                    }}
+                    style={{ flex: 1, backgroundColor: "#333333", color: "#ffffff", border: "none", borderRadius: "10px", padding: "13px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Export as Word
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-          <button onClick={handleSaveToBunker} disabled={saving} style={{ width: "100%", backgroundColor: GOLD, color: "#333333", border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "16px" }}>
-            {saving ? "Saving..." : "Save to My Bunker"}
-          </button>
-          {savedMsg && (
-            <p style={{ color: savedMsg.includes("successfully") ? "#1D8A4C" : "#C0392B", fontSize: "13px", fontWeight: 600, marginTop: "12px", textAlign: "center" }}>{savedMsg}</p>
-          )}
-        </div>
-      )}
+        )}
 
-      {showFullConfirm && (
+        {showFullConfirm && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", zIndex: 100 }}>
           <div style={{ backgroundColor: "#ffffff", borderRadius: "18px", padding: "24px", maxWidth: "340px", width: "100%", textAlign: "center" }}>
             <p style={{ color: "#333333", fontSize: 16, fontWeight: 700, marginBottom: "8px" }}>Confirm Payment</p>

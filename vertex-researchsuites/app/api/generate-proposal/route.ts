@@ -1,20 +1,30 @@
-export const maxDuration = 60;
-
 import { NextRequest, NextResponse } from 'next/server';
 import { callProposalChain } from '@/lib/openrouter';
+import { CITATION_STYLES } from '@/lib/citationStyles';
+import { searchVerifiedRefs, formatReference, VerifiedRef } from '@/lib/citationVerify';
 
-const SECTIONS = [
-  { key: 'background', title: '1. Background of the Study', instruction: 'Provide detailed context for this topic, explaining the general area and why it is worth studying.' },
-  { key: 'problem', title: '2. Statement of the Problem', instruction: 'Clearly articulate the specific gap or issue this study addresses.' },
-  { key: 'objectives', title: '3. Objectives of the Study', instruction: 'State one general objective and 3-4 specific objectives, each briefly explained.' },
-  { key: 'questions', title: '4. Research Questions', instruction: 'State 3-4 clear research questions, each with a brief explanation of what it investigates.' },
-  { key: 'significance', title: '5. Significance of the Study', instruction: 'Explain who benefits from this study and how.' },
-  { key: 'methodology', title: '6. Research Methodology', instruction: 'Describe the research design, population/sample, data collection method, and analysis approach in real detail.' },
-  { key: 'feasibility', title: '7. Feasibility Note', instruction: 'Explain honestly why this topic is realistic for a Nigerian undergraduate/postgraduate student to complete within a typical academic timeframe, considering data access, cost, and local context.' },
-  { key: 'feedback', title: "8. Supervisor's Likely Feedback", instruction: 'Write 2-3 realistic points a supervisor might push back on regarding this proposal, and suggest how the student could address each one.' },
+export const maxDuration = 60;
+
+interface Section { title: string; instruction: string; maxLines: number; listOk: boolean }
+
+const SECTIONS: Section[] = [
+  { title: '1. Background of the Study', maxLines: 8, listOk: false, instruction: 'Provide detailed context for this topic, explaining the general area and why it is worth studying.' },
+  { title: '2. Statement of the Problem', maxLines: 8, listOk: false, instruction: 'Clearly articulate the specific gap or issue this study addresses.' },
+  { title: '3. Objectives of the Study', maxLines: 8, listOk: true, instruction: 'State one general objective and 3-4 specific objectives, each briefly explained.' },
+  { title: '4. Research Questions', maxLines: 8, listOk: true, instruction: 'State 3-4 clear research questions, each with a brief explanation of what it investigates.' },
+  { title: '5. Significance of the Study', maxLines: 8, listOk: false, instruction: 'Explain who benefits from this study and how.' },
+  {
+    title: '6. Theoretical Framework', maxLines: 20, listOk: true,
+    instruction: 'Name exactly TWO theories that support and justify this course of study and this topic. For each theory: name it and the scholar who proposed it, explain its core ideas in concrete, vivid detail, give one specific realistic example from this topic\'s own setting showing the theory at work, and state exactly how it supports and justifies studying this topic. Label them "Theory 1:" and "Theory 2:". Do not cite any article, book or publication year, and do not write a reference list.',
+  },
+  { title: '7. Research Methodology', maxLines: 10, listOk: false, instruction: 'Describe the research design, population/sample, data collection method, and analysis approach in real detail.' },
+  {
+    title: '8. Sampling Procedure', maxLines: 24, listOk: true,
+    instruction: 'State the research design to be employed and how it is proposed to be carried out. Present every stage clearly, one stage per line labelled "Stage 1:", "Stage 2:" and so on (for example target population, sampling frame, sampling technique, sample size determination, selection and recruitment, data collection, data handling), and for each stage give the reasoning behind the procedural choice. Keep it realistic for a Nigerian student project.',
+  },
 ];
 
-function buildSectionPrompt(studentDetails: string, chosenTopic: string, researchType: string, problemStatement: string, section: { title: string; instruction: string }) {
+function buildSectionPrompt(studentDetails: string, chosenTopic: string, researchType: string, problemStatement: string, s: Section) {
   return `You are an experienced academic research supervisor in Nigeria, writing one section of a student's full-length research proposal.
 
 ${studentDetails}
@@ -23,38 +33,74 @@ ${researchType === 'applied' ? `This is APPLIED research addressing this real-wo
 Chosen topic:
 ${chosenTopic}
 
-Write ONLY the section "${section.title}".
-${section.instruction}
+Write ONLY the section "${s.title}".
+${s.instruction}
 
 STRICT RULES:
-- Maximum 8 lines of text. Be concise and precise, not verbose.
+- Maximum ${s.maxLines} lines. Be precise, not verbose.
 - Write in clear, professional academic English appropriate for a Nigerian university context.
 - Do NOT include the section title/heading in your output — just the body text.
 - Do NOT include any preamble, introduction, or closing remarks.
-- No markdown formatting, no bullet points unless the section is Research Questions or Objectives (then use plain numbered lines, no markdown symbols).`;
+- ${s.listOk ? 'Use plain numbered or labelled lines only, with no markdown symbols.' : 'No markdown formatting and no bullet points.'}`;
 }
 
-function buildReferencesPrompt(studentDetails: string, chosenTopic: string) {
-  return `You are an experienced academic research supervisor in Nigeria.
+function buildFeedbackPrompt(studentDetails: string, chosenTopic: string, draft: string) {
+  return `You are an experienced academic research supervisor in Nigeria reviewing a student's draft research proposal.
 
 ${studentDetails}
 
 Chosen topic:
 ${chosenTopic}
 
-Provide a short list of 5-6 illustrative example references in APA 7th edition format relevant to this topic area.
-Start your output with exactly this line: "Note: These are illustrative examples only. Verify all references independently and replace with real, current sources before submission."
-Then list the 5-6 references, each on its own line, properly APA formatted.
-Do not present these as verified real papers. No other commentary.`;
+Draft proposal:
+${draft.slice(0, 12000)}
+
+Task: go through the proposal section by section (Background, Statement of the Problem, Objectives, Research Questions, Significance, Theoretical Framework, Methodology, Sampling Procedure). For each section, state the 1-2 most important questions a real supervisor would likely raise from THAT section. Present each question clearly, then answer it so the student can defend their work.
+
+FORMAT (plain text, no markdown symbols):
+Section: [section name]
+Question: [the question]
+Answer: [a direct, specific answer grounded in what the draft actually says]
+
+RULES:
+- Ground every question and answer in the draft above.
+- Do not cite any article, book, author or publication year.
+- No preamble and no closing remarks.`;
+}
+
+const plain = (s: string) =>
+  s.replace(/\*\*|__|`/g, '').replace(/^#{1,6}\s*/gm, '').replace(/^\s*\*\s+/gm, '').trim();
+
+function topicTitle(raw: string): string {
+  const m = raw.match(/Topic\s*\d+\s*:\s*(.+)/i);
+  return (m ? m[1] : raw.split('\n')[0]).replace(/[*#]/g, '').trim();
+}
+
+const NUMBERED = new Set(['Vancouver', 'IEEE', 'AMA']);
+
+function buildReferenceItems(refs: VerifiedRef[], style: string): { text: string; url: string }[] {
+  const list = NUMBERED.has(style)
+    ? refs
+    : [...refs].sort((a, b) => a.authors[0].family.localeCompare(b.authors[0].family));
+  return list.map((r, i) => {
+    const t = formatReference(r, style).replace(/\*/g, '');
+    const text = style === 'IEEE' ? `[${i + 1}] ${t}` : NUMBERED.has(style) ? `${i + 1}. ${t}` : t;
+    return { text, url: r.url };
+  });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { institution, course, department, interest, sequence, chosenTopic, researchType, problemStatement } = await req.json();
+    const body = await req.json();
+    const { institution, course, department, interest, sequence, researchType, problemStatement, chosenTopic, part, draft } = body;
 
     if (!chosenTopic) {
       return NextResponse.json({ proposal: 'No topic was provided to expand into a proposal.' }, { status: 400 });
     }
+
+    const style = CITATION_STYLES.some((s) => s.value === body.citationStyle) ? String(body.citationStyle) : 'APA7';
+    const topicRaw = String(chosenTopic);
+    const topic = topicTitle(topicRaw);
 
     const studentDetails = `Student details:
 Institution: ${institution}
@@ -64,18 +110,47 @@ ${interest ? `Research interest: ${interest}` : ''}
 ${sequence ? `Additional focus: ${sequence}` : ''}`;
 
     try {
-      const sectionPromises = SECTIONS.map((section) =>
-        callProposalChain(buildSectionPrompt(studentDetails, chosenTopic, researchType, problemStatement, section))
-          .then((r) => ({ title: section.title, text: (r.content || '').trim() }))
-      );
-      const referencesPromise = callProposalChain(buildReferencesPrompt(studentDetails, chosenTopic))
-        .then((r) => ({ title: '9. Suggested References', text: (r.content || '').trim() }));
+      if (part === 'feedback') {
+        if (!draft) return NextResponse.json({ feedback: 'No draft was provided.' }, { status: 400 });
+        const r = await callProposalChain(buildFeedbackPrompt(studentDetails, topicRaw, String(draft)));
+        const text = plain(r.content || '');
+        if (!text) throw new Error('Supervisor feedback came back empty');
+        return NextResponse.json({ feedback: `10. Supervisor-Style Feedback\n${text}` });
+      }
 
-      const results = await Promise.all([...sectionPromises, referencesPromise]);
+      const [sections, found] = await Promise.all([
+        Promise.all(
+          SECTIONS.map(async (s) => {
+            const r = await callProposalChain(buildSectionPrompt(studentDetails, topicRaw, researchType, problemStatement, s));
+            const text = plain(r.content || '');
+            if (!text) throw new Error(`Section "${s.title}" came back empty`);
+            return `${s.title}\n${text}`;
+          })
+        ),
+        searchVerifiedRefs(topic, 6),
+      ]);
 
-      const proposal = results.map((r) => `${r.title}\n${r.text}`).join('\n\n');
+      const yr = new Date().getFullYear();
+      const items = buildReferenceItems(found.refs, style);
+      let note: string;
+      if (items.length === 0) {
+        note = `No verifiable references could be retrieved for this topic right now. None have been invented. Please search for ${found.fromYear}-${yr} sources yourself, or try again later.`;
+      } else {
+        note = `Each reference below was retrieved from the CrossRef/OpenAlex scholarly registries (DOI-linked, published ${found.fromYear}-${yr}). Open each link to confirm it fits your study before citing it.`;
+        if (found.shortfall > 0) {
+          note += ` Only ${items.length} verified references were found for this topic in that window; please add more yourself. None have been invented to fill the gap.`;
+        }
+      }
+      const refBlock = `9. References\n${note}${items.length ? `\n\n${items.map((i) => i.text).join('\n\n')}` : ''}`;
+      const proposal = `${topic}\n\n${sections.join('\n\n')}\n\n${refBlock}`;
 
-      return NextResponse.json({ proposal });
+      return NextResponse.json({
+        proposal,
+        references: items,
+        topicTitle: topic,
+        citationStyle: style,
+        shortfall: found.shortfall,
+      });
     } catch (err: any) {
       return NextResponse.json({ proposal: 'Something went wrong generating the proposal. Please try again.', error: err.message }, { status: 500 });
     }
