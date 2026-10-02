@@ -62,9 +62,9 @@ export function buildRegressionTables(reg: any, tableNumber: number, citationSty
         makeTable(
           ["Source", "SS", "df", "MS", "F", "p"],
           [
-            ["Regression", fmt(reg.anova.regression?.ss ?? reg.anova.regression), "", "", fmt(reg.anova.F), fmtP(reg.anova.p)],
-            ["Residual", fmt(reg.anova.residual?.ss ?? reg.anova.residual), "", "", "", ""],
-            ["Total", fmt(reg.anova.total?.ss ?? reg.anova.total), "", "", "", ""],
+            ["Regression", fmt(reg.anova.regression?.ss ?? reg.anova.regression), fmt(reg.anova.regression?.df ?? reg.anova.df1, 0), fmt(reg.anova.regression?.ms), fmt(reg.anova.F), fmtP(reg.anova.p)],
+            ["Residual", fmt(reg.anova.residual?.ss ?? reg.anova.residual), fmt(reg.anova.residual?.df ?? reg.anova.df2, 0), fmt(reg.anova.residual?.ms), "", ""],
+            ["Total", fmt(reg.anova.total?.ss ?? reg.anova.total), fmt(reg.anova.total?.df ?? ((reg.anova.df1 != null && reg.anova.df2 != null) ? reg.anova.df1 + reg.anova.df2 : null), 0), "", "", ""],
           ],
           true
         ),
