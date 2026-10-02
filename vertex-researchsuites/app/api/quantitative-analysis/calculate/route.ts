@@ -268,6 +268,8 @@ export async function POST(req: NextRequest) {
               SE: r3(reg.standardErrors[i + 1]),
               beta: r3(reg.betas[i]),
               t: r3(reg.tStats[i + 1]),
+            vif: (reg.vif && reg.vif[i] != null) ? r3(reg.vif[i]) : null,
+            tolerance: (reg.tolerance && reg.tolerance[i] != null) ? r3(reg.tolerance[i]) : null,
               p: r3(reg.pValues[i + 1])
             }))
           ]

@@ -186,6 +186,7 @@ export function olsRegression(y: number[], X: number[][], ivNames: string[]) {
   }
   const betas = B.slice(1).map((b, i) => b * (xStds[i] / yStd))
 
+  const collinearity = computeCollinearity(X, k)
   return {
     n, k,
     coefficients: B,
@@ -197,7 +198,9 @@ export function olsRegression(y: number[], X: number[][], ivNames: string[]) {
     dfRegression, dfResidual,
     msRegression, msResidual,
     F, fP,
-    ivNames
+    ivNames,
+    vif: collinearity.vif,
+    tolerance: collinearity.tolerance
   }
 }
 
@@ -1088,4 +1091,36 @@ export function logisticRegression(y: number[], X: number[][], ivNames: string[]
     p: overallP,
     classification: { truePos, trueNeg, falsePos, falseNeg, accuracy }
   }
+}
+
+
+// ===== Phase 4: multicollinearity (tolerance and VIF) for any number of predictors =====
+export function computeCollinearity(X: number[][], k: number): { vif: (number | null)[]; tolerance: (number | null)[] } {
+  const vif: (number | null)[] = []
+  const tolerance: (number | null)[] = []
+  const n = X.length
+  for (let j = 1; j < k; j++) {
+    if (k - 1 < 2) { vif.push(null); tolerance.push(null); continue }
+    try {
+      const yj = X.map(r => r[j])
+      const Xo = X.map(r => r.filter((_, c) => c !== j))
+      const Xt = transpose(Xo)
+      const b: any = matMulVec(invertMatrix(matMul(Xt, Xo)), matMulVec(Xt, yj))
+      const mj = mean(yj)
+      let ssT = 0
+      let ssR = 0
+      for (let i = 0; i < n; i++) {
+        const pred = Xo[i].reduce((s: number, v: number, c: number) => s + v * b[c], 0)
+        ssR += (yj[i] - pred) ** 2
+        ssT += (yj[i] - mj) ** 2
+      }
+      const r2 = ssT > 0 ? 1 - ssR / ssT : 0
+      const tol = 1 - r2
+      if (!isFinite(tol) || tol < 1e-10) { vif.push(null); tolerance.push(null) }
+      else { tolerance.push(tol); vif.push(1 / tol) }
+    } catch (e) {
+      vif.push(null); tolerance.push(null)
+    }
+  }
+  return { vif, tolerance }
 }
