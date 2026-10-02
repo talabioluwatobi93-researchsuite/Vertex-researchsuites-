@@ -1,10 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CITATION_STYLES } from '@/lib/citationStyles'
+import { createClient } from '@supabase/supabase-js'
 
 type Item = { id: string; text: string }
 type Result = { id: string; text: string; ok: boolean; reason?: string }
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+)
 
 async function runPool<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
   const results: T[] = new Array(tasks.length)
@@ -36,6 +42,24 @@ export default function ReportRestylePage() {
   const [error, setError] = useState('')
   const [summary, setSummary] = useState('')
   const [warnings, setWarnings] = useState<string[]>([])
+  const [pricePerUse, setPricePerUse] = useState(0)
+  const [userId, setUserId] = useState('')
+  const [showConfirm, setShowConfirm] = useState(false)
+  const formattedPrice = pricePerUse.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) setUserId(user.id)
+      try {
+        const { data } = await supabase.from('feature_pricing').select('price').eq('feature_name', 'report_restyle').single()
+        setPricePerUse(data?.price ?? 0)
+      } catch {
+        setPricePerUse(0)
+      }
+    }
+    init()
+  }, [])
 
   async function callRewrite(items: Item[]): Promise<Result[]> {
     try {
@@ -52,9 +76,64 @@ export default function ReportRestylePage() {
     }
   }
 
-  async function handleRestyle() {
+  async function refund(): Promise<boolean> {
+    try {
+      const { data: w } = await supabase.from('wallets').select('balance').eq('id', userId).single()
+      const b = w?.balance ?? 0
+      const { error: e } = await supabase.from('wallets').update({ balance: b + pricePerUse }).eq('id', userId)
+      if (e) return false
+      await supabase.from('transactions').insert({ user_id: userId, type: 'credit', amount: pricePerUse, status: 'success', description: 'Refund: Restyle Your Report' })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  function handleButtonClick() {
     if (!file) { setError('Please choose your .docx report first.'); return }
     if (!style) { setError('Please choose a citation style.'); return }
+    setError('')
+    if (pricePerUse === 0) {
+      runRestyle()
+    } else {
+      setShowConfirm(true)
+    }
+  }
+
+  async function handleAccept() {
+    setShowConfirm(false)
+    setError('')
+    if (!userId) { setError('Please log in to continue.'); return }
+    setBusy(true)
+    try {
+      const { data: wallet } = await supabase.from('wallets').select('balance').eq('id', userId).single()
+      const balance = wallet?.balance ?? 0
+      if (balance < pricePerUse) {
+        setError('Your balance is not enough, kindly top up.')
+        setBusy(false)
+        return
+      }
+      const { error: deductError } = await supabase.from('wallets').update({ balance: balance - pricePerUse }).eq('id', userId)
+      if (deductError) {
+        setError('Could not process payment. Please try again.')
+        setBusy(false)
+        return
+      }
+      await supabase.from('transactions').insert({ user_id: userId, type: 'debit', amount: pricePerUse, status: 'success', description: 'Restyle Your Report' })
+    } catch {
+      setError('Something went wrong. Please try again.')
+      setBusy(false)
+      return
+    }
+    const ok = await runRestyle()
+    if (!ok) {
+      const refunded = await refund()
+      setError((prev) => prev + (refunded ? ' You have not been charged: the amount was returned to your wallet.' : ' Please contact support to have your payment returned.'))
+    }
+  }
+
+  async function runRestyle(): Promise<boolean> {
+    if (!file || !style) return false
     setBusy(true)
     setError('')
     setSummary('')
@@ -134,9 +213,11 @@ export default function ReportRestylePage() {
           : '')
       )
       setWarnings(info.warnings || [])
+      return true
     } catch (e: any) {
       setStatus('')
       setError(e?.message || 'Something went wrong. Please try again.')
+      return false
     } finally {
       setBusy(false)
     }
@@ -173,14 +254,14 @@ export default function ReportRestylePage() {
       </select>
 
       <button
-        onClick={handleRestyle}
+        onClick={handleButtonClick}
         disabled={busy}
         style={{
           width: '100%', padding: 14, border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600,
           background: busy ? '#999' : '#111', color: '#fff', cursor: busy ? 'default' : 'pointer',
         }}
       >
-        {busy ? 'Working...' : 'Restyle and Download'}
+        {busy ? 'Working...' : pricePerUse > 0 ? 'Restyle and Download (₦' + formattedPrice + ')' : 'Restyle and Download'}
       </button>
 
       {status && <p style={{ marginTop: 16, color: '#333' }}>{status}</p>}
@@ -189,6 +270,20 @@ export default function ReportRestylePage() {
       {warnings.map((w, i) => (
         <p key={i} style={{ marginTop: 8, color: '#8a6d00', fontSize: 14 }}>{w}</p>
       ))}
+      {showConfirm && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 100 }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '18px', padding: '24px', maxWidth: '340px', width: '100%', textAlign: 'center' }}>
+            <p style={{ color: '#333333', fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>Confirm Payment</p>
+            <p style={{ color: '#555555', fontSize: '14px', marginBottom: '20px' }}>
+              ₦{formattedPrice} will be deducted from your wallet to restyle this report. Do you want to proceed?
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setShowConfirm(false)} style={{ flex: 1, backgroundColor: '#EEEEEE', color: '#333333', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Reject</button>
+              <button onClick={handleAccept} style={{ flex: 1, backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Accept</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
