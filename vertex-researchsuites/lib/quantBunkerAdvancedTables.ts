@@ -92,7 +92,8 @@ export function buildModerationTables(mod: any, tableNumber: number, citationSty
     ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
     : baseMakeTable;
   const modelTitle = `Table ${tableNumber}. Model Summary for ${mod.outcomeName}`;
-  const coefTitle = `Table ${tableNumber + 1}. Moderation Coefficients (${mod.predictorName} x ${mod.moderatorName} on ${mod.outcomeName})`;
+  const anovaTitle = `Table ${tableNumber + 1}. Moderation ANOVA for ${mod.outcomeName}`;
+  const coefTitle = `Table ${tableNumber + (mod.anova ? 2 : 1)}. Moderation Coefficients (${mod.predictorName} x ${mod.moderatorName} on ${mod.outcomeName})`;
 
   return [
     {
@@ -107,6 +108,26 @@ export function buildModerationTables(mod: any, tableNumber: number, citationSty
         spacer(),
       ],
     },
+    ...(mod.anova
+      ? [
+          {
+            title: anovaTitle,
+            blocks: [
+              tableTitle(anovaTitle),
+              makeTable(
+                ["Source", "SS", "df", "MS", "F", "p"],
+                [
+                  ["Regression", fmt(mod.anova.regression?.ss), fmt(mod.anova.regression?.df, 0), fmt(mod.anova.regression?.ms), fmt(mod.anova.F), fmtP(mod.anova.p)],
+                  ["Residual", fmt(mod.anova.residual?.ss), fmt(mod.anova.residual?.df, 0), fmt(mod.anova.residual?.ms), "", ""],
+                  ["Total", fmt(mod.anova.total?.ss), fmt(mod.anova.total?.df, 0), "", "", ""],
+                ],
+                true
+              ),
+              spacer(),
+            ],
+          },
+        ]
+      : []),
     {
       title: coefTitle,
       blocks: [
