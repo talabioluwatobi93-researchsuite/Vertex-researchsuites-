@@ -930,19 +930,19 @@ export function sobelMediation(predictor: number[], mediator: number[], outcome:
   const n = predictor.length
 
   // Path a: M ~ X
-  const pathAModel = olsRegression(mediator, predictor.map(x => [x]), ['Predictor'])
+  const pathAModel = olsRegression(mediator, predictor.map(x => [1, x]), ['Predictor'])
   const a = pathAModel.coefficients[1]
   const seA = pathAModel.standardErrors[1]
 
   // Path b and path c': Y ~ M + X (mediator effect controlling for predictor)
-  const pathBModel = olsRegression(outcome, predictor.map((x, i) => [mediator[i], x]), ['Mediator', 'Predictor'])
+  const pathBModel = olsRegression(outcome, predictor.map((x, i) => [1, mediator[i], x]), ['Mediator', 'Predictor'])
   const b = pathBModel.coefficients[1]
   const seB = pathBModel.standardErrors[1]
   const cPrime = pathBModel.coefficients[2]
   const seCPrime = pathBModel.standardErrors[2]
 
   // Total effect (path c): Y ~ X alone (no mediator)
-  const pathCModel = olsRegression(outcome, predictor.map(x => [x]), ['Predictor'])
+  const pathCModel = olsRegression(outcome, predictor.map(x => [1, x]), ['Predictor'])
   const c = pathCModel.coefficients[1]
   const seC = pathCModel.standardErrors[1]
 
