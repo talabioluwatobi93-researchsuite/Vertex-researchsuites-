@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { runQuantInterpretation } from "@/lib/quantInterpret";
+import { callQuantInterpretChain } from "@/lib/openrouter";
 import { TableGroup, CitationStyle } from "@/lib/quantBunkerDocx";
 import {
   buildDescriptivesTable,
@@ -55,6 +56,7 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle):
   function safeBuild(label: string, fn: () => TableGroup[]) {
     try {
       const g = fn();
+      g.forEach((x: any, i: number) => { x.source = label; x.srcIndex = i; });
       groups = groups.concat(g);
       n += g.length;
     } catch (e: any) {
@@ -66,6 +68,7 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle):
   async function safeBuildAsync(label: string, fn: () => Promise<TableGroup[]>) {
     try {
       const g = await fn();
+      g.forEach((x: any, i: number) => { x.source = label; x.srcIndex = i; });
       groups = groups.concat(g);
       n += g.length;
     } catch (e: any) {
@@ -130,6 +133,7 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle):
 export async function POST(req: Request) {
   try {
     const { sessionId } = await req.json();
+    const startedAt = Date.now();
     if (!sessionId) {
       return NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
     }
@@ -239,7 +243,108 @@ export async function POST(req: Request) {
     });
     const untitled = tableGroupsB.filter((_, idx) => !assigned.has(idx)).map((g) => g.title);
     if (untitled.length > 0) console.warn("Doc B: tables without a matched interpretation:", JSON.stringify(untitled));
-    const findInterp = (idx: number): string | undefined => assigned.get(idx);
+    // ---- Phase 3 guarantee: an interpretation under EVERY table, keyed by position not title ----
+      {
+        const missingIdx: number[] = [];
+        tableGroupsB.forEach((g: any, idx: number) => {
+          if (!assigned.has(idx) && g && g.source) missingIdx.push(idx);
+        });
+        if (missingIdx.length > 0) {
+          const results: any = session.results || {};
+          const fresh = new Map<number, string>();
+          const hypCtx = JSON.stringify(session.research_framework?.hypotheses || []).slice(0, 1500);
+          const conCtx = JSON.stringify((session.constructs || []).map((c: any) => ({
+            name: c.name, role: c.role, scaleMin: c.scaleMin, scaleMax: c.scaleMax,
+            preset: c.presetLabel, reversed: c.scaleReversed,
+          }))).slice(0, 1500);
+
+          const itemFor = (idx: number) => {
+            const g: any = tableGroupsB[idx];
+            let d: any = results[g.source];
+            if ((g.source === "frequencyTables" || g.source === "itemDescriptives") && Array.isArray(d)) d = d[g.srcIndex];
+            let str = "";
+            try { str = JSON.stringify(d) || ""; } catch (e) { str = ""; }
+            return { id: idx, title: g.title, data: str.length > 7000 ? str.slice(0, 7000) : str };
+          };
+
+          const runBatch = async (ids: number[]) => {
+            const elapsed = Date.now() - startedAt;
+            const timeoutMs = Math.max(5000, Math.min(24000, 55000 - elapsed));
+            const items = ids.map(itemFor);
+            const prompt =
+              "You write the interpretation that appears directly beneath each statistical table in a Chapter 4 results report for an undergraduate research submission.\n\n" +
+              "TABLES (each has an id, a title, and the underlying SPSS-style data for that table):\n" + JSON.stringify(items) + "\n\n" +
+              "Research hypotheses (context only): " + hypCtx + "\n" +
+              "Construct and scale information (context only): " + conCtx + "\n\n" +
+              "TASK: Write ONE separate interpretation for EVERY table id listed. Never skip an id and never merge tables.\n" +
+              "RULES:\n" +
+              "1. Strict third-person academic English. Never use I, we or our.\n" +
+              "2. Maximum 6 lines per table. Plain text only, no markdown, no bullet symbols.\n" +
+              "3. Use ONLY numbers present in that table's data. Never invent values.\n" +
+              "4. Frequency tables: state the largest and smallest categories with their counts and percentages.\n" +
+              "5. Item descriptives: describe the mean pattern across items in terms of the scale meaning, and name the highest and lowest items.\n" +
+              "6. Inferential tables: state the key statistic, its p-value, direction and strength, and what it means for the variables.\n" +
+              "7. Do not restate the table title.\n\n" +
+              'Respond ONLY with valid JSON, no preamble, no markdown fences: {"interpretations":[{"id":0,"interpretation":"string"}]}';
+            const res: any = await Promise.race([
+              callQuantInterpretChain(prompt),
+              new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), timeoutMs)),
+            ]);
+            const raw = String(res?.content || "").replace(/```json/g, "").replace(/```/g, "").trim();
+            const parsed = JSON.parse(raw);
+            for (const r of parsed?.interpretations || []) {
+              const id = Number(r?.id);
+              const text = String(r?.interpretation || "").trim();
+              if (ids.includes(id) && text) fresh.set(id, text);
+            }
+          };
+
+          for (let pass = 0; pass < 2; pass++) {
+            const todo = missingIdx.filter((i) => !fresh.has(i));
+            if (todo.length === 0) break;
+            const size = pass === 0 ? 5 : 2;
+            const batches: number[][] = [];
+            for (let i = 0; i < todo.length; i += size) batches.push(todo.slice(i, i + size));
+            for (let i = 0; i < batches.length; i += 4) {
+              if (Date.now() - startedAt > 28000) break;
+              await Promise.all(
+                batches.slice(i, i + 4).map((b) =>
+                  runBatch(b).catch((e: any) => console.error("Phase3 interpretation batch failed:", e?.message || e))
+                )
+              );
+            }
+          }
+
+          const toSave: Record<string, string> = {};
+          let failed = 0;
+          for (const idx of missingIdx) {
+            const t = fresh.get(idx);
+            if (t) {
+              assigned.set(idx, t);
+              toSave[(tableGroupsB[idx] as any).title] = t;
+            } else {
+              failed++;
+              assigned.set(idx, "[Interpretation for this table could not be completed within the time limit. Please download again to complete it.]");
+            }
+          }
+          if (Object.keys(toSave).length > 0) {
+            try {
+              const merged = { ...(tableInterpretations || {}), ...toSave };
+              await supabaseAdmin
+                .from("quantitative_analysis_sessions")
+                .update({ table_interpretations: merged })
+                .eq("id", sessionId);
+            } catch (e) {
+              console.error("Phase3 could not save interpretations:", e);
+            }
+          }
+          console.warn("Phase 3 guarantee: generated " + (missingIdx.length - failed) + " of " + missingIdx.length + " missing table interpretations.");
+          if (failed === 0) {
+            interpEntries.forEach((e) => { if (!e.used) e.used = true; });
+          }
+        }
+      }
+      const findInterp = (idx: number): string | undefined => assigned.get(idx);
     for (let gi = 0; gi < tableGroupsB.length; gi++) {
       const g = tableGroupsB[gi];
       docBChildren.push(...g.blocks);
