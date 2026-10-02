@@ -13,12 +13,23 @@ function r3(n: number): number { return Math.round(n * 1000) / 1000 }
 function r2(n: number): number { return Math.round(n * 100) / 100 }
 function r1(n: number): number { return Math.round(n * 10) / 10 }
 
+// PHASE6: text mappings are saved under the parent construct id; item ids fall back to it
+function lookupTextMapping(textMappings: Record<string, any>, id: string): any {
+  if (!textMappings || !id) return undefined
+  if (textMappings[id]) return textMappings[id]
+  if (id.startsWith('item::')) {
+    const m = id.slice(6).match(/^(.*?)(?:::|:)(\d+)$/)
+    if (m) return textMappings[m[1]]
+  }
+  return undefined
+}
+
     function resolveNumeric(raw: any, constructId: string, textMappings: Record<string, any>): number | null {
       if (raw === null || raw === undefined || String(raw).trim() === '') return null
       const str = String(raw).trim()
       const direct = Number(str)
       if (!isNaN(direct)) return direct
-      const mapping = textMappings[constructId]
+      const mapping = lookupTextMapping(textMappings, constructId)
       if (mapping && mapping[str] !== undefined) return Number(mapping[str])
       return null
     }
@@ -580,11 +591,11 @@ export async function POST(req: NextRequest) {
         const factorBValues: string[] = []
         const outcomeValues: number[] = []
 
-        const mappingA = textMappings[factorAConstruct.id]
+        const mappingA = lookupTextMapping(textMappings, factorAConstruct.id)
         const reverseMapA: Record<string, string> = {}
         if (mappingA) Object.entries(mappingA).forEach(([text, num]: [string, any]) => { reverseMapA[String(num)] = text })
 
-        const mappingB = textMappings[factorBConstruct.id]
+        const mappingB = lookupTextMapping(textMappings, factorBConstruct.id)
         const reverseMapB: Record<string, string> = {}
         if (mappingB) Object.entries(mappingB).forEach(([text, num]: [string, any]) => { reverseMapB[String(num)] = text })
 
@@ -667,11 +678,11 @@ export async function POST(req: NextRequest) {
         const rowCol = rowConstruct.columnIndexes[0]
         const colCol = colConstruct.columnIndexes[0]
 
-        const mappingRow = textMappings[rowConstruct.id]
+        const mappingRow = lookupTextMapping(textMappings, rowConstruct.id)
         const reverseMapRow: Record<string, string> = {}
         if (mappingRow) Object.entries(mappingRow).forEach(([text, num]: [string, any]) => { reverseMapRow[String(num)] = text })
 
-        const mappingCol = textMappings[colConstruct.id]
+        const mappingCol = lookupTextMapping(textMappings, colConstruct.id)
         const reverseMapCol: Record<string, string> = {}
         if (mappingCol) Object.entries(mappingCol).forEach(([text, num]: [string, any]) => { reverseMapCol[String(num)] = text })
 
