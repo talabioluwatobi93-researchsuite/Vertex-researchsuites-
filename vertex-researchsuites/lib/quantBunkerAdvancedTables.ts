@@ -62,9 +62,9 @@ export function buildRegressionTables(reg: any, tableNumber: number, citationSty
         makeTable(
           ["Source", "SS", "df", "MS", "F", "p"],
           [
-            ["Regression", fmt(reg.anova.regression?.ss ?? reg.anova.regression), "", "", fmt(reg.anova.F), fmtP(reg.anova.p)],
-            ["Residual", fmt(reg.anova.residual?.ss ?? reg.anova.residual), "", "", "", ""],
-            ["Total", fmt(reg.anova.total?.ss ?? reg.anova.total), "", "", "", ""],
+            ["Regression", fmt(reg.anova.regression?.ss ?? reg.anova.regression), fmt(reg.anova.regression?.df ?? reg.anova.df1, 0), fmt(reg.anova.regression?.ms), fmt(reg.anova.F), fmtP(reg.anova.p)],
+            ["Residual", fmt(reg.anova.residual?.ss ?? reg.anova.residual), fmt(reg.anova.residual?.df ?? reg.anova.df2, 0), fmt(reg.anova.residual?.ms), "", ""],
+            ["Total", fmt(reg.anova.total?.ss ?? reg.anova.total), fmt(reg.anova.total?.df ?? ((reg.anova.df1 != null && reg.anova.df2 != null) ? reg.anova.df1 + reg.anova.df2 : null), 0), "", "", ""],
           ],
           true
         ),
@@ -76,8 +76,8 @@ export function buildRegressionTables(reg: any, tableNumber: number, citationSty
       blocks: [
         tableTitle(coefTitle),
         makeTable(
-          ["Predictor", "B", "SE", "Beta", "t", "p"],
-          reg.coefficients.map((c: any) => [c.name, fmt(c.B), fmt(c.SE), fmt(c.beta), fmt(c.t), fmtP(c.p)]),
+          reg.coefficients.some((c: any) => c.vif != null) ? ["Predictor", "B", "SE", "Beta", "t", "p", "Tolerance", "VIF"] : ["Predictor", "B", "SE", "Beta", "t", "p"],
+          reg.coefficients.map((c: any) => reg.coefficients.some((x: any) => x.vif != null) ? [c.name, fmt(c.B), fmt(c.SE), fmt(c.beta), fmt(c.t), fmtP(c.p), c.tolerance != null ? fmt(c.tolerance, 3) : "", c.vif != null ? fmt(c.vif, 3) : ""] : [c.name, fmt(c.B), fmt(c.SE), fmt(c.beta), fmt(c.t), fmtP(c.p)]),
           true
         ),
         spacer(),
@@ -92,7 +92,8 @@ export function buildModerationTables(mod: any, tableNumber: number, citationSty
     ? (h: string[], r: string[][], f?: boolean) => makeTableStyled(h, r, citationStyle, f)
     : baseMakeTable;
   const modelTitle = `Table ${tableNumber}. Model Summary for ${mod.outcomeName}`;
-  const coefTitle = `Table ${tableNumber + 1}. Moderation Coefficients (${mod.predictorName} x ${mod.moderatorName} on ${mod.outcomeName})`;
+  const anovaTitle = `Table ${tableNumber + 1}. Moderation ANOVA for ${mod.outcomeName}`;
+  const coefTitle = `Table ${tableNumber + (mod.anova ? 2 : 1)}. Moderation Coefficients (${mod.predictorName} x ${mod.moderatorName} on ${mod.outcomeName})`;
 
   return [
     {
@@ -107,6 +108,26 @@ export function buildModerationTables(mod: any, tableNumber: number, citationSty
         spacer(),
       ],
     },
+    ...(mod.anova
+      ? [
+          {
+            title: anovaTitle,
+            blocks: [
+              tableTitle(anovaTitle),
+              makeTable(
+                ["Source", "SS", "df", "MS", "F", "p"],
+                [
+                  ["Regression", fmt(mod.anova.regression?.ss), fmt(mod.anova.regression?.df, 0), fmt(mod.anova.regression?.ms), fmt(mod.anova.F), fmtP(mod.anova.p)],
+                  ["Residual", fmt(mod.anova.residual?.ss), fmt(mod.anova.residual?.df, 0), fmt(mod.anova.residual?.ms), "", ""],
+                  ["Total", fmt(mod.anova.total?.ss), fmt(mod.anova.total?.df, 0), "", "", ""],
+                ],
+                true
+              ),
+              spacer(),
+            ],
+          },
+        ]
+      : []),
     {
       title: coefTitle,
       blocks: [

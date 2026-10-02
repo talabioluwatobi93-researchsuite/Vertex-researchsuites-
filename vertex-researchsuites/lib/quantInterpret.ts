@@ -154,6 +154,8 @@ GUARDRAILS (do not skip):
 6. If step3aResultTables is missing/empty for a hypothesis, return "insufficient_data" naming which hypothesis could not be tested and why.
 7. Every table gets its OWN distinct interpretation paragraph \u2014 never combine multiple tables into one shared interpretation.
     8. Keep every table's interpretation to a MAXIMUM of 6 lines. Be concise, precise, and academically excellent — no filler, no restating the raw numbers already shown in the table, no repeating the hypothesis wording verbatim.
+9. CAUSAL LANGUAGE: Correlational and regression findings from survey data must use associational wording such as 'is associated with', 'is positively related to' or 'is a significant predictor of'. Never use causal verbs such as 'influences', 'affects', 'causes', 'leads to', 'impacts' or 'drives' unless the study design is explicitly experimental. This also applies to every Supported or Rejected statement.
+10. MULTICOLLINEARITY: where a VIF or tolerance value appears in a regression table, state whether it indicates a problem (VIF above 5, or tolerance below 0.20) in that regression's interpretation.
 
 Respond ONLY with valid JSON, no preamble, no markdown fences:
 
@@ -329,6 +331,8 @@ GUARDRAILS (do not skip):
 6. If tablesBatch is empty, return "insufficient_data" naming which hypothesis could not be tested and why.
 7. Every table gets its OWN distinct interpretation - never combine tables.
 8. Keep every interpretation to a MAXIMUM of 6 lines. Be concise, precise, and academically excellent - no filler, no restating the raw numbers, no repeating the hypothesis wording verbatim.
+9. CAUSAL LANGUAGE: Correlational and regression findings from survey data must use associational wording such as 'is associated with', 'is positively related to' or 'is a significant predictor of'. Never use causal verbs such as 'influences', 'affects', 'causes', 'leads to', 'impacts' or 'drives' unless the study design is explicitly experimental. This also applies to every Supported or Rejected statement.
+10. MULTICOLLINEARITY: where a VIF or tolerance value appears in a regression table, state whether it indicates a problem (VIF above 5, or tolerance below 0.20) in that regression's interpretation.
 
 Respond ONLY with valid JSON, no preamble, no markdown fences:
 {
@@ -386,4 +390,62 @@ export function finalizeInterpretation(
   }
 
   return { interpretation, discussion, tableInterpretations }
+}
+
+
+// ===== Phase 4: one reconciled verdict per hypothesis, causal-language safe =====
+export async function reconcileHypotheses(
+  hypothesisTesting: any[],
+  resultTables: any[],
+  framework: any,
+  tableInterpretations: Record<string, string>
+): Promise<any[]> {
+  const draft = Array.isArray(hypothesisTesting) ? hypothesisTesting : []
+  try {
+    const hypotheses = Array.isArray(framework?.hypotheses) ? framework.hypotheses : []
+    if (draft.length === 0 && hypotheses.length === 0) return draft
+
+    const tablesCtx = JSON.stringify(
+      (Array.isArray(resultTables) ? resultTables : []).map((t: any) => ({
+        table_title: t?.table_title,
+        test_type: t?.test_type,
+        columns: t?.columns,
+        rows: t?.rows,
+      }))
+    ).slice(0, 14000)
+    const interpCtx = JSON.stringify(tableInterpretations || {}).slice(0, 6000)
+
+    const prompt = `You are the final reviewer of the hypothesis decisions in a Chapter 4 results report for an undergraduate research submission under NUC guidelines.
+
+RESEARCH HYPOTHESES (the authoritative list): ${JSON.stringify(hypotheses)}
+RESULT TABLES: ${tablesCtx}
+DRAFT DECISIONS (produced one batch of tables at a time, so they may duplicate or contradict each other): ${JSON.stringify(draft).slice(0, 6000)}
+TABLE INTERPRETATIONS: ${interpCtx}
+
+TASK: Return exactly ONE final decision for EACH hypothesis in the authoritative list, using all of the evidence together.
+
+RULES:
+1. One entry per hypothesis. Keep its hypothesis_id and statement. Never drop a hypothesis and never duplicate one.
+2. When more than one test bears on the same hypothesis (for example a bivariate correlation and a regression coefficient) and they agree, say so in one sentence.
+3. When they DISAGREE, decide using the test that matches how the hypothesis is worded (a hypothesis about a variable's effect while other predictors are held constant is decided by the regression coefficient; a hypothesis about association is decided by the correlation). Explicitly explain the disagreement in academic_interpretation (for example shared variance between predictors, or the relationship weakening once other predictors are controlled) and state plainly which test the decision rests on.
+4. Use only numbers that appear in the tables or drafts. Never invent a value. If no table gives evidence for a hypothesis, set decision to "Insufficient data" and say which test is missing.
+5. Strict third-person academic English. Never use I, we or our.
+6. CAUSAL LANGUAGE: use associational wording such as "is associated with", "is positively related to" or "is a significant predictor of". Never use influences, affects, causes, leads to, impacts or drives unless the design is explicitly experimental.
+7. academic_interpretation is 3 to 5 sentences.
+
+Respond ONLY with valid JSON, no preamble, no markdown fences:
+{"hypothesis_testing":[{"hypothesis_id":1,"statement":"string","statistical_test_used":"string","key_metric_value":"string","effect_size_note":"string","decision":"Supported, Rejected or Insufficient data","academic_interpretation":"string"}]}`
+
+    const res: any = await Promise.race([
+      callQuantInterpretChain(prompt),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('reconcile timeout')), 40000)),
+    ])
+    const parsed = JSON.parse(stripFences(String(res?.content || '')))
+    const out = parsed?.hypothesis_testing
+    if (!Array.isArray(out) || out.length === 0) return draft
+    return out
+  } catch (err: any) {
+    console.error('Phase4 hypothesis reconciliation failed, keeping draft decisions:', err?.message || err)
+    return draft
+  }
 }

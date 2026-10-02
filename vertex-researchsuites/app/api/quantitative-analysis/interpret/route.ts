@@ -2,6 +2,7 @@ export const maxDuration = 60
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { reconcileHypotheses } from '@/lib/quantInterpret'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -96,11 +97,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Missing data for finalize phase' }, { status: 400 })
       }
 
-      const final = finalizeInterpretation(resultTables, tableInterpretations, hypothesisTesting)
+      const final = finalizeInterpretation(resultTables, tableInterpretations, await reconcileHypotheses(hypothesisTesting, resultTables, session.research_framework, tableInterpretations))
 
       await supabase
         .from('quantitative_analysis_sessions')
-        .update({ interpretation: final.interpretation, discussion: final.discussion })
+        .update({ interpretation: final.interpretation, discussion: final.discussion, table_interpretations: final.tableInterpretations || {} })
         .eq('id', sessionId)
 
       return NextResponse.json(final)
