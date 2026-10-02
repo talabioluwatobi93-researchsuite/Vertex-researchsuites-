@@ -564,7 +564,7 @@ export function moderatedRegression(
   const centeredModerator = moderator.map((v) => v - modMean)
   const interaction = centeredPredictor.map((v, i) => v * centeredModerator[i])
 
-  const X: number[][] = centeredPredictor.map((v, i) => [v, centeredModerator[i], interaction[i]])
+  const X: number[][] = centeredPredictor.map((v, i) => [1, v, centeredModerator[i], interaction[i]])
   const ivNames = ["Predictor", "Moderator", "Interaction"]
 
   const reg = olsRegression(y, X, ivNames)
