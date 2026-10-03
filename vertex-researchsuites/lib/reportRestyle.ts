@@ -1,7 +1,7 @@
 // Report restyle engine: reads an uploaded Chapter 4 .docx (SPSS cell-format tables with
 // interpretations beneath), and rebuilds it in the chosen citation style.
 // Nothing here depends on a dataset, a table count, or a questionnaire.
-import { Document, Paragraph, TextRun, ImageRun, HeadingLevel, AlignmentType } from "docx";
+import { Document, Paragraph, TextRun, ImageRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, BorderStyle, TableLayoutType, WidthType } from "docx";
 import { makeTableStyled, tableTitleStyled, spacer } from "@/lib/quantBunkerDocx";
 import type { CitationStyle } from "@/lib/quantBunkerDocx";
 import { callQuantInterpretChain } from "@/lib/openrouter";
@@ -360,6 +360,86 @@ function statParagraph(text: string): Paragraph {
   return new Paragraph({ spacing: { after: 120 }, children: runs });
 }
 
+// PHASE5C: APA table setup (three horizontal rules, wide label column, notes under the table)
+const NOTE_RX = /^(note|notes|source|scale)\s*[.:]/i;
+const APA_HDR_ITALIC = new Set(["M", "SD", "SE", "N", "n", "t", "F", "p", "r", "B"]);
+
+// PHASE5D: table layout per citation style (rules, shading, heading weight)
+type TableSpec = { rules: "three" | "grid"; shade: boolean; hBold: boolean; hItalicSym: boolean };
+const THREE: TableSpec = { rules: "three", shade: false, hBold: false, hItalicSym: false };
+const TABLE_SPEC: Record<string, TableSpec> = {
+  APA6: { ...THREE, hItalicSym: true },
+  APA7: { ...THREE, hItalicSym: true },
+  MLA9: THREE,
+  Chicago17: THREE,
+  Turabian9: THREE,
+  Vancouver: THREE,
+  AMA: THREE,
+  OSCOLA: THREE,
+  Harvard: { rules: "grid", shade: false, hBold: true, hItalicSym: false },
+  IEEE: { rules: "grid", shade: true, hBold: true, hItalicSym: false },
+};
+function tableSpec(style: string): TableSpec {
+  return TABLE_SPEC[style] || THREE;
+}
+
+function apaRule(): any {
+  return { style: BorderStyle.SINGLE, size: 6, color: "000000" };
+}
+function apaNone(): any {
+  return { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+}
+
+function apaNote(text: string): Paragraph {
+  const m = /^(note|notes|source)\s*[.:]/i.exec(text);
+  const runs: TextRun[] = m
+    ? [new TextRun({ text: m[0], italics: true, size: 20 }), new TextRun({ text: text.slice(m[0].length), size: 20 })]
+    : [new TextRun({ text, size: 20 })];
+  return new Paragraph({ spacing: { before: 60, after: 60 }, alignment: AlignmentType.LEFT, children: runs });
+}
+
+function buildApaTable(headers: string[], rows: string[][], style: CitationStyle, firstColLabel: boolean): Table {
+  const n = headers.length;
+  const spec = tableSpec(style);
+  const hdrBorders = spec.rules === "grid" ? { top: apaRule(), bottom: apaRule(), left: apaRule(), right: apaRule() } : { bottom: apaRule() };
+  const total = 9360;
+  const widths: number[] = [];
+  if (firstColLabel && n > 1) {
+    let num = Math.max(820, Math.min(1500, Math.floor((total * 0.55) / (n - 1))));
+    if (total - num * (n - 1) < 1500) num = Math.floor((total - 1500) / (n - 1));
+    widths.push(total - num * (n - 1));
+    for (let i = 1; i < n; i++) widths.push(num);
+  } else {
+    for (let i = 0; i < n; i++) widths.push(Math.floor(total / n));
+  }
+  const cell = (text: string, ci: number, header: boolean): TableCell => {
+    const left = firstColLabel && ci === 0;
+    const sym = header && APA_HDR_ITALIC.has(text.trim());
+    return new TableCell({
+      width: { size: widths[ci] || widths[widths.length - 1], type: WidthType.DXA },
+      borders: header ? hdrBorders : undefined,
+      shading: header && spec.shade ? { fill: "D9D9D9" } : undefined,
+      margins: { top: 40, bottom: 40, left: 80, right: 80 },
+      children: [
+        new Paragraph({
+          alignment: left ? AlignmentType.LEFT : AlignmentType.CENTER,
+          children: [new TextRun({ text, size: 20, bold: header && spec.hBold, italics: sym && spec.hItalicSym })],
+        }),
+      ],
+    });
+  };
+  return new Table({
+    width: { size: total, type: WidthType.DXA },
+    columnWidths: widths,
+    layout: TableLayoutType.FIXED,
+    borders: spec.rules === "grid" ? { top: apaRule(), bottom: apaRule(), left: apaRule(), right: apaRule(), insideHorizontal: apaRule(), insideVertical: apaRule() } : { top: apaRule(), bottom: apaRule(), left: apaNone(), right: apaNone(), insideHorizontal: apaNone(), insideVertical: apaNone() },
+    rows: [
+      new TableRow({ tableHeader: true, cantSplit: true, children: headers.map((h, ci) => cell(h, ci, true)) }),
+      ...rows.map((r) => new TableRow({ cantSplit: true, children: r.map((c, ci) => cell(c, ci, false)) })),
+    ],
+  });
+}
+
 function apa6Title(num: number, caption: string): Paragraph[] {
   return [
     new Paragraph({ spacing: { before: 240, after: 60 }, children: [new TextRun({ text: "Table " + String(num) })] }),
@@ -417,13 +497,19 @@ export function buildRestyledDocument(
   const betaVals = collectBetaValues(nodes);
   const children: any[] = [];
 
+  let afterTable = false;
+  let pendingSpacer = false;
   for (const n of nodes) {
+    const isNote = afterTable && n.kind === "body" && NOTE_RX.test(String((n as any).text || "").trim());
+    if (pendingSpacer && !isNote) { children.push(spacer()); pendingSpacer = false; }
+    if (!isNote) afterTable = false;
     if (n.kind === "heading") {
       children.push(new Paragraph({ text: n.text, heading: headingLevel(n.level), spacing: { before: 400, after: 200 } }));
     } else if (n.kind === "body") {
       const r = rewrites[String(n.id)];
       const baseText = typeof r === "string" && r.trim() ? r : n.text;
-      children.push(apa ? statParagraph(apaText(baseText, betaVals)) : textParagraph(baseText));
+      if (isNote) children.push(apaNote(apa ? apaText(baseText.trim(), betaVals) : baseText.trim()));
+      else children.push(apa ? statParagraph(apaText(baseText, betaVals)) : textParagraph(baseText));
     } else if (n.kind === "img") {
       const im = parsed.images[n.index];
       if (!im || im.type === "unsupported") {
@@ -446,8 +532,9 @@ export function buildRestyledDocument(
       const body = rows.slice(1).map((r) => r.map((c, ci) => (apa ? apaCell(c, headers[ci] || "", n.caption) : c)));
       if (style === "APA6") children.push(...apa6Title(n.number, n.caption));
       else children.push(...tableTitleStyled(n.number, n.caption, style));
-      children.push(makeTableStyled(headers, body, style, firstColumnIsLabel(body)));
-      children.push(spacer());
+      children.push(buildApaTable(headers, body, style, firstColumnIsLabel(body)));
+      afterTable = true;
+      pendingSpacer = true;
     }
   }
   return new Document({ sections: [{ children }] });
