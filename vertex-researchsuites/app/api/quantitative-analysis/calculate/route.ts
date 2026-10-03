@@ -792,6 +792,32 @@ export async function POST(req: NextRequest) {
       return { constructName: c.name, scaleMin, scaleMax, items, totalMean, totalSD, totalOverallPercent }
     })
 
+  // PHASE6B: never omit an analysis silently - say why it produced nothing
+  const skippedAnalyses: { type: string; reason: string }[] = []
+  {
+    const produced: Record<string, any> = { correlation, regression, logistic, ttest, anova, chisquare, moderation, mannwhitney, paired, wilcoxon, kruskalwallis, twowayanova, mediation }
+    const cfgKeys: Record<string, string> = { ttest: 'ttest_config', anova: 'anova_config', chisquare: 'chisquare_config', moderation: 'moderation_config', paired: 'paired_config', mannwhitney: 'mannwhitney_config', wilcoxon: 'wilcoxon_config', kruskalwallis: 'kruskalwallis_config', twowayanova: 'twowayanova_config', mediation: 'mediation_config' }
+    for (const t of analysisTypes) {
+      if (!(t in produced) || (produced[t] !== null && produced[t] !== undefined)) continue
+      const ck = cfgKeys[t]
+      const cfg: any = ck ? session[ck] : null
+      let reason = 'Not enough valid data for this analysis, or the variable roles it needs were not set.'
+      if (ck && !cfg) {
+        reason = 'No variables were saved for this analysis. Choose the variables on the analysis screen and run again.'
+      } else if (cfg) {
+        const ids = Object.entries(cfg).filter(([k, v]) => /ConstructId$/.test(k) && v).map(([, v]) => String(v))
+        const found = ids.map((i) => ({ i, c: resolveVariableConstruct(i, constructs, columnHeaders) }))
+        const missing = found.filter((f) => !f.c).map((f) => f.i)
+        const demo = found.filter((f) => f.c && f.c.role === 'Demographic').map((f) => f.c.name)
+        if (missing.length) reason = 'A chosen variable was not found: ' + missing.join(', ') + '.'
+        else if ((t === 'moderation' || t === 'mediation') && demo.length) reason = 'This analysis cannot yet use a demographic item (' + demo.join(', ') + '). Choose scale variables, or wait for the update that adds this.'
+        else reason = 'The variables were found, but there were not enough valid answers (each group needs at least 2).'
+      }
+      skippedAnalyses.push({ type: t, reason })
+    }
+    if (skippedAnalyses.length) console.log('[calculate] skipped analyses:', JSON.stringify(skippedAnalyses))
+  }
+
     const results = {
       sampleSize: cleanedRows.length,
       excludedRows: rawData.length - cleanedRows.length,
@@ -811,6 +837,7 @@ export async function POST(req: NextRequest) {
       twowayanova,
       mediation,
       logistic,
+      skippedAnalyses: skippedAnalyses.length ? skippedAnalyses : undefined,
       computedAt: new Date().toISOString()
     }
 
