@@ -24,7 +24,9 @@ export async function POST(req: NextRequest) {
       const items = Array.isArray(body.items) ? body.items : [];
       if (items.length < 1 || items.length > 8) return NextResponse.json({ error: "Send 1 to 8 paragraphs per request" }, { status: 400 });
       const clean = items.map((it: any) => ({ id: String(it?.id), text: String(it?.text || "").slice(0, 4000) }));
-      const results = await rewriteBatch(String(body.style), clean);
+      const st = String(body.style); // PHASE5B: APA 6/7 are converted in code, no AI
+      if (st === "APA6" || st === "APA7") return NextResponse.json({ results: clean.map((it: any) => ({ id: it.id, text: it.text, ok: true })) });
+      const results = await rewriteBatch(st, clean);
       return NextResponse.json({ results });
     }
 

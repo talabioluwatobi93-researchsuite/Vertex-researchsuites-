@@ -299,8 +299,78 @@ const BOUNDED_HEADERS = new Set([
 ]);
 const P_HEADERS = new Set(["p", "sig", "sig.", "p-value", "p value"]);
 
-function apaCell(value: string, header: string): string {
+// PHASE5B: APA 6 / APA 7 conversion in code (tables and text follow the same rules)
+const APA_BOUNDED = "(?:p|r|rs|\u03C1|R\u00B2|R2|r\u00B2|\u03B2|\u03B7\u00B2|\u03B7p\u00B2)";
+const STAT_SYM_RX = /(^|[^A-Za-z0-9])(R\u00B2|SD|SE|M|n|N|p|r|t|F|B)(?=\s*[=<>(])/g;
+
+function collectBetaValues(nodes: Node[]): { v: number; dp: number }[] {
+  const out: { v: number; dp: number }[] = [];
+  for (const n of nodes) {
+    if (n.kind !== "table" || !n.rows.length) continue;
+    const rows = n.rows;
+    rows[0].forEach((h, ci) => {
+      const k = String(h || "").toLowerCase().replace(/\s+/g, " ").trim();
+      if (k !== "beta" && k !== "\u03B2" && k !== "standardized beta") return;
+      for (let i = 1; i < rows.length; i++) {
+        const c = String(rows[i][ci] || "").trim();
+        const m = /^-?\d*\.(\d+)$/.exec(c);
+        if (m) out.push({ v: Math.abs(Number(c)), dp: m[1].length });
+      }
+    });
+  }
+  return out;
+}
+
+function apaText(s: string, betaVals: { v: number; dp: number }[]): string {
+  let t = s;
+  t = t.replace(/(^|[^A-Za-z0-9])p\s*=\s*0?\.0{3,}(?!\d)/g, (_m, a) => a + "p < .001");
+  t = t.replace(/(^|[^A-Za-z0-9])(n|N|M|SD|SE|B|t|F|p|r|df|R\u00B2|R2)\s*([=<>\u2264\u2265])\s*(?=[-\u2212\d.])/g, (_m, a, b, c) => a + b + " " + c + " ");
+  t = t.replace(/(^|[^A-Za-z0-9])(t|F)\((\d+(?:,\s*\d+)?)\)\s*=\s*(?=[-\d.])/g, (_m, a, b, c) => a + b + "(" + c + ") = ");
+  t = t.replace(new RegExp("(^|[^A-Za-z0-9])(" + APA_BOUNDED + ")(\\s*[=<>\u2264\u2265]\\s*)(-?)0(\\.\\d+)", "g"), (_m, a, b, c, d, e) => a + b + c + d + e);
+  t = t.replace(/\b(p-value|p value|R Square|R-squared|R squared|R value)\b([^.\d]{0,30}?)(-?)0(\.\d+)/gi, (_m, a, b, c, d) => a + b + c + d);
+  t = t.replace(/\b(Beta coefficient|beta coefficient|Beta|beta)\b([^.\d]{0,30}?)(-?)0(\.\d+)/g, (m, a, b, c, d) => {
+    const val = Math.abs(Number("0" + d));
+    const ok = betaVals.some((x) => Math.abs(x.v - val) < 0.5 * Math.pow(10, -x.dp) + 1e-9);
+    return ok ? a + b + c + d : m;
+  });
+  return t;
+}
+
+function statParagraph(text: string): Paragraph {
+  const lines = text.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+  const runs: TextRun[] = [];
+  lines.forEach((line, li) => {
+    const rx = new RegExp(STAT_SYM_RX.source, "g");
+    let last = 0;
+    let first = true;
+    let m: RegExpExecArray | null;
+    const push = (t: string, it: boolean) => {
+      if (!t) return;
+      runs.push(new TextRun({ text: t, italics: it, break: first && li > 0 ? 1 : 0 }));
+      first = false;
+    };
+    while ((m = rx.exec(line)) !== null) {
+      const start = m.index + m[1].length;
+      push(line.slice(last, start), false);
+      push(m[2], true);
+      last = start + m[2].length;
+    }
+    push(line.slice(last), false);
+  });
+  return new Paragraph({ spacing: { after: 120 }, children: runs });
+}
+
+function apa6Title(num: number, caption: string): Paragraph[] {
+  return [
+    new Paragraph({ spacing: { before: 240, after: 60 }, children: [new TextRun({ text: "Table " + String(num) })] }),
+    new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: caption, italics: true })] }),
+  ];
+}
+
+function apaCell(value: string, header: string, caption: string = ""): string {
   const h = header.toLowerCase().replace(/\s+/g, " ").trim();
+  const sm = /^(-?)0(\.\d+)(\*{1,3})?$/.exec(value.trim());
+  if (sm && /correlat|relationship|association|spearman|pearson/i.test(caption)) return sm[1] + sm[2] + (sm[3] || "");
   if (!BOUNDED_HEADERS.has(h)) return value;
   const t = value.trim();
   if (P_HEADERS.has(h) && /^0?\.0+$/.test(t)) return "< .001";
@@ -344,6 +414,7 @@ export function buildRestyledDocument(
 ): Document {
   const nodes = analyze(parsed.blocks);
   const apa = style === "APA6" || style === "APA7";
+  const betaVals = collectBetaValues(nodes);
   const children: any[] = [];
 
   for (const n of nodes) {
@@ -351,7 +422,8 @@ export function buildRestyledDocument(
       children.push(new Paragraph({ text: n.text, heading: headingLevel(n.level), spacing: { before: 400, after: 200 } }));
     } else if (n.kind === "body") {
       const r = rewrites[String(n.id)];
-      children.push(textParagraph(typeof r === "string" && r.trim() ? r : n.text));
+      const baseText = typeof r === "string" && r.trim() ? r : n.text;
+      children.push(apa ? statParagraph(apaText(baseText, betaVals)) : textParagraph(baseText));
     } else if (n.kind === "img") {
       const im = parsed.images[n.index];
       if (!im || im.type === "unsupported") {
@@ -371,8 +443,9 @@ export function buildRestyledDocument(
     } else {
       const rows = normalizeRows(n.rows);
       const headers = rows[0];
-      const body = rows.slice(1).map((r) => r.map((c, ci) => (apa ? apaCell(c, headers[ci] || "") : c)));
-      children.push(...tableTitleStyled(n.number, n.caption, style));
+      const body = rows.slice(1).map((r) => r.map((c, ci) => (apa ? apaCell(c, headers[ci] || "", n.caption) : c)));
+      if (style === "APA6") children.push(...apa6Title(n.number, n.caption));
+      else children.push(...tableTitleStyled(n.number, n.caption, style));
       children.push(makeTableStyled(headers, body, style, firstColumnIsLabel(body)));
       children.push(spacer());
     }
