@@ -1799,6 +1799,94 @@ export default function ResultsPage() {
         </div>
       )}
 
+      {/* PHASE7E: extra moderation runs (Run 2, Run 3), each with its own tables and interpretation */}
+      {Array.isArray(results.moderation_runs) && results.moderation_runs.map((mr: any) => {
+        const note = (t: string) => {
+          const txt = tableInterpretations[t + ' (Run ' + mr.run + ')']
+          return viewMode === 'fullDocument' && txt ? (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', marginTop: '12px', marginBottom: '12px' }}>{txt}</div>
+          ) : null
+        }
+        return (
+          <div key={'modrun' + mr.run} style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #E5E5E5', marginBottom: '16px' }}>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Moderation, Run {mr.run}: {mr.predictorName} x {mr.moderatorName} on {mr.outcomeName}</p>
+            <p style={noteStyle}>Model fit: F ({mr.anova.regression.df}, {mr.anova.residual.df}) = {Number(mr.F).toFixed(4)}, R2 = {Number(mr.modelSummary.rSquared).toFixed(4)}, p = {formatSpssValue(mr.p, 3)}, n = {mr.n}.</p>
+            <p style={noteStyle}>{mr.coding === 'numeric' ? 'The predictor and the moderator were mean-centred before the interaction term was formed.' : 'The predictor was mean-centred. The moderator was dummy coded with ' + mr.referenceGroup + ' as the reference group.'}</p>
+            <table style={table}>
+              <thead><tr><th style={thStyle}>R</th><th style={thStyle}>R2</th><th style={thStyle}>Adjusted R2</th><th style={thStyle}>Std. Error</th></tr></thead>
+              <tbody><tr>
+                <td style={tdStyle}>{Number(mr.modelSummary.r).toFixed(3)}</td>
+                <td style={tdStyle}>{Number(mr.modelSummary.rSquared).toFixed(3)}</td>
+                <td style={tdStyle}>{Number(mr.modelSummary.adjRSquared).toFixed(3)}</td>
+                <td style={tdStyle}>{Number(mr.modelSummary.stdError).toFixed(3)}</td>
+              </tr></tbody>
+            </table>
+            {note('Moderation Model Summary')}
+            <table style={{ ...table, marginTop: '16px' }}>
+              <thead><tr><th style={thStyle}>Source</th><th style={thStyle}>SS</th><th style={thStyle}>df</th><th style={thStyle}>MS</th><th style={thStyle}>F</th><th style={thStyle}>Sig.</th></tr></thead>
+              <tbody>
+                <tr><td style={tdStyle}>Regression</td><td style={tdStyle}>{Number(mr.anova.regression.ss).toFixed(3)}</td><td style={tdStyle}>{mr.anova.regression.df}</td><td style={tdStyle}>{Number(mr.anova.regression.ms).toFixed(3)}</td><td style={tdStyle}>{Number(mr.F).toFixed(3)}</td><td style={tdStyle}>{formatSpssValue(mr.p, 3)}</td></tr>
+                <tr><td style={tdStyle}>Residual</td><td style={tdStyle}>{Number(mr.anova.residual.ss).toFixed(3)}</td><td style={tdStyle}>{mr.anova.residual.df}</td><td style={tdStyle}>{Number(mr.anova.residual.ms).toFixed(3)}</td><td style={tdStyle}></td><td style={tdStyle}></td></tr>
+                <tr><td style={tdStyle}>Total</td><td style={tdStyle}>{Number(mr.anova.total.ss).toFixed(3)}</td><td style={tdStyle}>{mr.anova.total.df}</td><td style={tdStyle}></td><td style={tdStyle}></td><td style={tdStyle}></td></tr>
+              </tbody>
+            </table>
+            <table style={{ ...table, marginTop: '16px' }}>
+              <thead><tr><th style={thStyle}>Term</th><th style={thStyle}>B</th><th style={thStyle}>SE</th><th style={thStyle}>Beta</th><th style={thStyle}>t</th><th style={thStyle}>Sig.</th><th style={thStyle}>95% CI</th></tr></thead>
+              <tbody>
+                {mr.coefficients.map((c: any, i: number) => (
+                  <tr key={i}>
+                    <td style={tdStyle}>{c.name}</td>
+                    <td style={tdStyle}>{Number(c.B).toFixed(3)}</td>
+                    <td style={tdStyle}>{Number(c.SE).toFixed(3)}</td>
+                    <td style={tdStyle}>{c.beta !== null && c.beta !== undefined ? Number(c.beta).toFixed(3) : '----'}</td>
+                    <td style={tdStyle}>{Number(c.t).toFixed(3)}</td>
+                    <td style={tdStyle}>{formatSpssValue(c.p, 3)}</td>
+                    <td style={tdStyle}>[{Number(c.ciLower).toFixed(3)}, {Number(c.ciUpper).toFixed(3)}]</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {note('Moderation Coefficients')}
+            {mr.deltaR2 && (
+              <div>
+                <table style={{ ...table, marginTop: '16px' }}>
+                  <thead><tr><th style={thStyle}>Change in R2</th><th style={thStyle}>F change</th><th style={thStyle}>df1</th><th style={thStyle}>df2</th><th style={thStyle}>Sig.</th></tr></thead>
+                  <tbody><tr>
+                    <td style={tdStyle}>{Number(mr.deltaR2.value).toFixed(4)}</td>
+                    <td style={tdStyle}>{Number(mr.deltaR2.F).toFixed(3)}</td>
+                    <td style={tdStyle}>{mr.deltaR2.df1}</td>
+                    <td style={tdStyle}>{mr.deltaR2.df2}</td>
+                    <td style={tdStyle}>{formatSpssValue(mr.deltaR2.p, 3)}</td>
+                  </tr></tbody>
+                </table>
+                {note('Moderation Interaction Step')}
+              </div>
+            )}
+            {Array.isArray(mr.simpleSlopes) && mr.simpleSlopes.length > 0 && (
+              <div>
+                <table style={{ ...table, marginTop: '16px' }}>
+                  <thead><tr><th style={thStyle}>Moderator level</th><th style={thStyle}>Moderator value</th><th style={thStyle}>B</th><th style={thStyle}>SE</th><th style={thStyle}>t</th><th style={thStyle}>Sig.</th><th style={thStyle}>95% CI</th></tr></thead>
+                  <tbody>
+                    {mr.simpleSlopes.map((sl: any, i: number) => (
+                      <tr key={i}>
+                        <td style={tdStyle}>{sl.label}</td>
+                        <td style={tdStyle}>{sl.wValue !== null && sl.wValue !== undefined ? Number(sl.wValue).toFixed(3) : '-'}</td>
+                        <td style={tdStyle}>{Number(sl.B).toFixed(3)}</td>
+                        <td style={tdStyle}>{Number(sl.SE).toFixed(3)}</td>
+                        <td style={tdStyle}>{Number(sl.t).toFixed(3)}</td>
+                        <td style={tdStyle}>{formatSpssValue(sl.p, 3)}</td>
+                        <td style={tdStyle}>[{Number(sl.ciLower).toFixed(3)}, {Number(sl.ciUpper).toFixed(3)}]</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {note('Moderation Simple Slopes')}
+              </div>
+            )}
+          </div>
+        )
+      })}
+
       {results.mediation && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
           <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Mediation Path Coefficients</p>

@@ -129,6 +129,7 @@ export default function AnalysisTypePage() {
   const [moderationPredictorId, setModerationPredictorId] = useState('')
   const [moderationModeratorId, setModerationModeratorId] = useState('')
   const [moderationOutcomeId, setModerationOutcomeId] = useState('')
+  const [modExtra, setModExtra] = useState<{ p: string; m: string; o: string }[]>([{ p: '', m: '', o: '' }, { p: '', m: '', o: '' }])
 
   useEffect(() => {
     const load = async () => {
@@ -191,6 +192,7 @@ export default function AnalysisTypePage() {
         setModerationPredictorId(data.moderation_config.predictorConstructId || '')
         setModerationModeratorId(data.moderation_config.moderatorConstructId || '')
         setModerationOutcomeId(data.moderation_config.outcomeConstructId || '')
+        setModExtra([0, 1].map((i) => { const x = (Array.isArray(data.moderation_config.extraRuns) ? data.moderation_config.extraRuns : [])[i]; return x ? { p: x.predictorConstructId || '', m: x.moderatorConstructId || '', o: x.outcomeConstructId || '' } : { p: '', m: '', o: '' } }))
       }
       setLoading(false)
     }
@@ -442,7 +444,7 @@ export default function AnalysisTypePage() {
       }
     }
     if (selected.includes('moderation')) {
-      if (!moderationPredictorId || !moderationModeratorId || !moderationOutcomeId) {
+      if (!moderationPredictorId || !moderationModeratorId || !moderationOutcomeId || modExtra.some((r) => (r.p || r.m || r.o) && !(r.p && r.m && r.o))) {
         setErrorMsg('Please choose the Predictor, Moderator, and Outcome for the Moderation Analysis.')
         return
       }
@@ -486,7 +488,7 @@ export default function AnalysisTypePage() {
           ? { predictorConstructId: mediationPredictorId, mediatorConstructId: mediationMediatorId, outcomeConstructId: mediationOutcomeId }
           : null,
         moderation_config: selected.includes('moderation')
-          ? { predictorConstructId: moderationPredictorId, moderatorConstructId: moderationModeratorId, outcomeConstructId: moderationOutcomeId }
+          ? { predictorConstructId: moderationPredictorId, moderatorConstructId: moderationModeratorId, outcomeConstructId: moderationOutcomeId, extraRuns: modExtra.filter((r) => r.p && r.m && r.o).map((r) => ({ predictorConstructId: r.p, moderatorConstructId: r.m, outcomeConstructId: r.o })) }
           : null,
         updated_at: new Date().toISOString(),
       })
@@ -854,6 +856,26 @@ export default function AnalysisTypePage() {
                 <option value="">Select a variable...</option>
                 {numericEligibleConstructs.filter((c) => c.id !== moderationPredictorId && c.id !== moderationModeratorId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
+              {/* PHASE7E: two optional extra runs of the moderation analysis */}
+              {[0, 1].map((ri) => (
+                <div key={'modextra' + ri} style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed #CCCCCC' }}>
+                  <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Run {ri + 2} (optional): Predictor</label>
+                  <select value={modExtra[ri].p} onChange={(e: any) => { const v = e.target.value; setModExtra((prev) => prev.map((r, i) => (i === ri ? { ...r, p: v } : r))) }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #CCCCCC', marginBottom: '8px' }}>
+                    <option value="">Select a variable...</option>
+                    {roleEligibleConstructs.map((c: any) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                  </select>
+                  <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Run {ri + 2} (optional): Moderator</label>
+                  <select value={modExtra[ri].m} onChange={(e: any) => { const v = e.target.value; setModExtra((prev) => prev.map((r, i) => (i === ri ? { ...r, m: v } : r))) }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #CCCCCC', marginBottom: '8px' }}>
+                    <option value="">Select a variable...</option>
+                    {roleEligibleConstructs.filter((c: any) => c.id !== modExtra[ri].p).map((c: any) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                  </select>
+                  <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Run {ri + 2} (optional): Outcome</label>
+                  <select value={modExtra[ri].o} onChange={(e: any) => { const v = e.target.value; setModExtra((prev) => prev.map((r, i) => (i === ri ? { ...r, o: v } : r))) }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #CCCCCC', marginBottom: '8px' }}>
+                    <option value="">Select a variable...</option>
+                    {numericEligibleConstructs.filter((c: any) => c.id !== modExtra[ri].p && c.id !== modExtra[ri].m).map((c: any) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                  </select>
+                </div>
+              ))}
               {moderationPredictorId && moderationModeratorId && moderationOutcomeId && (
                 <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>We will test whether the strength of the effect of {numericEligibleConstructs.find((c) => c.id === moderationPredictorId)?.name} on {numericEligibleConstructs.find((c) => c.id === moderationOutcomeId)?.name} changes depending on {numericEligibleConstructs.find((c) => c.id === moderationModeratorId)?.name}.</p>
               )}

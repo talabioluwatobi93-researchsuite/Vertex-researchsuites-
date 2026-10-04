@@ -437,6 +437,45 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // PHASE7E: optional extra moderation runs (Run 2 and Run 3), same calculation as run 1
+    const moderationRuns: any[] = []
+    const moderationRunErrors: { run: number; reason: string }[] = []
+    if (analysisTypes.includes('moderation') && session.moderation_config && Array.isArray(session.moderation_config.extraRuns)) {
+      session.moderation_config.extraRuns.slice(0, 2).forEach((cfg: any, ri: number) => {
+        const runNo = ri + 2
+        try {
+          const xC: any = resolveVariableConstruct(cfg.predictorConstructId, constructs, columnHeaders)
+          const wC: any = resolveVariableConstruct(cfg.moderatorConstructId, constructs, columnHeaders)
+          const yC: any = resolveVariableConstruct(cfg.outcomeConstructId, constructs, columnHeaders)
+          if (!xC || !wC || !yC) { moderationRunErrors.push({ run: runNo, reason: 'A chosen variable was not found.' }); return }
+          const wIsDemo = wC.role === 'Demographic'
+          const useNumeric = !wIsDemo || cfg.moderatorCoding === 'numeric'
+          const wCol: any = wC.columnIndexes ? wC.columnIndexes[0] : undefined
+          const runRows = cleanedRows.map((row: any[]) => {
+            const xs = getConstructScore(row, xC, textMappings)
+            const ys = getConstructScore(row, yC, textMappings)
+            let w: number | string
+            if (useNumeric) {
+              const ws = getConstructScore(row, wC, textMappings)
+              w = ws === null ? NaN : ws
+            } else {
+              w = String(row[wCol] ?? '').trim()
+            }
+            return { x: xs === null ? NaN : xs, y: ys === null ? NaN : ys, w }
+          })
+          const labelOf = (raw: string): string => {
+            const m: any = (demographicMappings as any)[wCol] || (demographicMappings as any)[String(wCol)] || {}
+            return m[raw] || raw
+          }
+          const rr: any = moderationAnalysis(runRows, { coding: useNumeric ? 'numeric' : 'categorical', names: { x: xC.name, w: wC.name, y: yC.name }, labelOf })
+          if (rr && rr.error) { moderationRunErrors.push({ run: runNo, reason: rr.error }); return }
+          if (rr) moderationRuns.push({ run: runNo, ...JSON.parse(JSON.stringify(rr), (_k: string, v: any) => (typeof v === 'number' ? Math.round(v * 10000) / 10000 : v)) })
+        } catch (e: any) {
+          moderationRunErrors.push({ run: runNo, reason: 'The moderation run could not be calculated: ' + (e && e.message ? e.message : 'unexpected error') + '.' })
+        }
+      })
+    }
+
     let paired: any = null
     if (analysisTypes.includes('paired') && session.paired_config) {
       const { group1ConstructId, group2ConstructId, group1Label, group2Label } = session.paired_config
@@ -860,7 +899,8 @@ export async function POST(req: NextRequest) {
       }
       skippedAnalyses.push({ type: t, reason: (t === 'moderation' && moderationError) ? moderationError : reason })
     }
-    if (skippedAnalyses.length) console.log('[calculate] skipped analyses:', JSON.stringify(skippedAnalyses))
+    moderationRunErrors.forEach((e) => skippedAnalyses.push({ type: 'moderation (Run ' + e.run + ')', reason: e.reason }))
+      if (skippedAnalyses.length) console.log('[calculate] skipped analyses:', JSON.stringify(skippedAnalyses))
   }
 
     const results = {
@@ -883,6 +923,7 @@ export async function POST(req: NextRequest) {
       mediation,
       logistic,
       skippedAnalyses: skippedAnalyses.length ? skippedAnalyses : undefined,
+      moderation_runs: moderationRuns.length ? moderationRuns : undefined,
       computedAt: new Date().toISOString()
     }
 
