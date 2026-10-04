@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { checkFeatureAccess } from '@/lib/checkFeatureAccess'
@@ -43,6 +43,27 @@ function formatSpssValue(value: number | null | undefined, decimals: number = 3)
   return fixed
 }
 
+// PHASE6C: the calculate route saves some analyses under different names than this page reads
+// (paired, logistic, kruskalwallis, twowayanova). This builds a display copy with both names.
+// The saved data is not changed.
+function withDisplayAliases(r: any) {
+  if (!r || typeof r !== 'object') return r
+  const out: any = { ...r }
+  if (out.pairedTtest == null && r.paired) out.pairedTtest = r.paired
+  if (out.logisticRegression == null && r.logistic) out.logisticRegression = r.logistic
+  if (out.kruskalWallis == null && r.kruskalwallis) out.kruskalWallis = r.kruskalwallis
+  const tw = r.twowayanova
+  if (out.anovaTwoWay == null && tw && Array.isArray(tw.anovaTable) && tw.anovaTable.length >= 5) {
+    const num = (v: any) => (typeof v === 'number' ? v : NaN)
+    const row = (i: number) => {
+      const x = tw.anovaTable[i] || {}
+      return { ss: num(x.ss), df: num(x.df), ms: num(x.ms), f: num(x.F), p: num(x.p) }
+    }
+    out.anovaTwoWay = { ...tw, factorA: row(0), factorB: row(1), interaction: row(2), error: row(3), total: row(4) }
+  }
+  return out
+}
+
 function checkInterpretationGate(gateInfo: any) {
   const reasons: string[] = []
   if (!gateInfo?.response_rate_info) reasons.push('Response rate information is missing.')
@@ -64,7 +85,8 @@ export default function ResultsPage() {
   const { id } = useParams()
   const router = useRouter()
   const [status, setStatus] = useState('Calculating results...')
-  const [results, setResults] = useState<any>(null)
+  const [rawResults, setResults] = useState<any>(null)
+  const results = useMemo(() => withDisplayAliases(rawResults), [rawResults])
   const [interpretation, setInterpretation] = useState('')
   const [tableInterpretations, setTableInterpretations] = useState<Record<string, string>>({})
   const [viewMode, setViewMode] = useState<'tables' | 'fullDocument'>('tables')
