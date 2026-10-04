@@ -117,6 +117,12 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle):
   if (results.moderation) {
     safeBuild("moderation", () => buildModerationTables(results.moderation, n, citationStyle));
   }
+    // PHASE7E3: extra moderation runs (Run 2, Run 3) in the report, each with its own tables
+    if (Array.isArray(results.moderation_runs)) {
+      results.moderation_runs.forEach((mr: any) => {
+        safeBuild("moderation run " + mr.run, () => buildModerationTables({ ...mr, outcomeName: mr.outcomeName + " (Run " + mr.run + ", moderator " + mr.moderatorName + ")" }, n, citationStyle));
+      });
+    }
   if (results.twowayanova) {
     safeBuild("twowayanova", () => buildTwoWayAnovaTables(results.twowayanova, n, citationStyle));
   }
