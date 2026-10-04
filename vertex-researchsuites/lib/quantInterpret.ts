@@ -234,6 +234,12 @@ export function getPresentAnalysisBatches(results: any): string[][] {
     const present = group.filter((k) => results && results[k] !== undefined && results[k] !== null)
     if (present.length > 0) batches.push(present)
   }
+  // PHASE7E2: each extra moderation run is interpreted in its own batch
+  if (results && Array.isArray(results.moderation_runs)) {
+    results.moderation_runs.forEach((r: any) => {
+      if (r && typeof r.run === 'number') batches.push(['moderation#' + r.run])
+    })
+  }
   return batches
 }
 

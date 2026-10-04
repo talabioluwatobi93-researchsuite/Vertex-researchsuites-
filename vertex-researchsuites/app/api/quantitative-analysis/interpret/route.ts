@@ -51,11 +51,27 @@ export async function POST(req: NextRequest) {
       }
       const keysThisBatch = batches[idx]
       const resultsSlice: any = {}
-      keysThisBatch.forEach((k) => { resultsSlice[k] = session.results[k] })
+      keysThisBatch.forEach((k: string) => {
+        if (k.startsWith('moderation#')) {
+          const rn = Number(k.split('#')[1])
+          const found = ((session.results && session.results.moderation_runs) || []).find((r: any) => r.run === rn)
+          if (found) resultsSlice['moderation'] = found
+        } else {
+          resultsSlice[k] = session.results[k]
+        }
+      }) // PHASE7E2
 
       let tables: any[]
       try {
         tables = await runStep3aBatch(resultsSlice, citationStyle)
+      const runKey = keysThisBatch.find((k: string) => k.startsWith('moderation#'))
+      if (runKey) {
+        const rn = runKey.split('#')[1]
+        ;(tables || []).forEach((t: any) => {
+          if (t && typeof t.table_title === 'string') t.table_title = t.table_title + ' (Run ' + rn + ')'
+          else console.warn('[interpret] run table without a title, could not label it with its run')
+        })
+      }
       } catch (err: any) {
         return NextResponse.json({ error: err.message || 'Step 3a batch failed' }, { status: 500 })
       }
