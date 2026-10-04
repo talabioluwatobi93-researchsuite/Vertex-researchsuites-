@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 60
 import { createClient } from '@supabase/supabase-js'
+import { moderationAnalysis } from "@/lib/stats"
 import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis, twoWayAnova, sobelMediation, logisticRegression } from '@/lib/stats'
 
 const supabase = createClient(
@@ -392,6 +393,50 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    // PHASE7B: moderation via moderationAnalysis (complete cases per respondent; scale, 2-group and multi-group moderators)
+    let moderationError: string | null = null
+    if (analysisTypes.includes('moderation') && session.moderation_config) {
+      try {
+        const modCfg: any = session.moderation_config
+        const xC: any = resolveVariableConstruct(modCfg.predictorConstructId, constructs, columnHeaders)
+        const wC: any = resolveVariableConstruct(modCfg.moderatorConstructId, constructs, columnHeaders)
+        const yC: any = resolveVariableConstruct(modCfg.outcomeConstructId, constructs, columnHeaders)
+        if (!xC || !wC || !yC) {
+          const lost = [!xC ? 'predictor' : '', !wC ? 'moderator' : '', !yC ? 'outcome' : ''].filter(Boolean)
+          moderationError = 'A chosen variable was not found: ' + lost.join(', ') + '.'
+        } else {
+          const wIsDemo = wC.role === 'Demographic'
+          const useNumeric = !wIsDemo || modCfg.moderatorCoding === 'numeric'
+          const wCol: any = wC.columnIndexes ? wC.columnIndexes[0] : undefined
+          const modRows = cleanedRows.map((row: any[]) => {
+            const xs = getConstructScore(row, xC, textMappings)
+            const ys = getConstructScore(row, yC, textMappings)
+            let w: number | string
+            if (useNumeric) {
+              const ws = getConstructScore(row, wC, textMappings)
+              w = ws === null ? NaN : ws
+            } else {
+              w = String(row[wCol] ?? '').trim()
+            }
+            return { x: xs === null ? NaN : xs, y: ys === null ? NaN : ys, w }
+          })
+          const labelOf = (raw: string): string => {
+            const m: any = (demographicMappings as any)[wCol] || (demographicMappings as any)[String(wCol)] || {}
+            return m[raw] || raw
+          }
+          const modRes = moderationAnalysis(modRows, {
+            coding: useNumeric ? 'numeric' : 'categorical',
+            names: { x: xC.name, w: wC.name, y: yC.name },
+            labelOf,
+          })
+          if (modRes && modRes.error) moderationError = modRes.error
+          else if (modRes) moderation = JSON.parse(JSON.stringify(modRes))
+        }
+      } catch (e: any) {
+        moderationError = 'The moderation could not be calculated: ' + (e && e.message ? e.message : 'unexpected error') + '.'
+      }
+    }
+
     let paired: any = null
     if (analysisTypes.includes('paired') && session.paired_config) {
       const { group1ConstructId, group2ConstructId, group1Label, group2Label } = session.paired_config
@@ -810,10 +855,10 @@ export async function POST(req: NextRequest) {
         const missing = found.filter((f) => !f.c).map((f) => f.i)
         const demo = found.filter((f) => f.c && f.c.role === 'Demographic').map((f) => f.c.name)
         if (missing.length) reason = 'A chosen variable was not found: ' + missing.join(', ') + '.'
-        else if ((t === 'moderation' || t === 'mediation') && demo.length) reason = 'This analysis cannot yet use a demographic item (' + demo.join(', ') + '). Choose scale variables, or wait for the update that adds this.'
+        else if (t === 'mediation' && demo.length) reason = 'This analysis cannot yet use a demographic item (' + demo.join(', ') + '). Choose scale variables, or wait for the update that adds this.'
         else reason = 'The variables were found, but there were not enough valid answers (each group needs at least 2).'
       }
-      skippedAnalyses.push({ type: t, reason })
+      skippedAnalyses.push({ type: t, reason: (t === 'moderation' && moderationError) ? moderationError : reason })
     }
     if (skippedAnalyses.length) console.log('[calculate] skipped analyses:', JSON.stringify(skippedAnalyses))
   }
