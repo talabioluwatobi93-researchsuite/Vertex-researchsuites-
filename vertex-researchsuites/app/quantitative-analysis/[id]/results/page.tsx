@@ -89,7 +89,7 @@ export default function ResultsPage() {
   const results = useMemo(() => withDisplayAliases(rawResults), [rawResults])
   const [interpretation, setInterpretation] = useState('')
   const [tableInterpretations, setTableInterpretations] = useState<Record<string, string>>({})
-  const [viewMode, setViewMode] = useState<'tables' | 'fullDocument'>('tables')
+  const [viewMode, setViewMode] = useState<'tables' | 'fullDocument'>('fullDocument')
   const [discussion, setDiscussion] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [revealed, setRevealed] = useState(false)
