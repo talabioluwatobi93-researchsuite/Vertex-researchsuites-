@@ -755,6 +755,18 @@ export default function ResultsPage() {
         </div>
       )}
 
+      {/* PHASE7C: say why an analysis produced nothing, instead of hiding it */}
+      {Array.isArray(results.skippedAnalyses) && results.skippedAnalyses.length > 0 && (
+        <div style={{ backgroundColor: '#FFF8E6', borderRadius: '16px', padding: '16px', border: '1px solid #F0D9A0', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Analyses that could not be produced</p>
+          {results.skippedAnalyses.map((sk: any, i: number) => (
+            <p key={i} style={{ fontSize: '14px', color: '#333333', lineHeight: 1.5, marginBottom: '6px' }}>
+              <strong>{String(sk.type)}</strong>: {sk.reason}
+            </p>
+          ))}
+        </div>
+      )}
+
       {results.correlation && (
         <div style={tableWrap}>
           <p style={tableTitle}>Table {nextTable()}. Pearson Correlations Among Study Variables (Default)</p>
@@ -1716,6 +1728,64 @@ export default function ResultsPage() {
               {tableInterpretations['Moderation Coefficients']}
             </div>
           )}
+        </div>
+      )}
+
+      {/* PHASE7C: moderation fit footer, interaction step (change in R2) and simple slopes */}
+      {results.moderation && results.moderation.deltaR2 && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #E5E5E5', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Moderation: interaction step and simple slopes ({results.moderation.predictorName} x {results.moderation.moderatorName})</p>
+          <p style={noteStyle}>Model fit: F ({results.moderation.anova.regression.df}, {results.moderation.anova.residual.df}) = {Number(results.moderation.F).toFixed(4)}, R2 = {Number(results.moderation.modelSummary.rSquared).toFixed(4)}, p = {formatSpssValue(results.moderation.p, 3)}, n = {results.moderation.n}.</p>
+          <p style={noteStyle}>{results.moderation.coding === 'numeric' ? 'The predictor and the moderator were mean-centred before the interaction term was formed.' : 'The predictor was mean-centred. The moderator was dummy coded with ' + results.moderation.referenceGroup + ' as the reference group, so each interaction row tests whether that group\'s slope differs from the reference group\'s slope.'}</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Change in R2</th>
+                <th style={thStyle}>F change</th>
+                <th style={thStyle}>df1</th>
+                <th style={thStyle}>df2</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{Number(results.moderation.deltaR2.value).toFixed(4)}</td>
+                <td style={tdStyle}>{Number(results.moderation.deltaR2.F).toFixed(3)}</td>
+                <td style={tdStyle}>{results.moderation.deltaR2.df1}</td>
+                <td style={tdStyle}>{results.moderation.deltaR2.df2}</td>
+                <td style={tdStyle}>{formatSpssValue(results.moderation.deltaR2.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {Array.isArray(results.moderation.simpleSlopes) && results.moderation.simpleSlopes.length > 0 && (
+            <table style={{ ...table, marginTop: '16px' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Moderator level</th>
+                  <th style={thStyle}>Moderator value</th>
+                  <th style={thStyle}>B</th>
+                  <th style={thStyle}>SE</th>
+                  <th style={thStyle}>t</th>
+                  <th style={thStyle}>Sig.</th>
+                  <th style={thStyle}>95% CI</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.moderation.simpleSlopes.map((sl: any, i: number) => (
+                  <tr key={i}>
+                    <td style={tdStyle}>{sl.label}</td>
+                    <td style={tdStyle}>{sl.wValue !== null && sl.wValue !== undefined ? Number(sl.wValue).toFixed(3) : '-'}</td>
+                    <td style={tdStyle}>{Number(sl.B).toFixed(3)}</td>
+                    <td style={tdStyle}>{Number(sl.SE).toFixed(3)}</td>
+                    <td style={tdStyle}>{Number(sl.t).toFixed(3)}</td>
+                    <td style={tdStyle}>{formatSpssValue(sl.p, 3)}</td>
+                    <td style={tdStyle}>[{Number(sl.ciLower).toFixed(3)}, {Number(sl.ciUpper).toFixed(3)}]</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <p style={noteStyle}>Note. Simple slopes show the effect of {results.moderation.predictorName} on {results.moderation.outcomeName} at each level of {results.moderation.moderatorName}.</p>
         </div>
       )}
 
