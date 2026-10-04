@@ -1757,6 +1757,11 @@ export default function ResultsPage() {
               </tr>
             </tbody>
           </table>
+          {viewMode === 'fullDocument' && tableInterpretations['Moderation Interaction Step'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', marginTop: '12px', marginBottom: '12px' }}>
+              {tableInterpretations['Moderation Interaction Step']}
+            </div>
+          )}
           {Array.isArray(results.moderation.simpleSlopes) && results.moderation.simpleSlopes.length > 0 && (
             <table style={{ ...table, marginTop: '16px' }}>
               <thead>
@@ -1785,7 +1790,12 @@ export default function ResultsPage() {
               </tbody>
             </table>
           )}
-          <p style={noteStyle}>Note. Simple slopes show the effect of {results.moderation.predictorName} on {results.moderation.outcomeName} at each level of {results.moderation.moderatorName}.</p>
+          {viewMode === 'fullDocument' && tableInterpretations['Moderation Simple Slopes'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', marginTop: '12px', marginBottom: '12px' }}>
+              {tableInterpretations['Moderation Simple Slopes']}
+            </div>
+          )}
+          <p style={noteStyle}>Note. Simple slopes show the effect of {/* PHASE7D */} {results.moderation.predictorName} on {results.moderation.outcomeName} at each level of {results.moderation.moderatorName}.</p>
         </div>
       )}
 

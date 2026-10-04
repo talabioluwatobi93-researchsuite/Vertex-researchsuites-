@@ -83,7 +83,7 @@ Extract and structure ONLY the mathematical parameters. Explicitly identify and 
 - Kruskal-Wallis Test (H statistic, df, p-value, mean ranks per group)
 - Chi-Square Test of Independence (chi-square value, df, p-value)
 - Mediation Analysis (path a: predictor to mediator coefficient/p-value, path b: mediator to outcome coefficient/p-value, indirect effect, Sobel z or bootstrap CI if available)
-- Moderation Analysis (main effect B/SE/t/p for predictor and moderator, interaction term B/SE/t/p, R-squared change)
+- Moderation Analysis (main effect B/SE/t/p for predictor and moderator, interaction term B/SE/t/p, R-squared change with F and p, simple slopes at each moderator level)
 
 For each test present, also state WHY that specific test was appropriate for this research design, based only on the actual IV/DV/grouping-variable roles and data types already established for this session \u2014 do not invent methodological reasoning beyond what those roles support.
 
@@ -258,7 +258,7 @@ MANDATORY EXACT TABLE TITLES - use these exact strings for table_title, do not i
 - Kruskal-Wallis: "Kruskal-Wallis Test Ranks", "Kruskal-Wallis Test Statistics"
 - Two-way ANOVA: "Tests of Between-Subjects Effects"
 - Chi-Square: "{row} x {col} Crosstabulation", "Chi-Square Tests"
-- Moderation: "Moderation Model Summary", "Moderation Coefficients"
+- Moderation: "Moderation Model Summary", "Moderation Coefficients", "Moderation Interaction Step", "Moderation Simple Slopes"
 - Mediation: "Mediation Path Coefficients", "Sobel Test for Indirect Effect"
 - Logistic Regression: "Model Summary", "Variables in the Equation"
 
@@ -449,3 +449,5 @@ Respond ONLY with valid JSON, no preamble, no markdown fences:
     return draft
   }
 }
+
+// PHASE7D: moderation interaction-step and simple-slopes table titles added to the prompt lists

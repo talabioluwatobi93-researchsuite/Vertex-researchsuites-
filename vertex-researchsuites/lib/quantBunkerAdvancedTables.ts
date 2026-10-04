@@ -140,6 +140,39 @@ export function buildModerationTables(mod: any, tableNumber: number, citationSty
         spacer(),
       ],
     },
+  // PHASE7D: interaction step and simple slopes tables
+  ...(mod.deltaR2
+    ? [
+        {
+          title: `Table ${tableNumber + (mod.anova ? 3 : 2)}. Interaction Step for ${mod.outcomeName}`,
+          blocks: [
+            tableTitle(`Table ${tableNumber + (mod.anova ? 3 : 2)}. Interaction Step for ${mod.outcomeName}`),
+            makeTable(
+              ["R² change", "F change", "df1", "df2", "p"],
+              [[fmt(mod.deltaR2.value, 4), fmt(mod.deltaR2.F), fmt(mod.deltaR2.df1, 0), fmt(mod.deltaR2.df2, 0), fmtP(mod.deltaR2.p)]],
+              false
+            ),
+            spacer(),
+          ],
+        },
+      ]
+    : []),
+  ...(Array.isArray(mod.simpleSlopes) && mod.simpleSlopes.length > 0
+    ? [
+        {
+          title: `Table ${tableNumber + (mod.anova ? 3 : 2) + (mod.deltaR2 ? 1 : 0)}. Simple Slopes of ${mod.predictorName} on ${mod.outcomeName}`,
+          blocks: [
+            tableTitle(`Table ${tableNumber + (mod.anova ? 3 : 2) + (mod.deltaR2 ? 1 : 0)}. Simple Slopes of ${mod.predictorName} on ${mod.outcomeName}`),
+            makeTable(
+              ["Moderator level", "Moderator value", "B", "SE", "t", "p", "95% CI"],
+              mod.simpleSlopes.map((sl: any) => [sl.label, sl.wValue !== null && sl.wValue !== undefined ? fmt(sl.wValue) : "-", fmt(sl.B), fmt(sl.SE), fmt(sl.t), fmtP(sl.p), `[${fmt(sl.ciLower)}, ${fmt(sl.ciUpper)}]`]),
+              true
+            ),
+            spacer(),
+          ],
+        },
+      ]
+    : []),
   ];
 }
 

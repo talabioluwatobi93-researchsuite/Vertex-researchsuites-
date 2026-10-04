@@ -430,7 +430,7 @@ export async function POST(req: NextRequest) {
             labelOf,
           })
           if (modRes && modRes.error) moderationError = modRes.error
-          else if (modRes) moderation = JSON.parse(JSON.stringify(modRes))
+          else if (modRes) moderation = JSON.parse(JSON.stringify(modRes), (_k: string, v: any) => (typeof v === 'number' ? Math.round(v * 10000) / 10000 : v)) // PHASE7D: 4 decimals
         }
       } catch (e: any) {
         moderationError = 'The moderation could not be calculated: ' + (e && e.message ? e.message : 'unexpected error') + '.'
