@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 60
 import { createClient } from '@supabase/supabase-js'
+import { moderationAnalysis } from "@/lib/stats"
 import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis, twoWayAnova, sobelMediation, logisticRegression } from '@/lib/stats'
 
 const supabase = createClient(
@@ -13,12 +14,23 @@ function r3(n: number): number { return Math.round(n * 1000) / 1000 }
 function r2(n: number): number { return Math.round(n * 100) / 100 }
 function r1(n: number): number { return Math.round(n * 10) / 10 }
 
+// PHASE6: text mappings are saved under the parent construct id; item ids fall back to it
+function lookupTextMapping(textMappings: Record<string, any>, id: string): any {
+  if (!textMappings || !id) return undefined
+  if (textMappings[id]) return textMappings[id]
+  if (id.startsWith('item::')) {
+    const m = id.slice(6).match(/^(.*?)(?:::|:)(\d+)$/)
+    if (m) return textMappings[m[1]]
+  }
+  return undefined
+}
+
     function resolveNumeric(raw: any, constructId: string, textMappings: Record<string, any>): number | null {
       if (raw === null || raw === undefined || String(raw).trim() === '') return null
       const str = String(raw).trim()
       const direct = Number(str)
       if (!isNaN(direct)) return direct
-      const mapping = textMappings[constructId]
+      const mapping = lookupTextMapping(textMappings, constructId)
       if (mapping && mapping[str] !== undefined) return Number(mapping[str])
       return null
     }
@@ -268,6 +280,8 @@ export async function POST(req: NextRequest) {
               SE: r3(reg.standardErrors[i + 1]),
               beta: r3(reg.betas[i]),
               t: r3(reg.tStats[i + 1]),
+            vif: (reg.vif && reg.vif[i] != null) ? r3(reg.vif[i]) : null,
+            tolerance: (reg.tolerance && reg.tolerance[i] != null) ? r3(reg.tolerance[i]) : null,
               p: r3(reg.pValues[i + 1])
             }))
           ]
@@ -302,11 +316,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const extraRunErrors: { type: string; reason: string }[] = [] // PHASE7G
     let ttest: any = null
     if (analysisTypes.includes('ttest') && session.ttest_config) {
       const { groupConstructId, outcomeConstructId } = session.ttest_config
-      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
-      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
 
       if (groupConstruct && outcomeConstruct) {
         const groupCol = groupConstruct.columnIndexes[0]
@@ -334,6 +349,48 @@ export async function POST(req: NextRequest) {
           }
         }
       }
+    }
+
+    // PHASE7G: extra runs (Run 2, Run 3) of ttest, calculated with exactly the same logic as run 1
+    const ttest_runs: any[] = []
+    if (analysisTypes.includes('ttest') && session.ttest_config && Array.isArray(session.ttest_config.extraRuns)) {
+      session.ttest_config.extraRuns.slice(0, 2).forEach((cfgRun: any, ri: number) => {
+        let ttest: any = null
+        if (analysisTypes.includes('ttest') && cfgRun) {
+      const { groupConstructId, outcomeConstructId } = cfgRun
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const group1Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[0]
+        const group2Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[1]
+
+        const group1Scores: number[] = []
+        const group2Scores: number[] = []
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
+          if (score === null) return
+          if (label === group1Label) group1Scores.push(score)
+          else if (label === group2Label) group2Scores.push(score)
+        })
+
+        if (group1Scores.length >= 2 && group2Scores.length >= 2) {
+          const ttestResult = independentTTest(group1Scores, group2Scores)
+          ttest = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            group1Label, group2Label,
+            ...ttestResult,
+          }
+        }
+      }
+    }
+        if (ttest) ttest_runs.push({ run: ri + 2, ...JSON.parse(JSON.stringify(ttest)) })
+        else extraRunErrors.push({ type: 'ttest (Run ' + (ri + 2) + ')', reason: 'This run could not be produced: a chosen variable was not found, or a group has fewer than 2 valid answers.' })
+      })
     }
     let moderation: any = null
     if (analysisTypes.includes('moderation') && session.moderation_config) {
@@ -379,6 +436,89 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    // PHASE7B: moderation via moderationAnalysis (complete cases per respondent; scale, 2-group and multi-group moderators)
+    let moderationError: string | null = null
+    if (analysisTypes.includes('moderation') && session.moderation_config) {
+      try {
+        const modCfg: any = session.moderation_config
+        const xC: any = resolveVariableConstruct(modCfg.predictorConstructId, constructs, columnHeaders)
+        const wC: any = resolveVariableConstruct(modCfg.moderatorConstructId, constructs, columnHeaders)
+        const yC: any = resolveVariableConstruct(modCfg.outcomeConstructId, constructs, columnHeaders)
+        if (!xC || !wC || !yC) {
+          const lost = [!xC ? 'predictor' : '', !wC ? 'moderator' : '', !yC ? 'outcome' : ''].filter(Boolean)
+          moderationError = 'A chosen variable was not found: ' + lost.join(', ') + '.'
+        } else {
+          const wIsDemo = wC.role === 'Demographic'
+          const useNumeric = !wIsDemo || modCfg.moderatorCoding === 'numeric'
+          const wCol: any = wC.columnIndexes ? wC.columnIndexes[0] : undefined
+          const modRows = cleanedRows.map((row: any[]) => {
+            const xs = getConstructScore(row, xC, textMappings)
+            const ys = getConstructScore(row, yC, textMappings)
+            let w: number | string
+            if (useNumeric) {
+              const ws = getConstructScore(row, wC, textMappings)
+              w = ws === null ? NaN : ws
+            } else {
+              w = String(row[wCol] ?? '').trim()
+            }
+            return { x: xs === null ? NaN : xs, y: ys === null ? NaN : ys, w }
+          })
+          const labelOf = (raw: string): string => {
+            const m: any = (demographicMappings as any)[wCol] || (demographicMappings as any)[String(wCol)] || {}
+            return m[raw] || raw
+          }
+          const modRes = moderationAnalysis(modRows, {
+            coding: useNumeric ? 'numeric' : 'categorical',
+            names: { x: xC.name, w: wC.name, y: yC.name },
+            labelOf,
+          })
+          if (modRes && modRes.error) moderationError = modRes.error
+          else if (modRes) moderation = JSON.parse(JSON.stringify(modRes), (_k: string, v: any) => (typeof v === 'number' ? Math.round(v * 10000) / 10000 : v)) // PHASE7D: 4 decimals
+        }
+      } catch (e: any) {
+        moderationError = 'The moderation could not be calculated: ' + (e && e.message ? e.message : 'unexpected error') + '.'
+      }
+    }
+
+    // PHASE7E: optional extra moderation runs (Run 2 and Run 3), same calculation as run 1
+    const moderationRuns: any[] = []
+    const moderationRunErrors: { run: number; reason: string }[] = []
+    if (analysisTypes.includes('moderation') && session.moderation_config && Array.isArray(session.moderation_config.extraRuns)) {
+      session.moderation_config.extraRuns.slice(0, 2).forEach((cfg: any, ri: number) => {
+        const runNo = ri + 2
+        try {
+          const xC: any = resolveVariableConstruct(cfg.predictorConstructId, constructs, columnHeaders)
+          const wC: any = resolveVariableConstruct(cfg.moderatorConstructId, constructs, columnHeaders)
+          const yC: any = resolveVariableConstruct(cfg.outcomeConstructId, constructs, columnHeaders)
+          if (!xC || !wC || !yC) { moderationRunErrors.push({ run: runNo, reason: 'A chosen variable was not found.' }); return }
+          const wIsDemo = wC.role === 'Demographic'
+          const useNumeric = !wIsDemo || cfg.moderatorCoding === 'numeric'
+          const wCol: any = wC.columnIndexes ? wC.columnIndexes[0] : undefined
+          const runRows = cleanedRows.map((row: any[]) => {
+            const xs = getConstructScore(row, xC, textMappings)
+            const ys = getConstructScore(row, yC, textMappings)
+            let w: number | string
+            if (useNumeric) {
+              const ws = getConstructScore(row, wC, textMappings)
+              w = ws === null ? NaN : ws
+            } else {
+              w = String(row[wCol] ?? '').trim()
+            }
+            return { x: xs === null ? NaN : xs, y: ys === null ? NaN : ys, w }
+          })
+          const labelOf = (raw: string): string => {
+            const m: any = (demographicMappings as any)[wCol] || (demographicMappings as any)[String(wCol)] || {}
+            return m[raw] || raw
+          }
+          const rr: any = moderationAnalysis(runRows, { coding: useNumeric ? 'numeric' : 'categorical', names: { x: xC.name, w: wC.name, y: yC.name }, labelOf })
+          if (rr && rr.error) { moderationRunErrors.push({ run: runNo, reason: rr.error }); return }
+          if (rr) moderationRuns.push({ run: runNo, ...JSON.parse(JSON.stringify(rr), (_k: string, v: any) => (typeof v === 'number' ? Math.round(v * 10000) / 10000 : v)) })
+        } catch (e: any) {
+          moderationRunErrors.push({ run: runNo, reason: 'The moderation run could not be calculated: ' + (e && e.message ? e.message : 'unexpected error') + '.' })
+        }
+      })
+    }
+
     let paired: any = null
     if (analysisTypes.includes('paired') && session.paired_config) {
       const { group1ConstructId, group2ConstructId, group1Label, group2Label } = session.paired_config
@@ -390,8 +530,8 @@ export async function POST(req: NextRequest) {
           const before = group1Scores.slice(0, n)
           const after = group2Scores.slice(0, n)
           const pairedResult = pairedTTest(before, after)
-          const group1Name = group1Label || (constructs.find((c: any) => c.id === group1ConstructId) || {}).name || 'Group 1'
-          const group2Name = group2Label || (constructs.find((c: any) => c.id === group2ConstructId) || {}).name || 'Group 2'
+          const group1Name = group1Label || (resolveVariableConstruct(group1ConstructId, constructs, columnHeaders) || {}).name || 'Group 1'
+          const group2Name = group2Label || (resolveVariableConstruct(group2ConstructId, constructs, columnHeaders) || {}).name || 'Group 2'
           paired = {
             group1Name,
             group2Name,
@@ -404,8 +544,8 @@ export async function POST(req: NextRequest) {
     let mannwhitney: any = null
     if (analysisTypes.includes('mannwhitney') && session.mannwhitney_config) {
       const { groupConstructId, outcomeConstructId } = session.mannwhitney_config
-      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
-      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
 
       if (groupConstruct && outcomeConstruct) {
         const groupCol = groupConstruct.columnIndexes[0]
@@ -436,6 +576,49 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // PHASE7G: extra runs (Run 2, Run 3) of mannwhitney, calculated with exactly the same logic as run 1
+    const mannwhitney_runs: any[] = []
+    if (analysisTypes.includes('mannwhitney') && session.mannwhitney_config && Array.isArray(session.mannwhitney_config.extraRuns)) {
+      session.mannwhitney_config.extraRuns.slice(0, 2).forEach((cfgRun: any, ri: number) => {
+        let mannwhitney: any = null
+        if (analysisTypes.includes('mannwhitney') && cfgRun) {
+      const { groupConstructId, outcomeConstructId } = cfgRun
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const group1Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[0]
+        const group2Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[1]
+
+        const group1Scores: number[] = []
+        const group2Scores: number[] = []
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
+          if (score === null) return
+          if (label === group1Label) group1Scores.push(score)
+          else if (label === group2Label) group2Scores.push(score)
+        })
+
+        if (group1Scores.length >= 2 && group2Scores.length >= 2) {
+          const mwResult = mannWhitneyU(group1Scores, group2Scores)
+          mannwhitney = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            group1Label,
+            group2Label,
+            ...mwResult
+          }
+        }
+      }
+    }
+        if (mannwhitney) mannwhitney_runs.push({ run: ri + 2, ...JSON.parse(JSON.stringify(mannwhitney)) })
+        else extraRunErrors.push({ type: 'mannwhitney (Run ' + (ri + 2) + ')', reason: 'This run could not be produced: a chosen variable was not found, or a group has fewer than 2 valid answers.' })
+      })
+    }
+
     let wilcoxon: any = null
     if (analysisTypes.includes('wilcoxon') && session.wilcoxon_config) {
       const { group1ConstructId, group2ConstructId, group1Label, group2Label } = session.wilcoxon_config
@@ -447,8 +630,8 @@ export async function POST(req: NextRequest) {
           const before = group1Scores.slice(0, n)
           const after = group2Scores.slice(0, n)
           const wilcoxonResult = wilcoxonSignedRank(before, after)
-          const group1Name = group1Label || (constructs.find((c: any) => c.id === group1ConstructId) || {}).name || 'Group 1'
-          const group2Name = group2Label || (constructs.find((c: any) => c.id === group2ConstructId) || {}).name || 'Group 2'
+          const group1Name = group1Label || (resolveVariableConstruct(group1ConstructId, constructs, columnHeaders) || {}).name || 'Group 1'
+          const group2Name = group2Label || (resolveVariableConstruct(group2ConstructId, constructs, columnHeaders) || {}).name || 'Group 2'
           wilcoxon = {
             group1Name,
             group2Name,
@@ -461,8 +644,8 @@ export async function POST(req: NextRequest) {
     let anova: any = null
     if (analysisTypes.includes('anova') && session.anova_config) {
       const { groupConstructId, outcomeConstructId } = session.anova_config
-      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
-      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
 
       if (groupConstruct && outcomeConstruct) {
         const groupCol = groupConstruct.columnIndexes[0]
@@ -526,11 +709,87 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // PHASE7G: extra runs (Run 2, Run 3) of anova, calculated with exactly the same logic as run 1
+    const anova_runs: any[] = []
+    if (analysisTypes.includes('anova') && session.anova_config && Array.isArray(session.anova_config.extraRuns)) {
+      session.anova_config.extraRuns.slice(0, 2).forEach((cfgRun: any, ri: number) => {
+        let anova: any = null
+        if (analysisTypes.includes('anova') && cfgRun) {
+      const { groupConstructId, outcomeConstructId } = cfgRun
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const groupLabels = Array.from(new Set(
+          cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)
+        )) as string[]
+
+        const groupedScores: Record<string, number[]> = {}
+        groupLabels.forEach((label) => { groupedScores[label] = [] })
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
+          if (score === null) return
+          if (groupedScores[label] !== undefined) groupedScores[label].push(score)
+        })
+
+        const validLabels = groupLabels.filter((label) => groupedScores[label].length >= 2)
+
+        if (validLabels.length >= 3) {
+          const groups = validLabels.map((label) => groupedScores[label])
+          const a = oneWayAnova(groups)
+          anova = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            groupLabels: validLabels,
+            k: a.k,
+            n: a.n,
+            grandMean: r3(a.grandMean),
+            ssBetween: r3(a.ssBetween),
+            ssWithin: r3(a.ssWithin),
+            ssTotal: r3(a.ssTotal),
+            dfBetween: a.dfBetween,
+            dfWithin: a.dfWithin,
+            msBetween: r3(a.msBetween),
+            msWithin: r3(a.msWithin),
+            F: r3(a.f),
+            p: r3(a.p),
+            groupStats: a.groupStats.map((g, i) => ({
+              label: validLabels[i],
+              n: g.n,
+              mean: r2(g.mean),
+              sd: r2(g.sd),
+              sem: r2(g.sem),
+              ciLower: r2(g.ciLower),
+              ciUpper: r2(g.ciUpper),
+              min: r2(g.min),
+              max: r2(g.max),
+            })),
+            tukey: a.tukey.map((t) => ({
+              groupA: validLabels[t.i],
+              groupB: validLabels[t.j],
+              meanDiff: r3(t.meanDiff),
+              seDiff: r3(t.seDiff),
+              p: r3(t.p),
+              ciLower: r3(t.ciLower),
+              ciUpper: r3(t.ciUpper),
+            })),
+          }
+        }
+      }
+    }
+        if (anova) anova_runs.push({ run: ri + 2, ...JSON.parse(JSON.stringify(anova)) })
+        else extraRunErrors.push({ type: 'anova (Run ' + (ri + 2) + ')', reason: 'This run could not be produced: a chosen variable was not found, or a group has fewer than 2 valid answers.' })
+      })
+    }
+
     let kruskalwallis: any = null
     if (analysisTypes.includes('kruskalwallis') && session.kruskalwallis_config) {
       const { groupConstructId, outcomeConstructId } = session.kruskalwallis_config
-      const groupConstruct = constructs.find((c: any) => c.id === groupConstructId)
-      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
 
       if (groupConstruct && outcomeConstruct) {
         const groupCol = groupConstruct.columnIndexes[0]
@@ -563,12 +822,57 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // PHASE7G: extra runs (Run 2, Run 3) of kruskalwallis, calculated with exactly the same logic as run 1
+    const kruskalwallis_runs: any[] = []
+    if (analysisTypes.includes('kruskalwallis') && session.kruskalwallis_config && Array.isArray(session.kruskalwallis_config.extraRuns)) {
+      session.kruskalwallis_config.extraRuns.slice(0, 2).forEach((cfgRun: any, ri: number) => {
+        let kruskalwallis: any = null
+        if (analysisTypes.includes('kruskalwallis') && cfgRun) {
+      const { groupConstructId, outcomeConstructId } = cfgRun
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const groupLabels = Array.from(new Set(
+          cleanedRows.map((r: any[]) => String(r[groupCol]).trim())
+        )).filter(Boolean) as string[]
+
+        const groupedScores: Record<string, number[]> = {}
+        groupLabels.forEach((label) => { groupedScores[label] = [] })
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
+          if (score === null) return
+          if (groupedScores[label] !== undefined) groupedScores[label].push(score)
+        })
+
+        const validLabels = groupLabels.filter((label) => groupedScores[label].length >= 2)
+
+        if (validLabels.length >= 3) {
+          const groups = validLabels.map((label) => groupedScores[label])
+          const kwResult = kruskalWallis(groups)
+          kruskalwallis = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            groupLabels: validLabels,
+            ...kwResult
+          }
+        }
+      }
+    }
+        if (kruskalwallis) kruskalwallis_runs.push({ run: ri + 2, ...JSON.parse(JSON.stringify(kruskalwallis)) })
+        else extraRunErrors.push({ type: 'kruskalwallis (Run ' + (ri + 2) + ')', reason: 'This run could not be produced: a chosen variable was not found, or a group has fewer than 2 valid answers.' })
+      })
+    }
+
     let twowayanova: any = null
     if (analysisTypes.includes('twowayanova') && session.twowayanova_config) {
       const { factorAConstructId, factorBConstructId, outcomeConstructId } = session.twowayanova_config
-      const factorAConstruct = constructs.find((c: any) => c.id === factorAConstructId)
-      const factorBConstruct = constructs.find((c: any) => c.id === factorBConstructId)
-      const outcomeConstruct = constructs.find((c: any) => c.id === outcomeConstructId)
+      const factorAConstruct = resolveVariableConstruct(factorAConstructId, constructs, columnHeaders)
+      const factorBConstruct = resolveVariableConstruct(factorBConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
 
       if (factorAConstruct && factorBConstruct && outcomeConstruct) {
         const colA = factorAConstruct.columnIndexes[0]
@@ -578,11 +882,11 @@ export async function POST(req: NextRequest) {
         const factorBValues: string[] = []
         const outcomeValues: number[] = []
 
-        const mappingA = textMappings[factorAConstruct.id]
+        const mappingA = lookupTextMapping(textMappings, factorAConstruct.id)
         const reverseMapA: Record<string, string> = {}
         if (mappingA) Object.entries(mappingA).forEach(([text, num]: [string, any]) => { reverseMapA[String(num)] = text })
 
-        const mappingB = textMappings[factorBConstruct.id]
+        const mappingB = lookupTextMapping(textMappings, factorBConstruct.id)
         const reverseMapB: Record<string, string> = {}
         if (mappingB) Object.entries(mappingB).forEach(([text, num]: [string, any]) => { reverseMapB[String(num)] = text })
 
@@ -658,18 +962,18 @@ export async function POST(req: NextRequest) {
     let chisquare: any = null
     if (analysisTypes.includes('chisquare') && session.chisquare_config) {
       const { rowConstructId, colConstructId } = session.chisquare_config
-      const rowConstruct = constructs.find((c: any) => c.id === rowConstructId)
-      const colConstruct = constructs.find((c: any) => c.id === colConstructId)
+      const rowConstruct = resolveVariableConstruct(rowConstructId, constructs, columnHeaders)
+      const colConstruct = resolveVariableConstruct(colConstructId, constructs, columnHeaders)
 
       if (rowConstruct && colConstruct) {
         const rowCol = rowConstruct.columnIndexes[0]
         const colCol = colConstruct.columnIndexes[0]
 
-        const mappingRow = textMappings[rowConstruct.id]
+        const mappingRow = lookupTextMapping(textMappings, rowConstruct.id)
         const reverseMapRow: Record<string, string> = {}
         if (mappingRow) Object.entries(mappingRow).forEach(([text, num]: [string, any]) => { reverseMapRow[String(num)] = text })
 
-        const mappingCol = textMappings[colConstruct.id]
+        const mappingCol = lookupTextMapping(textMappings, colConstruct.id)
         const reverseMapCol: Record<string, string> = {}
         if (mappingCol) Object.entries(mappingCol).forEach(([text, num]: [string, any]) => { reverseMapCol[String(num)] = text })
 
@@ -779,6 +1083,34 @@ export async function POST(req: NextRequest) {
       return { constructName: c.name, scaleMin, scaleMax, items, totalMean, totalSD, totalOverallPercent }
     })
 
+  // PHASE6B: never omit an analysis silently - say why it produced nothing
+  const skippedAnalyses: { type: string; reason: string }[] = []
+  {
+    const produced: Record<string, any> = { correlation, regression, logistic, ttest, anova, chisquare, moderation, mannwhitney, paired, wilcoxon, kruskalwallis, twowayanova, mediation }
+    const cfgKeys: Record<string, string> = { ttest: 'ttest_config', anova: 'anova_config', chisquare: 'chisquare_config', moderation: 'moderation_config', paired: 'paired_config', mannwhitney: 'mannwhitney_config', wilcoxon: 'wilcoxon_config', kruskalwallis: 'kruskalwallis_config', twowayanova: 'twowayanova_config', mediation: 'mediation_config' }
+    for (const t of analysisTypes) {
+      if (!(t in produced) || (produced[t] !== null && produced[t] !== undefined)) continue
+      const ck = cfgKeys[t]
+      const cfg: any = ck ? session[ck] : null
+      let reason = 'Not enough valid data for this analysis, or the variable roles it needs were not set.'
+      if (ck && !cfg) {
+        reason = 'No variables were saved for this analysis. Choose the variables on the analysis screen and run again.'
+      } else if (cfg) {
+        const ids = Object.entries(cfg).filter(([k, v]) => /ConstructId$/.test(k) && v).map(([, v]) => String(v))
+        const found = ids.map((i) => ({ i, c: resolveVariableConstruct(i, constructs, columnHeaders) }))
+        const missing = found.filter((f) => !f.c).map((f) => f.i)
+        const demo = found.filter((f) => f.c && f.c.role === 'Demographic').map((f) => f.c.name)
+        if (missing.length) reason = 'A chosen variable was not found: ' + missing.join(', ') + '.'
+        else if (t === 'mediation' && demo.length) reason = 'This analysis cannot yet use a demographic item (' + demo.join(', ') + '). Choose scale variables, or wait for the update that adds this.'
+        else reason = 'The variables were found, but there were not enough valid answers (each group needs at least 2).'
+      }
+      skippedAnalyses.push({ type: t, reason: (t === 'moderation' && moderationError) ? moderationError : reason })
+    }
+    moderationRunErrors.forEach((e) => skippedAnalyses.push({ type: 'moderation (Run ' + e.run + ')', reason: e.reason }))
+      extraRunErrors.forEach((e) => skippedAnalyses.push(e))
+      if (skippedAnalyses.length) console.log('[calculate] skipped analyses:', JSON.stringify(skippedAnalyses))
+  }
+
     const results = {
       sampleSize: cleanedRows.length,
       excludedRows: rawData.length - cleanedRows.length,
@@ -798,6 +1130,12 @@ export async function POST(req: NextRequest) {
       twowayanova,
       mediation,
       logistic,
+      skippedAnalyses: skippedAnalyses.length ? skippedAnalyses : undefined,
+      moderation_runs: moderationRuns.length ? moderationRuns : undefined,
+      ttest_runs: ttest_runs.length ? ttest_runs : undefined,
+      mannwhitney_runs: mannwhitney_runs.length ? mannwhitney_runs : undefined,
+      anova_runs: anova_runs.length ? anova_runs : undefined,
+      kruskalwallis_runs: kruskalwallis_runs.length ? kruskalwallis_runs : undefined,
       computedAt: new Date().toISOString()
     }
 
@@ -816,13 +1154,15 @@ export async function POST(req: NextRequest) {
 function resolveVariableConstruct(id: string, constructs: any[], columnHeaders: string[]): any | null {
   if (!id) return null
   if (id.startsWith('item::')) {
-    const parts = id.split('::')
-    const parentId = parts[1]
-    const colIndex = Number(parts[2])
+    // PHASE6: accept item::<id>:<col> and item::<id>::<col>
+    const _m = id.slice(6).match(/^(.*?)(?:::|:)(\d+)$/)
+    const parentId = _m ? _m[1] : ''
+    const colIndex = _m ? Number(_m[2]) : NaN
     const parent = constructs.find((c: any) => c.id === parentId)
     if (!parent || Number.isNaN(colIndex)) return null
     const reversed = (parent.reverseIndexes || []).includes(colIndex)
     return {
+      ...parent,
       id,
       name: columnHeaders?.[colIndex] || `${parent.name} - Item ${colIndex + 1}`,
       role: parent.role,

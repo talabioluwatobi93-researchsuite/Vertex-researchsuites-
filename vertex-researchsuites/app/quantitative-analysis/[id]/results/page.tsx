@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { checkFeatureAccess } from '@/lib/checkFeatureAccess'
@@ -43,6 +43,60 @@ function formatSpssValue(value: number | null | undefined, decimals: number = 3)
   return fixed
 }
 
+// PHASE6C: the calculate route saves some analyses under different names than this page reads
+// (paired, logistic, kruskalwallis, twowayanova). This builds a display copy with both names.
+// The saved data is not changed.
+function withDisplayAliases(r: any) {
+  if (!r || typeof r !== 'object') return r
+  const out: any = { ...r }
+  if (out.pairedTtest == null && r.paired) out.pairedTtest = r.paired
+  if (out.logisticRegression == null && r.logistic) out.logisticRegression = r.logistic
+  if (out.kruskalWallis == null && r.kruskalwallis) out.kruskalWallis = r.kruskalwallis
+  const tw = r.twowayanova
+  if (out.anovaTwoWay == null && tw && Array.isArray(tw.anovaTable) && tw.anovaTable.length >= 5) {
+    const num = (v: any) => (typeof v === 'number' ? v : NaN)
+    const row = (i: number) => {
+      const x = tw.anovaTable[i] || {}
+      return { ss: num(x.ss), df: num(x.df), ms: num(x.ms), f: num(x.F), p: num(x.p) }
+    }
+    out.anovaTwoWay = { ...tw, factorA: row(0), factorB: row(1), interaction: row(2), error: row(3), total: row(4) }
+  }
+  return out
+}
+
+// PHASE7F: find the interpretation that belongs to a table from its saved title (never guesses across analyses)
+function p8RunInterps(ti: Record<string, string> | null | undefined, run: number): Record<string, string> {
+  // PHASE8F2: keeps only table interpretations of one extra run, with the ' (Run N)' suffix removed
+  const out: Record<string, string> = {}
+  const suf = ' (Run ' + run + ')'
+  Object.keys(ti || {}).forEach((k) => { if (k.endsWith(suf)) out[k.slice(0, k.length - suf.length)] = (ti as Record<string, string>)[k] })
+  return out
+}
+
+function p7Norm(t: string): string {
+  return String(t).toLowerCase().replace(/^table\s*\d+\.?\s*/, '').replace(/\s*\(default\)\s*$/, '').replace(/\s+/g, ' ').trim()
+}
+function p7FindInterp(ti: Record<string, string> | null | undefined, spec: { eq?: string[]; starts?: string[]; has?: string[]; all?: string[] }): string | null {
+  if (!ti) return null
+  const keys = Object.keys(ti).filter((k) => !/\(run \d+\)/i.test(k) && typeof ti[k] === 'string' && ti[k].trim() !== '')
+  const norm = keys.map((k) => ({ k, n: p7Norm(k) }))
+  for (const e of spec.eq || []) { const hit = norm.find((x) => x.n === e); if (hit) return ti[hit.k] }
+  for (const st of spec.starts || []) { const hit = norm.find((x) => x.n.startsWith(st)); if (hit) return ti[hit.k] }
+  for (const h of spec.has || []) { const hit = norm.find((x) => x.n.includes(h)); if (hit) return ti[hit.k] }
+  const all = spec.all
+  if (all && all.length) { const hit = norm.find((x) => all.every((a) => x.n.includes(a))); if (hit) return ti[hit.k] }
+  return null
+}
+function p7InterpBox(ti: Record<string, string> | null | undefined, spec: { eq?: string[]; starts?: string[]; has?: string[]; all?: string[] }) {
+  if (!ti || Object.keys(ti).length === 0) return null
+  const txt = p7FindInterp(ti, spec)
+  return txt ? (
+    <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', marginTop: '12px', marginBottom: '12px' }}>{txt}</div>
+  ) : (
+    <div style={{ fontSize: '12px', fontStyle: 'italic', color: '#777777', marginTop: '8px', marginBottom: '8px' }}>No interpretation was generated for this table.</div>
+  )
+}
+
 function checkInterpretationGate(gateInfo: any) {
   const reasons: string[] = []
   if (!gateInfo?.response_rate_info) reasons.push('Response rate information is missing.')
@@ -64,10 +118,11 @@ export default function ResultsPage() {
   const { id } = useParams()
   const router = useRouter()
   const [status, setStatus] = useState('Calculating results...')
-  const [results, setResults] = useState<any>(null)
+  const [rawResults, setResults] = useState<any>(null)
+  const results = useMemo(() => withDisplayAliases(rawResults), [rawResults])
   const [interpretation, setInterpretation] = useState('')
   const [tableInterpretations, setTableInterpretations] = useState<Record<string, string>>({})
-  const [viewMode, setViewMode] = useState<'tables' | 'fullDocument'>('tables')
+  const [viewMode, setViewMode] = useState<'tables' | 'fullDocument'>('fullDocument')
   const [discussion, setDiscussion] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [revealed, setRevealed] = useState(false)
@@ -730,6 +785,19 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. M = Mean, SD = Standard Deviation.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['descriptive statistics for study variables', 'descriptive statistics'], starts: ['descriptive statistics for study'] })}
+        </div>
+      )}
+
+      {/* PHASE7C: say why an analysis produced nothing, instead of hiding it */}
+      {Array.isArray(results.skippedAnalyses) && results.skippedAnalyses.length > 0 && (
+        <div style={{ backgroundColor: '#FFF8E6', borderRadius: '16px', padding: '16px', border: '1px solid #F0D9A0', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Analyses that could not be produced</p>
+          {results.skippedAnalyses.map((sk: any, i: number) => (
+            <p key={i} style={{ fontSize: '14px', color: '#333333', lineHeight: 1.5, marginBottom: '6px' }}>
+              <strong>{String(sk.type)}</strong>: {sk.reason}
+            </p>
+          ))}
         </div>
       )}
 
@@ -776,6 +844,7 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>* p &lt; .05. Pearson is the default correlation reported.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { starts: ['pearson correlation'] })}
         </div>
       )}
 
@@ -837,6 +906,7 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>* p &lt; .05. Spearman reported alongside Pearson (the default) for robustness.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { starts: ['spearman'] })}
         </div>
       )}
 
@@ -863,6 +933,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
                 <p style={noteStyle}>a. Dependent Variable: {results.regression.dvName}.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['variables entered/removed'], starts: ['variables entered'] })}
                 <p style={noteStyle}>b. All requested variables entered.</p>
           </div>
 
@@ -901,6 +972,7 @@ export default function ResultsPage() {
                     </tr>
                   </tbody>
                 </table>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['model summary'], starts: ['regression model summary'] })}
           </div>
 
           <div style={tableWrap}>
@@ -944,6 +1016,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
                 <p style={noteStyle}>a. Dependent Variable: {results.regression.dvName}.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['anova'], starts: ['regression anova'] })}
                 <p style={noteStyle}>b. Predictors: (Constant), {results.regression.variablesEntered.entered.join(', ')}.</p>
           </div>
 
@@ -974,6 +1047,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>Note. Dependent Variable: {results.regression.dvName}.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['coefficients'], starts: ['regression coefficients'] })}
           </div>
         </>
       )}
@@ -1011,6 +1085,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>Note. Dependent Variable: {results.ttest.outcomeVariableName}.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['group statistics'] })}
           </div>
 
           <div style={tableWrap}>
@@ -1058,9 +1133,101 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>Note. If Levene's Sig. &lt; .05, use the "Equal variances not assumed" row.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { starts: ['independent samples test'] })}
           </div>
         </>
       )}
+
+        {/* PHASE8F2: extra runs of t-test */}
+        {Array.isArray(results.ttest_runs) && results.ttest_runs.map((mr: any) => (
+          <div key={'ttest_runs' + mr.run}>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginTop: '16px', marginBottom: '8px' }}>{'t-test, Run ' + mr.run + (mr.outcomeVariableName ? ': ' + mr.outcomeVariableName + (mr.groupVariableName ? ' by ' + mr.groupVariableName : '') : '')}</p>
+{mr && (
+        <>
+          <div style={tableWrap}>
+            <p style={tableTitle}>Table {nextTable()}. Group Statistics</p>
+            <table style={table}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>{mr.groupVariableName}</th>
+                  <th style={thStyle}>N</th>
+                  <th style={thStyle}>Mean</th>
+                  <th style={thStyle}>Std. Deviation</th>
+                  <th style={thStyle}>Std. Error Mean</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={tdStyle}>{mr.group1Label}</td>
+                  <td style={tdStyle}>{mr.group1.n}</td>
+                  <td style={tdStyle}>{mr.group1.mean.toFixed(2)}</td>
+                  <td style={tdStyle}>{mr.group1.sd.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.group1.sem.toFixed(3)}</td>
+                </tr>
+                <tr>
+                  <td style={tdStyle}>{mr.group2Label}</td>
+                  <td style={tdStyle}>{mr.group2.n}</td>
+                  <td style={tdStyle}>{mr.group2.mean.toFixed(2)}</td>
+                  <td style={tdStyle}>{mr.group2.sd.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.group2.sem.toFixed(3)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p style={noteStyle}>Note. Dependent Variable: {mr.outcomeVariableName}.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(p8RunInterps(tableInterpretations, mr.run), { eq: ['group statistics'] })}
+          </div>
+
+          <div style={tableWrap}>
+            <p style={tableTitle}>Table {nextTable()}. Independent Samples Test</p>
+            <table style={table}>
+              <thead>
+                <tr>
+                  <th style={thStyle}></th>
+                  <th style={thStyle}>Levene's F</th>
+                  <th style={thStyle}>Levene's Sig.</th>
+                  <th style={thStyle}>t</th>
+                  <th style={thStyle}>df</th>
+                  <th style={thStyle}>Sig. (2-tailed)</th>
+                  <th style={thStyle}>Mean Diff.</th>
+                  <th style={thStyle}>Std. Error Diff.</th>
+                  <th style={thStyle}>95% CI Lower</th>
+                  <th style={thStyle}>95% CI Upper</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={tdStyle}>Equal variances assumed</td>
+                  <td style={tdStyle}>{mr.levene.f.toFixed(3)}</td>
+                  <td style={tdStyle}>{formatSpssValue(mr.levene.p, 3)}</td>
+                  <td style={tdStyle}>{mr.equalVariances.t.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.equalVariances.df.toFixed(0)}</td>
+                  <td style={tdStyle}>{formatSpssValue(mr.equalVariances.p, 3)}</td>
+                  <td style={tdStyle}>{mr.equalVariances.meanDiff.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.equalVariances.seDiff.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.equalVariances.ciLower.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.equalVariances.ciUpper.toFixed(3)}</td>
+                </tr>
+                <tr>
+                  <td style={tdStyle}>Equal variances not assumed</td>
+                  <td style={tdStyle}></td>
+                  <td style={tdStyle}></td>
+                  <td style={tdStyle}>{mr.unequalVariances.t.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.unequalVariances.df.toFixed(3)}</td>
+                  <td style={tdStyle}>{formatSpssValue(mr.unequalVariances.p, 3)}</td>
+                  <td style={tdStyle}>{mr.unequalVariances.meanDiff.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.unequalVariances.seDiff.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.unequalVariances.ciLower.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.unequalVariances.ciUpper.toFixed(3)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p style={noteStyle}>Note. If Levene's Sig. &lt; .05, use the "Equal variances not assumed" row.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(p8RunInterps(tableInterpretations, mr.run), { starts: ['independent samples test'] })}
+          </div>
+        </>
+      )}
+          </div>
+        ))}
 {results.anova && (
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
             <p style={tableTitle}>Table {nextTable()}. Descriptive Statistics for {results.anova.outcomeVariableName} by {results.anova.groupVariableName}</p>
@@ -1105,6 +1272,7 @@ export default function ResultsPage() {
                 </tr>
               </tbody>
             </table>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { all: ['descriptive statistics for', ' by '] })}
 
             <p style={tableTitle}>Table {nextTable()}. One-Way ANOVA: {results.anova.outcomeVariableName} by {results.anova.groupVariableName}</p>
             <table style={table}>
@@ -1145,6 +1313,7 @@ export default function ResultsPage() {
                 </tr>
               </tbody>
             </table>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { starts: ['one-way anova'] })}
 
             <p style={tableTitle}>Table {nextTable()}. Post Hoc Tests — Tukey HSD Multiple Comparisons</p>
             <table style={table}>
@@ -1174,8 +1343,134 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>Note. Post hoc comparisons use the Tukey HSD test. The mean difference is significant at the .05 level when Sig. is less than .05.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { has: ['post hoc'] })}
           </div>
         )}
+
+        {/* PHASE8F2: extra runs of ANOVA */}
+        {Array.isArray(results.anova_runs) && results.anova_runs.map((mr: any) => (
+          <div key={'anova_runs' + mr.run}>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginTop: '16px', marginBottom: '8px' }}>{'ANOVA, Run ' + mr.run + (mr.outcomeVariableName ? ': ' + mr.outcomeVariableName + (mr.groupVariableName ? ' by ' + mr.groupVariableName : '') : '')}</p>
+{mr && (
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+            <p style={tableTitle}>Table {nextTable()}. Descriptive Statistics for {mr.outcomeVariableName} by {mr.groupVariableName}</p>
+            <table style={table}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>{mr.groupVariableName}</th>
+                  <th style={thStyle}>N</th>
+                  <th style={thStyle}>Mean</th>
+                  <th style={thStyle}>SD</th>
+                  <th style={thStyle}>SEM</th>
+                  <th style={thStyle}>95% CI Lower</th>
+                  <th style={thStyle}>95% CI Upper</th>
+                  <th style={thStyle}>Min</th>
+                  <th style={thStyle}>Max</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mr.groupStats.map((g: any, i: number) => (
+                  <tr key={i}>
+                    <td style={tdStyle}>{g.label}</td>
+                    <td style={tdStyle}>{g.n}</td>
+                    <td style={tdStyle}>{g.mean.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.sd.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.sem.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.ciLower.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.ciUpper.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.min.toFixed(2)}</td>
+                    <td style={tdStyle}>{g.max.toFixed(2)}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={tdStyle}>Total</td>
+                  <td style={tdStyle}>{mr.n}</td>
+                  <td style={tdStyle}>{mr.grandMean.toFixed(2)}</td>
+                  <td style={tdStyle}>—</td>
+                  <td style={tdStyle}>—</td>
+                  <td style={tdStyle}>—</td>
+                  <td style={tdStyle}>—</td>
+                  <td style={tdStyle}>—</td>
+                  <td style={tdStyle}>—</td>
+                </tr>
+              </tbody>
+            </table>
+            {viewMode === 'fullDocument' && p7InterpBox(p8RunInterps(tableInterpretations, mr.run), { all: ['descriptive statistics for', ' by '] })}
+
+            <p style={tableTitle}>Table {nextTable()}. One-Way ANOVA: {mr.outcomeVariableName} by {mr.groupVariableName}</p>
+            <table style={table}>
+              <thead>
+                <tr>
+                  <th style={thStyle}></th>
+                  <th style={thStyle}>Sum of Squares</th>
+                  <th style={thStyle}>df</th>
+                  <th style={thStyle}>Mean Square</th>
+                  <th style={thStyle}>F</th>
+                  <th style={thStyle}>Sig.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={tdStyle}>Between Groups</td>
+                  <td style={tdStyle}>{mr.ssBetween.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.dfBetween}</td>
+                  <td style={tdStyle}>{mr.msBetween.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.F.toFixed(3)}</td>
+                  <td style={tdStyle}>{formatSpssValue(mr.p, 3)}</td>
+                </tr>
+                <tr>
+                  <td style={tdStyle}>Within Groups</td>
+                  <td style={tdStyle}>{mr.ssWithin.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.dfWithin}</td>
+                  <td style={tdStyle}>{mr.msWithin.toFixed(3)}</td>
+                  <td style={tdStyle}></td>
+                  <td style={tdStyle}></td>
+                </tr>
+                <tr>
+                  <td style={tdStyle}>Total</td>
+                  <td style={tdStyle}>{mr.ssTotal.toFixed(3)}</td>
+                  <td style={tdStyle}>{mr.dfBetween + mr.dfWithin}</td>
+                  <td style={tdStyle}></td>
+                  <td style={tdStyle}></td>
+                  <td style={tdStyle}></td>
+                </tr>
+              </tbody>
+            </table>
+            {viewMode === 'fullDocument' && p7InterpBox(p8RunInterps(tableInterpretations, mr.run), { starts: ['one-way anova'] })}
+
+            <p style={tableTitle}>Table {nextTable()}. Post Hoc Tests — Tukey HSD Multiple Comparisons</p>
+            <table style={table}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>(I) Group</th>
+                  <th style={thStyle}>(J) Group</th>
+                  <th style={thStyle}>Mean Diff. (I-J)</th>
+                  <th style={thStyle}>Std. Error</th>
+                  <th style={thStyle}>Sig.</th>
+                  <th style={thStyle}>95% CI Lower</th>
+                  <th style={thStyle}>95% CI Upper</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mr.tukey.map((t: any, i: number) => (
+                  <tr key={i}>
+                    <td style={tdStyle}>{t.groupA}</td>
+                    <td style={tdStyle}>{t.groupB}</td>
+                    <td style={tdStyle}>{t.meanDiff.toFixed(3)}</td>
+                    <td style={tdStyle}>{t.seDiff.toFixed(3)}</td>
+                    <td style={tdStyle}>{formatSpssValue(t.p, 3)}</td>
+                    <td style={tdStyle}>{t.ciLower.toFixed(3)}</td>
+                    <td style={tdStyle}>{t.ciUpper.toFixed(3)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p style={noteStyle}>Note. Post hoc comparisons use the Tukey HSD test. The mean difference is significant at the .05 level when Sig. is less than .05.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(p8RunInterps(tableInterpretations, mr.run), { has: ['post hoc'] })}
+          </div>
+        )}
+          </div>
+        ))}
         
 {results.chisquare && (
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
@@ -1210,6 +1505,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>Note. Values shown are Count, with Expected Count in parentheses.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { has: ['crosstabulation'] })}
 
             <p style={tableTitle}>Table {nextTable()}. Chi-Square Tests</p>
             <table style={table}>
@@ -1252,6 +1548,7 @@ export default function ResultsPage() {
               Note. {results.chisquare.cellsUnderFive} cells ({results.chisquare.pctCellsUnderFive.toFixed(1)}%) have expected count less than 5.
               The minimum expected count is {results.chisquare.minExpected.toFixed(2)}. Cramér's V = {results.chisquare.cramersV.toFixed(3)}.
             </p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['chi-square tests'], starts: ['chi-square tests'] })}
           </div>
         )}
         
@@ -1422,9 +1719,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Model {results.logisticRegression.converged ? 'converged' : 'did not converge'} after {results.logisticRegression.iterations} iteration(s).</p>
-          {viewMode === 'fullDocument' && tableInterpretations['Model Summary'] && (
+          {viewMode === 'fullDocument' && (tableInterpretations['Logistic Model Summary'] || (!results.regression ? tableInterpretations['Model Summary'] : undefined)) && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {tableInterpretations['Model Summary']}
+              {(tableInterpretations['Logistic Model Summary'] || (!results.regression ? tableInterpretations['Model Summary'] : undefined))}
             </div>
           )}
         </div>
@@ -1458,9 +1755,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Dependent Variable is binary (0/1). Exp(B) represents the odds ratio for each predictor.</p>
-          {viewMode === 'fullDocument' && tableInterpretations['Variables in the Equation'] && (
+          {viewMode === 'fullDocument' && (tableInterpretations['Logistic Variables in the Equation'] || tableInterpretations['Variables in the Equation']) && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {tableInterpretations['Variables in the Equation']}
+              {(tableInterpretations['Logistic Variables in the Equation'] || tableInterpretations['Variables in the Equation'])}
             </div>
           )}
         </div>
@@ -1569,6 +1866,74 @@ export default function ResultsPage() {
         </div>
       )}
 
+        {/* PHASE8F2c: extra runs of Mann-Whitney U Test */}
+        {Array.isArray(results.mannwhitney_runs) && results.mannwhitney_runs.map((mr: any) => (
+          <div key={'mannwhitney_runs' + mr.run}>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginTop: '16px', marginBottom: '8px' }}>{'Mann-Whitney U Test, Run ' + mr.run + (mr.outcomeVariableName ? ': ' + mr.outcomeVariableName + (mr.groupVariableName ? ' by ' + mr.groupVariableName : '') : '')}</p>
+{mr && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Mann-Whitney U Test Ranks</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Group</th>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>Median</th>
+                <th style={thStyle}>Rank Sum</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{mr.group1Label}</td>
+                <td style={tdStyle}>{mr.group1.n}</td>
+                <td style={tdStyle}>{mr.group1.median.toFixed(2)}</td>
+                <td style={tdStyle}>{mr.group1.rankSum.toFixed(1)}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>{mr.group2Label}</td>
+                <td style={tdStyle}>{mr.group2.n}</td>
+                <td style={tdStyle}>{mr.group2.median.toFixed(2)}</td>
+                <td style={tdStyle}>{mr.group2.rankSum.toFixed(1)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {viewMode === 'fullDocument' && p8RunInterps(tableInterpretations, mr.run)['Mann-Whitney U Test Ranks'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {p8RunInterps(tableInterpretations, mr.run)['Mann-Whitney U Test Ranks']}
+            </div>
+          )}
+        </div>
+      )}
+{mr && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Mann-Whitney U Test Statistics</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>U</th>
+                <th style={thStyle}>Z</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{mr.u.toFixed(1)}</td>
+                <td style={tdStyle}>{mr.z.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(mr.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Mann-Whitney U Test for two independent samples.</p>
+          {viewMode === 'fullDocument' && p8RunInterps(tableInterpretations, mr.run)['Mann-Whitney U Test Statistics'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {p8RunInterps(tableInterpretations, mr.run)['Mann-Whitney U Test Statistics']}
+            </div>
+          )}
+        </div>
+      )}
+          </div>
+        ))}
+
       {results.kruskalWallis && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
           <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Kruskal-Wallis Test Ranks</p>
@@ -1631,6 +1996,74 @@ export default function ResultsPage() {
           )}
         </div>
       )}
+
+        {/* PHASE8F2c: extra runs of Kruskal-Wallis Test */}
+        {Array.isArray(results.kruskalwallis_runs) && results.kruskalwallis_runs.map((mr: any) => (
+          <div key={'kruskalwallis_runs' + mr.run}>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginTop: '16px', marginBottom: '8px' }}>{'Kruskal-Wallis Test, Run ' + mr.run + (mr.outcomeVariableName ? ': ' + mr.outcomeVariableName + (mr.groupVariableName ? ' by ' + mr.groupVariableName : '') : '')}</p>
+{mr && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Kruskal-Wallis Test Ranks</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Group</th>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>Median</th>
+                <th style={thStyle}>Mean Rank</th>
+                <th style={thStyle}>Rank Sum</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mr.groups.map((g: any, idx: number) => (
+                <tr key={idx}>
+                  <td style={tdStyle}>{mr.groupLabels?.[idx] ?? `Group ${idx + 1}`}</td>
+                  <td style={tdStyle}>{g.n}</td>
+                  <td style={tdStyle}>{g.median.toFixed(2)}</td>
+                  <td style={tdStyle}>{g.meanRank.toFixed(2)}</td>
+                  <td style={tdStyle}>{g.rankSum.toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {viewMode === 'fullDocument' && p8RunInterps(tableInterpretations, mr.run)['Kruskal-Wallis Test Ranks'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {p8RunInterps(tableInterpretations, mr.run)['Kruskal-Wallis Test Ranks']}
+            </div>
+          )}
+        </div>
+      )}
+{mr && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Kruskal-Wallis Test Statistics</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>H (Chi-Square)</th>
+                <th style={thStyle}>df</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{mr.N}</td>
+                <td style={tdStyle}>{mr.h.toFixed(3)}</td>
+                <td style={tdStyle}>{mr.df}</td>
+                <td style={tdStyle}>{formatSpssValue(mr.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Kruskal-Wallis H Test for k independent samples.</p>
+          {viewMode === 'fullDocument' && p8RunInterps(tableInterpretations, mr.run)['Kruskal-Wallis Test Statistics'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {p8RunInterps(tableInterpretations, mr.run)['Kruskal-Wallis Test Statistics']}
+            </div>
+          )}
+        </div>
+      )}
+          </div>
+        ))}
 
       {results.moderation && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
@@ -1696,6 +2129,162 @@ export default function ResultsPage() {
           )}
         </div>
       )}
+
+      {/* PHASE7C: moderation fit footer, interaction step (change in R2) and simple slopes */}
+      {results.moderation && results.moderation.deltaR2 && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #E5E5E5', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Moderation: interaction step and simple slopes ({results.moderation.predictorName} x {results.moderation.moderatorName})</p>
+          <p style={noteStyle}>Model fit: F ({results.moderation.anova.regression.df}, {results.moderation.anova.residual.df}) = {Number(results.moderation.F).toFixed(4)}, R2 = {Number(results.moderation.modelSummary.rSquared).toFixed(4)}, p = {formatSpssValue(results.moderation.p, 3)}, n = {results.moderation.n}.</p>
+          <p style={noteStyle}>{results.moderation.coding === 'numeric' ? 'The predictor and the moderator were mean-centred before the interaction term was formed.' : 'The predictor was mean-centred. The moderator was dummy coded with ' + results.moderation.referenceGroup + ' as the reference group, so each interaction row tests whether that group\'s slope differs from the reference group\'s slope.'}</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Change in R2</th>
+                <th style={thStyle}>F change</th>
+                <th style={thStyle}>df1</th>
+                <th style={thStyle}>df2</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{Number(results.moderation.deltaR2.value).toFixed(4)}</td>
+                <td style={tdStyle}>{Number(results.moderation.deltaR2.F).toFixed(3)}</td>
+                <td style={tdStyle}>{results.moderation.deltaR2.df1}</td>
+                <td style={tdStyle}>{results.moderation.deltaR2.df2}</td>
+                <td style={tdStyle}>{formatSpssValue(results.moderation.deltaR2.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {viewMode === 'fullDocument' && tableInterpretations['Moderation Interaction Step'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', marginTop: '12px', marginBottom: '12px' }}>
+              {tableInterpretations['Moderation Interaction Step']}
+            </div>
+          )}
+          {Array.isArray(results.moderation.simpleSlopes) && results.moderation.simpleSlopes.length > 0 && (
+            <table style={{ ...table, marginTop: '16px' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Moderator level</th>
+                  <th style={thStyle}>Moderator value</th>
+                  <th style={thStyle}>B</th>
+                  <th style={thStyle}>SE</th>
+                  <th style={thStyle}>t</th>
+                  <th style={thStyle}>Sig.</th>
+                  <th style={thStyle}>95% CI</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.moderation.simpleSlopes.map((sl: any, i: number) => (
+                  <tr key={i}>
+                    <td style={tdStyle}>{sl.label}</td>
+                    <td style={tdStyle}>{sl.wValue !== null && sl.wValue !== undefined ? Number(sl.wValue).toFixed(3) : '-'}</td>
+                    <td style={tdStyle}>{Number(sl.B).toFixed(3)}</td>
+                    <td style={tdStyle}>{Number(sl.SE).toFixed(3)}</td>
+                    <td style={tdStyle}>{Number(sl.t).toFixed(3)}</td>
+                    <td style={tdStyle}>{formatSpssValue(sl.p, 3)}</td>
+                    <td style={tdStyle}>[{Number(sl.ciLower).toFixed(3)}, {Number(sl.ciUpper).toFixed(3)}]</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {viewMode === 'fullDocument' && tableInterpretations['Moderation Simple Slopes'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', marginTop: '12px', marginBottom: '12px' }}>
+              {tableInterpretations['Moderation Simple Slopes']}
+            </div>
+          )}
+          <p style={noteStyle}>Note. Simple slopes show the effect of {/* PHASE7D */} {results.moderation.predictorName} on {results.moderation.outcomeName} at each level of {results.moderation.moderatorName}.</p>
+        </div>
+      )}
+
+      {/* PHASE7E: extra moderation runs (Run 2, Run 3), each with its own tables and interpretation */}
+      {Array.isArray(results.moderation_runs) && results.moderation_runs.map((mr: any) => {
+        const note = (t: string) => {
+          const txt = tableInterpretations[t + ' (Run ' + mr.run + ')']
+          return viewMode === 'fullDocument' && txt ? (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', marginTop: '12px', marginBottom: '12px' }}>{txt}</div>
+          ) : null
+        }
+        return (
+          <div key={'modrun' + mr.run} style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #E5E5E5', marginBottom: '16px' }}>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Moderation, Run {mr.run}: {mr.predictorName} x {mr.moderatorName} on {mr.outcomeName}</p>
+            <p style={noteStyle}>Model fit: F ({mr.anova.regression.df}, {mr.anova.residual.df}) = {Number(mr.F).toFixed(4)}, R2 = {Number(mr.modelSummary.rSquared).toFixed(4)}, p = {formatSpssValue(mr.p, 3)}, n = {mr.n}.</p>
+            <p style={noteStyle}>{mr.coding === 'numeric' ? 'The predictor and the moderator were mean-centred before the interaction term was formed.' : 'The predictor was mean-centred. The moderator was dummy coded with ' + mr.referenceGroup + ' as the reference group.'}</p>
+            <table style={table}>
+              <thead><tr><th style={thStyle}>R</th><th style={thStyle}>R2</th><th style={thStyle}>Adjusted R2</th><th style={thStyle}>Std. Error</th></tr></thead>
+              <tbody><tr>
+                <td style={tdStyle}>{Number(mr.modelSummary.r).toFixed(3)}</td>
+                <td style={tdStyle}>{Number(mr.modelSummary.rSquared).toFixed(3)}</td>
+                <td style={tdStyle}>{Number(mr.modelSummary.adjRSquared).toFixed(3)}</td>
+                <td style={tdStyle}>{Number(mr.modelSummary.stdError).toFixed(3)}</td>
+              </tr></tbody>
+            </table>
+            {note('Moderation Model Summary')}
+            <table style={{ ...table, marginTop: '16px' }}>
+              <thead><tr><th style={thStyle}>Source</th><th style={thStyle}>SS</th><th style={thStyle}>df</th><th style={thStyle}>MS</th><th style={thStyle}>F</th><th style={thStyle}>Sig.</th></tr></thead>
+              <tbody>
+                <tr><td style={tdStyle}>Regression</td><td style={tdStyle}>{Number(mr.anova.regression.ss).toFixed(3)}</td><td style={tdStyle}>{mr.anova.regression.df}</td><td style={tdStyle}>{Number(mr.anova.regression.ms).toFixed(3)}</td><td style={tdStyle}>{Number(mr.F).toFixed(3)}</td><td style={tdStyle}>{formatSpssValue(mr.p, 3)}</td></tr>
+                <tr><td style={tdStyle}>Residual</td><td style={tdStyle}>{Number(mr.anova.residual.ss).toFixed(3)}</td><td style={tdStyle}>{mr.anova.residual.df}</td><td style={tdStyle}>{Number(mr.anova.residual.ms).toFixed(3)}</td><td style={tdStyle}></td><td style={tdStyle}></td></tr>
+                <tr><td style={tdStyle}>Total</td><td style={tdStyle}>{Number(mr.anova.total.ss).toFixed(3)}</td><td style={tdStyle}>{mr.anova.total.df}</td><td style={tdStyle}></td><td style={tdStyle}></td><td style={tdStyle}></td></tr>
+              </tbody>
+            </table>
+            <table style={{ ...table, marginTop: '16px' }}>
+              <thead><tr><th style={thStyle}>Term</th><th style={thStyle}>B</th><th style={thStyle}>SE</th><th style={thStyle}>Beta</th><th style={thStyle}>t</th><th style={thStyle}>Sig.</th><th style={thStyle}>95% CI</th></tr></thead>
+              <tbody>
+                {mr.coefficients.map((c: any, i: number) => (
+                  <tr key={i}>
+                    <td style={tdStyle}>{c.name}</td>
+                    <td style={tdStyle}>{Number(c.B).toFixed(3)}</td>
+                    <td style={tdStyle}>{Number(c.SE).toFixed(3)}</td>
+                    <td style={tdStyle}>{c.beta !== null && c.beta !== undefined ? Number(c.beta).toFixed(3) : '----'}</td>
+                    <td style={tdStyle}>{Number(c.t).toFixed(3)}</td>
+                    <td style={tdStyle}>{formatSpssValue(c.p, 3)}</td>
+                    <td style={tdStyle}>[{Number(c.ciLower).toFixed(3)}, {Number(c.ciUpper).toFixed(3)}]</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {note('Moderation Coefficients')}
+            {mr.deltaR2 && (
+              <div>
+                <table style={{ ...table, marginTop: '16px' }}>
+                  <thead><tr><th style={thStyle}>Change in R2</th><th style={thStyle}>F change</th><th style={thStyle}>df1</th><th style={thStyle}>df2</th><th style={thStyle}>Sig.</th></tr></thead>
+                  <tbody><tr>
+                    <td style={tdStyle}>{Number(mr.deltaR2.value).toFixed(4)}</td>
+                    <td style={tdStyle}>{Number(mr.deltaR2.F).toFixed(3)}</td>
+                    <td style={tdStyle}>{mr.deltaR2.df1}</td>
+                    <td style={tdStyle}>{mr.deltaR2.df2}</td>
+                    <td style={tdStyle}>{formatSpssValue(mr.deltaR2.p, 3)}</td>
+                  </tr></tbody>
+                </table>
+                {note('Moderation Interaction Step')}
+              </div>
+            )}
+            {Array.isArray(mr.simpleSlopes) && mr.simpleSlopes.length > 0 && (
+              <div>
+                <table style={{ ...table, marginTop: '16px' }}>
+                  <thead><tr><th style={thStyle}>Moderator level</th><th style={thStyle}>Moderator value</th><th style={thStyle}>B</th><th style={thStyle}>SE</th><th style={thStyle}>t</th><th style={thStyle}>Sig.</th><th style={thStyle}>95% CI</th></tr></thead>
+                  <tbody>
+                    {mr.simpleSlopes.map((sl: any, i: number) => (
+                      <tr key={i}>
+                        <td style={tdStyle}>{sl.label}</td>
+                        <td style={tdStyle}>{sl.wValue !== null && sl.wValue !== undefined ? Number(sl.wValue).toFixed(3) : '-'}</td>
+                        <td style={tdStyle}>{Number(sl.B).toFixed(3)}</td>
+                        <td style={tdStyle}>{Number(sl.SE).toFixed(3)}</td>
+                        <td style={tdStyle}>{Number(sl.t).toFixed(3)}</td>
+                        <td style={tdStyle}>{formatSpssValue(sl.p, 3)}</td>
+                        <td style={tdStyle}>[{Number(sl.ciLower).toFixed(3)}, {Number(sl.ciUpper).toFixed(3)}]</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {note('Moderation Simple Slopes')}
+              </div>
+            )}
+          </div>
+        )
+      })}
 
       {results.mediation && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
