@@ -186,6 +186,7 @@ export function olsRegression(y: number[], X: number[][], ivNames: string[]) {
   }
   const betas = B.slice(1).map((b, i) => b * (xStds[i] / yStd))
 
+  const collinearity = computeCollinearity(X, k)
   return {
     n, k,
     coefficients: B,
@@ -197,7 +198,9 @@ export function olsRegression(y: number[], X: number[][], ivNames: string[]) {
     dfRegression, dfResidual,
     msRegression, msResidual,
     F, fP,
-    ivNames
+    ivNames,
+    vif: collinearity.vif,
+    tolerance: collinearity.tolerance
   }
 }
 
@@ -561,7 +564,7 @@ export function moderatedRegression(
   const centeredModerator = moderator.map((v) => v - modMean)
   const interaction = centeredPredictor.map((v, i) => v * centeredModerator[i])
 
-  const X: number[][] = centeredPredictor.map((v, i) => [v, centeredModerator[i], interaction[i]])
+  const X: number[][] = centeredPredictor.map((v, i) => [1, v, centeredModerator[i], interaction[i]])
   const ivNames = ["Predictor", "Moderator", "Interaction"]
 
   const reg = olsRegression(y, X, ivNames)
@@ -927,19 +930,19 @@ export function sobelMediation(predictor: number[], mediator: number[], outcome:
   const n = predictor.length
 
   // Path a: M ~ X
-  const pathAModel = olsRegression(mediator, predictor.map(x => [x]), ['Predictor'])
+  const pathAModel = olsRegression(mediator, predictor.map(x => [1, x]), ['Predictor'])
   const a = pathAModel.coefficients[1]
   const seA = pathAModel.standardErrors[1]
 
   // Path b and path c': Y ~ M + X (mediator effect controlling for predictor)
-  const pathBModel = olsRegression(outcome, predictor.map((x, i) => [mediator[i], x]), ['Mediator', 'Predictor'])
+  const pathBModel = olsRegression(outcome, predictor.map((x, i) => [1, mediator[i], x]), ['Mediator', 'Predictor'])
   const b = pathBModel.coefficients[1]
   const seB = pathBModel.standardErrors[1]
   const cPrime = pathBModel.coefficients[2]
   const seCPrime = pathBModel.standardErrors[2]
 
   // Total effect (path c): Y ~ X alone (no mediator)
-  const pathCModel = olsRegression(outcome, predictor.map(x => [x]), ['Predictor'])
+  const pathCModel = olsRegression(outcome, predictor.map(x => [1, x]), ['Predictor'])
   const c = pathCModel.coefficients[1]
   const seC = pathCModel.standardErrors[1]
 
@@ -1089,3 +1092,285 @@ export function logisticRegression(y: number[], X: number[][], ivNames: string[]
     classification: { truePos, trueNeg, falsePos, falseNeg, accuracy }
   }
 }
+
+
+// ===== Phase 4: multicollinearity (tolerance and VIF) for any number of predictors =====
+export function computeCollinearity(X: number[][], k: number): { vif: (number | null)[]; tolerance: (number | null)[] } {
+  const vif: (number | null)[] = []
+  const tolerance: (number | null)[] = []
+  const n = X.length
+  for (let j = 1; j < k; j++) {
+    if (k - 1 < 2) { vif.push(null); tolerance.push(null); continue }
+    try {
+      const yj = X.map(r => r[j])
+      const Xo = X.map(r => r.filter((_, c) => c !== j))
+      const Xt = transpose(Xo)
+      const b: any = matMulVec(invertMatrix(matMul(Xt, Xo)), matMulVec(Xt, yj))
+      const mj = mean(yj)
+      let ssT = 0
+      let ssR = 0
+      for (let i = 0; i < n; i++) {
+        const pred = Xo[i].reduce((s: number, v: number, c: number) => s + v * b[c], 0)
+        ssR += (yj[i] - pred) ** 2
+        ssT += (yj[i] - mj) ** 2
+      }
+      const r2 = ssT > 0 ? 1 - ssR / ssT : 0
+      const tol = 1 - r2
+      if (!isFinite(tol) || tol < 1e-10) { vif.push(null); tolerance.push(null) }
+      else { tolerance.push(tol); vif.push(1 / tol) }
+    } catch (e) {
+      vif.push(null); tolerance.push(null)
+    }
+  }
+  return { vif, tolerance }
+}
+
+// ===== PHASE7A: moderation analysis for scale, 2-group and multi-group moderators =====
+// Self-contained (no imports). Complete cases only. Returns { error } instead of throwing.
+function p7LnGamma(z: number): number {
+  if (z < 0.5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * z))) - p7LnGamma(1 - z)
+  const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
+    -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6,
+    1.5056327351493116e-7]
+  z -= 1
+  let x = c[0]
+  for (let i = 1; i < 9; i++) x += c[i] / (z + i)
+  const t = z + 7.5
+  return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x)
+}
+function p7BetaCF(a: number, b: number, x: number): number {
+  const FPMIN = 1e-300
+  const qab = a + b, qap = a + 1, qam = a - 1
+  let c = 1
+  let d = 1 - (qab * x) / qap
+  if (Math.abs(d) < FPMIN) d = FPMIN
+  d = 1 / d
+  let h = d
+  for (let m = 1; m <= 2000; m++) {
+    const m2 = 2 * m
+    let aa = (m * (b - m) * x) / ((qam + m2) * (a + m2))
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN
+    d = 1 / d
+    h *= d * c
+    aa = (-(a + m) * (qab + m) * x) / ((a + m2) * (qap + m2))
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN
+    d = 1 / d
+    const del = d * c
+    h *= del
+    if (Math.abs(del - 1) < 1e-16) break
+  }
+  return h
+}
+function p7IBeta(a: number, b: number, x: number): number {
+  if (x <= 0) return 0
+  if (x >= 1) return 1
+  const bt = Math.exp(p7LnGamma(a + b) - p7LnGamma(a) - p7LnGamma(b) + a * Math.log(x) + b * Math.log(1 - x))
+  if (x < (a + 1) / (a + b + 2)) return (bt * p7BetaCF(a, b, x)) / a
+  return 1 - (bt * p7BetaCF(b, a, 1 - x)) / b
+}
+function p7TwoSidedP(t: number, df: number): number {
+  if (!isFinite(t)) return 0
+  return p7IBeta(df / 2, 0.5, df / (df + t * t))
+}
+function p7FSurvival(F: number, d1: number, d2: number): number {
+  if (!isFinite(F) || F <= 0) return 1
+  return p7IBeta(d2 / 2, d1 / 2, d2 / (d2 + d1 * F))
+}
+function p7TCrit(df: number, alpha: number): number {
+  let lo = 0, hi = 1000
+  for (let i = 0; i < 300; i++) {
+    const mid = (lo + hi) / 2
+    if (p7TwoSidedP(mid, df) > alpha) lo = mid; else hi = mid
+  }
+  return (lo + hi) / 2
+}
+function p7Invert(A: number[][]): number[][] | null {
+  const n = A.length
+  const M = A.map((r, i) => [...r, ...Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))])
+  let maxDiag = 0
+  for (let i = 0; i < n; i++) maxDiag = Math.max(maxDiag, Math.abs(A[i][i]))
+  for (let col = 0; col < n; col++) {
+    let piv = col
+    for (let r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > Math.abs(M[piv][col])) piv = r
+    if (Math.abs(M[piv][col]) < 1e-11 * (maxDiag || 1)) return null
+    const tmp = M[col]; M[col] = M[piv]; M[piv] = tmp
+    const pv = M[col][col]
+    for (let j = 0; j < 2 * n; j++) M[col][j] /= pv
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue
+      const f = M[r][col]
+      if (f === 0) continue
+      for (let j = 0; j < 2 * n; j++) M[r][j] -= f * M[col][j]
+    }
+  }
+  return M.map((r) => r.slice(n))
+}
+function p7Ols(X: number[][], y: number[]) {
+  const n = X.length, p = X[0].length
+  const XtX: number[][] = Array.from({ length: p }, () => new Array(p).fill(0))
+  const Xty: number[] = new Array(p).fill(0)
+  for (let i = 0; i < n; i++) {
+    for (let a = 0; a < p; a++) {
+      Xty[a] += X[i][a] * y[i]
+      for (let b = a; b < p; b++) XtX[a][b] += X[i][a] * X[i][b]
+    }
+  }
+  for (let a = 0; a < p; a++) for (let b = 0; b < a; b++) XtX[a][b] = XtX[b][a]
+  const inv = p7Invert(XtX)
+  if (!inv) return null
+  const b = inv.map((row) => row.reduce((s, v, j) => s + v * Xty[j], 0))
+  let ssRes = 0
+  for (let i = 0; i < n; i++) {
+    let fit = 0
+    for (let a = 0; a < p; a++) fit += X[i][a] * b[a]
+    ssRes += (y[i] - fit) * (y[i] - fit)
+  }
+  return { b, inv, ssRes, n, p }
+}
+function p7Mean(v: number[]): number { return v.reduce((s, x) => s + x, 0) / v.length }
+function p7Sd(v: number[]): number {
+  const m = p7Mean(v)
+  return Math.sqrt(v.reduce((s, x) => s + (x - m) * (x - m), 0) / (v.length - 1))
+}
+
+export interface ModerationInputRow { x: number; y: number; w: number | string }
+export function moderationAnalysis(
+  rows: ModerationInputRow[],
+  opts: {
+    coding: 'numeric' | 'categorical'
+    names: { x: string; w: string; y: string }
+    labelOf?: (raw: string) => string
+    referenceRaw?: string
+  }
+): any {
+  const label = (raw: string) => (opts.labelOf ? opts.labelOf(raw) : raw)
+  const useNumeric = opts.coding === 'numeric'
+  const data = rows.filter((r) => {
+    if (!isFinite(r.x) || !isFinite(r.y)) return false
+    if (useNumeric) return typeof r.w === 'number' && isFinite(r.w)
+    return typeof r.w === 'string' && r.w.trim() !== ''
+  })
+  const n = data.length
+  const y = data.map((r) => r.y)
+  const xMean = p7Mean(data.map((r) => r.x))
+  const xc = data.map((r) => r.x - xMean)
+  const xName = opts.names.x, wName = opts.names.w
+  let X: number[][] = []
+  let names: string[] = []
+  let kinds: string[] = [] // 'const' | 'x' | 'w' | 'int'
+  let codingUsed: 'numeric' | 'binary' | 'categorical' = 'numeric'
+  let centered = false
+  let wMeanRaw = 0, wSdRaw = 0
+  let levels: string[] = []
+  let reference = ''
+  let groups: { label: string; n: number }[] = []
+  if (useNumeric) {
+    const wv = data.map((r) => r.w as number)
+    wMeanRaw = p7Mean(wv); wSdRaw = n > 1 ? p7Sd(wv) : 0
+    const wc = wv.map((v) => v - wMeanRaw)
+    X = xc.map((v, i) => [1, v, wc[i], v * wc[i]])
+    names = ['(Constant)', xName, wName, `${xName} x ${wName} (Interaction)`]
+    kinds = ['const', 'x', 'w', 'int']
+    centered = true
+  } else {
+    const raws = data.map((r) => String(r.w).trim())
+    levels = Array.from(new Set(raws)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    if (opts.referenceRaw && levels.includes(opts.referenceRaw)) {
+      levels = [opts.referenceRaw, ...levels.filter((l) => l !== opts.referenceRaw)]
+    }
+    if (levels.length < 2) return { error: `The moderator "${wName}" has only one group in the complete cases, so there is nothing to compare.` }
+    groups = levels.map((l) => ({ label: label(l), n: raws.filter((r) => r === l).length }))
+    const small = groups.filter((g) => g.n < 2)
+    if (small.length) return { error: `Group "${small[0].label}" of "${wName}" has fewer than 2 complete cases, so its slope cannot be estimated.` }
+    reference = label(levels[0])
+    const others = levels.slice(1)
+    X = data.map((_, i) => {
+      const d = others.map((l) => (raws[i] === l ? 1 : 0))
+      return [1, xc[i], ...d, ...d.map((v) => v * xc[i])]
+    })
+    names = ['(Constant)', xName, ...others.map((l) => `${wName} [${label(l)} vs ${reference}]`),
+      ...others.map((l) => `${xName} x ${wName} [${label(l)}]`)]
+    kinds = ['const', 'x', ...others.map(() => 'w'), ...others.map(() => 'int')]
+    codingUsed = levels.length === 2 ? 'binary' : 'categorical'
+    centered = true
+  }
+  const p = X.length ? X[0].length : 0
+  if (n < p + 2) return { error: `Only ${n} complete cases for ${p} model terms; at least ${p + 2} are needed.` }
+  const fit = p7Ols(X, y)
+  if (!fit) return { error: 'The model cannot be estimated because the predictor and moderator columns are perfectly related or one has no variation.' }
+  const dfRes = n - p
+  const dfReg = p - 1
+  const yMean = p7Mean(y)
+  const ssTot = y.reduce((s, v) => s + (v - yMean) * (v - yMean), 0)
+  if (ssTot <= 0) return { error: `The outcome "${opts.names.y}" has no variation in the complete cases.` }
+  const ssReg = ssTot - fit.ssRes
+  const msReg = ssReg / dfReg
+  const msRes = fit.ssRes / dfRes
+  const r2 = ssReg / ssTot
+  const F = msReg / msRes
+  const pF = p7FSurvival(F, dfReg, dfRes)
+  const tc = p7TCrit(dfRes, 0.05)
+  const sdY = p7Sd(y)
+  const cov = fit.inv.map((row) => row.map((v) => v * msRes))
+  const coefficients = names.map((name, j) => {
+    const se = Math.sqrt(cov[j][j])
+    const t = fit.b[j] / se
+    const col = X.map((r) => r[j])
+    const beta = kinds[j] === 'x' || kinds[j] === 'w' ? (fit.b[j] * p7Sd(col)) / sdY : null
+    return { name, B: fit.b[j], SE: se, beta, t, p: p7TwoSidedP(t, dfRes), ciLower: fit.b[j] - tc * se, ciUpper: fit.b[j] + tc * se }
+  })
+  // R-squared change for the interaction step
+  const intIdx = kinds.map((k, j) => (k === 'int' ? j : -1)).filter((j) => j >= 0)
+  const keep = kinds.map((_, j) => j).filter((j) => !intIdx.includes(j))
+  const red = p7Ols(X.map((r) => keep.map((j) => r[j])), y)
+  let deltaR2: any = null
+  if (red) {
+    const r2Red = 1 - red.ssRes / ssTot
+    const q = intIdx.length
+    const dR = r2 - r2Red
+    const Fd = (dR / q) / ((1 - r2) / dfRes)
+    deltaR2 = { value: dR, F: Fd, df1: q, df2: dfRes, p: p7FSurvival(Fd, q, dfRes) }
+  }
+  // Simple slopes of X at each level of the moderator (contrast on the coefficient covariance matrix)
+  const slopeFrom = (L: number[], lab: string, wValue: number | null) => {
+    const est = L.reduce((s, v, j) => s + v * fit.b[j], 0)
+    let v = 0
+    for (let a = 0; a < p; a++) for (let b2 = 0; b2 < p; b2++) v += L[a] * L[b2] * cov[a][b2]
+    const se = Math.sqrt(v)
+    const t = est / se
+    return { label: lab, wValue, B: est, SE: se, t, p: p7TwoSidedP(t, dfRes), ciLower: est - tc * se, ciUpper: est + tc * se }
+  }
+  const simpleSlopes: any[] = []
+  const xi = kinds.indexOf('x')
+  if (useNumeric) {
+    const ii = kinds.indexOf('int')
+    const pts: [string, number][] = [['Low (-1 SD)', -wSdRaw], ['Mean', 0], ['High (+1 SD)', wSdRaw]]
+    pts.forEach(([lab, w]) => {
+      const L = new Array(p).fill(0); L[xi] = 1; L[ii] = w
+      simpleSlopes.push(slopeFrom(L, lab, wMeanRaw + w))
+    })
+  } else {
+    const wIdx = kinds.map((k, j) => (k === 'w' ? j : -1)).filter((j) => j >= 0)
+    const iIdx = intIdx
+    simpleSlopes.push(slopeFrom(Object.assign(new Array(p).fill(0), { [xi]: 1 }), reference, null))
+    iIdx.forEach((j, k) => {
+      const L = new Array(p).fill(0); L[xi] = 1; L[j] = 1
+      simpleSlopes.push(slopeFrom(L, label(levels[k + 1]), null))
+    })
+    void wIdx
+  }
+  return {
+    n, coding: codingUsed, centered, referenceGroup: reference || null, groups,
+    predictorName: xName, moderatorName: wName, outcomeName: opts.names.y,
+    modelSummary: { r: Math.sqrt(r2), rSquared: r2, adjRSquared: 1 - ((1 - r2) * (n - 1)) / dfRes, stdError: Math.sqrt(msRes) },
+    anova: {
+      regression: { ss: ssReg, df: dfReg, ms: msReg },
+      residual: { ss: fit.ssRes, df: dfRes, ms: msRes },
+      total: { ss: ssTot, df: n - 1 },
+    },
+    F, p: pF, coefficients, deltaR2, simpleSlopes,
+  }
+}
+// ===== END PHASE7A =====

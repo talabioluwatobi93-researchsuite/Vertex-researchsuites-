@@ -2,6 +2,7 @@ export const maxDuration = 60
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { reconcileHypotheses } from '@/lib/quantInterpret'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,11 +51,35 @@ export async function POST(req: NextRequest) {
       }
       const keysThisBatch = batches[idx]
       const resultsSlice: any = {}
-      keysThisBatch.forEach((k) => { resultsSlice[k] = session.results[k] })
+      keysThisBatch.forEach((k: string) => {
+        // PHASE8F3: batch 'ttest#2' etc. = that run's data, given to the generator under the normal key
+        if (/^(ttest|mannwhitney|anova|kruskalwallis)#/.test(k)) {
+          const base8 = k.split('#')[0]
+          const rn8 = Number(k.split('#')[1])
+          const found8 = ((session.results && session.results[base8 + '_runs']) || []).find((x: any) => x.run === rn8)
+          if (found8) resultsSlice[base8] = found8
+          return
+        }
+        if (k.startsWith('moderation#')) {
+          const rn = Number(k.split('#')[1])
+          const found = ((session.results && session.results.moderation_runs) || []).find((r: any) => r.run === rn)
+          if (found) resultsSlice['moderation'] = found
+        } else {
+          resultsSlice[k] = session.results[k]
+        }
+      }) // PHASE7E2
 
       let tables: any[]
       try {
         tables = await runStep3aBatch(resultsSlice, citationStyle)
+      const runKey = keysThisBatch.find((k: string) => k.indexOf('#') > 0)
+      if (runKey) {
+        const rn = runKey.split('#')[1]
+        ;(tables || []).forEach((t: any) => {
+          if (t && typeof t.table_title === 'string') t.table_title = t.table_title + ' (Run ' + rn + ')'
+          else console.warn('[interpret] run table without a title, could not label it with its run')
+        })
+      }
       } catch (err: any) {
         return NextResponse.json({ error: err.message || 'Step 3a batch failed' }, { status: 500 })
       }
@@ -96,11 +121,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Missing data for finalize phase' }, { status: 400 })
       }
 
-      const final = finalizeInterpretation(resultTables, tableInterpretations, hypothesisTesting)
+      const final = finalizeInterpretation(resultTables, tableInterpretations, await reconcileHypotheses(hypothesisTesting, resultTables, session.research_framework, tableInterpretations))
 
       await supabase
         .from('quantitative_analysis_sessions')
-        .update({ interpretation: final.interpretation, discussion: final.discussion })
+        .update({ interpretation: final.interpretation, discussion: final.discussion, table_interpretations: final.tableInterpretations || {} })
         .eq('id', sessionId)
 
       return NextResponse.json(final)
