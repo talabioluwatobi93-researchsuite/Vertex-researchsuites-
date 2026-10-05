@@ -52,6 +52,14 @@ export async function POST(req: NextRequest) {
       const keysThisBatch = batches[idx]
       const resultsSlice: any = {}
       keysThisBatch.forEach((k: string) => {
+        // PHASE8F3: batch 'ttest#2' etc. = that run's data, given to the generator under the normal key
+        if (/^(ttest|mannwhitney|anova|kruskalwallis)#/.test(k)) {
+          const base8 = k.split('#')[0]
+          const rn8 = Number(k.split('#')[1])
+          const found8 = ((session.results && session.results[base8 + '_runs']) || []).find((x: any) => x.run === rn8)
+          if (found8) resultsSlice[base8] = found8
+          return
+        }
         if (k.startsWith('moderation#')) {
           const rn = Number(k.split('#')[1])
           const found = ((session.results && session.results.moderation_runs) || []).find((r: any) => r.run === rn)
@@ -64,7 +72,7 @@ export async function POST(req: NextRequest) {
       let tables: any[]
       try {
         tables = await runStep3aBatch(resultsSlice, citationStyle)
-      const runKey = keysThisBatch.find((k: string) => k.startsWith('moderation#'))
+      const runKey = keysThisBatch.find((k: string) => k.indexOf('#') > 0)
       if (runKey) {
         const rn = runKey.split('#')[1]
         ;(tables || []).forEach((t: any) => {
