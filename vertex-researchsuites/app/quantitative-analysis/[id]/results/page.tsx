@@ -1866,6 +1866,74 @@ export default function ResultsPage() {
         </div>
       )}
 
+        {/* PHASE8F2c: extra runs of Mann-Whitney U Test */}
+        {Array.isArray(results.mannwhitney_runs) && results.mannwhitney_runs.map((mr: any) => (
+          <div key={'mannwhitney_runs' + mr.run}>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginTop: '16px', marginBottom: '8px' }}>{'Mann-Whitney U Test, Run ' + mr.run + (mr.outcomeVariableName ? ': ' + mr.outcomeVariableName + (mr.groupVariableName ? ' by ' + mr.groupVariableName : '') : '')}</p>
+{mr && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Mann-Whitney U Test Ranks</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Group</th>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>Median</th>
+                <th style={thStyle}>Rank Sum</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{mr.group1Label}</td>
+                <td style={tdStyle}>{mr.group1.n}</td>
+                <td style={tdStyle}>{mr.group1.median.toFixed(2)}</td>
+                <td style={tdStyle}>{mr.group1.rankSum.toFixed(1)}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>{mr.group2Label}</td>
+                <td style={tdStyle}>{mr.group2.n}</td>
+                <td style={tdStyle}>{mr.group2.median.toFixed(2)}</td>
+                <td style={tdStyle}>{mr.group2.rankSum.toFixed(1)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {viewMode === 'fullDocument' && p8RunInterps(tableInterpretations, mr.run)['Mann-Whitney U Test Ranks'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {p8RunInterps(tableInterpretations, mr.run)['Mann-Whitney U Test Ranks']}
+            </div>
+          )}
+        </div>
+      )}
+{mr && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Mann-Whitney U Test Statistics</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>U</th>
+                <th style={thStyle}>Z</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{mr.u.toFixed(1)}</td>
+                <td style={tdStyle}>{mr.z.toFixed(3)}</td>
+                <td style={tdStyle}>{formatSpssValue(mr.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Mann-Whitney U Test for two independent samples.</p>
+          {viewMode === 'fullDocument' && p8RunInterps(tableInterpretations, mr.run)['Mann-Whitney U Test Statistics'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {p8RunInterps(tableInterpretations, mr.run)['Mann-Whitney U Test Statistics']}
+            </div>
+          )}
+        </div>
+      )}
+          </div>
+        ))}
+
       {results.kruskalWallis && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
           <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Kruskal-Wallis Test Ranks</p>
@@ -1928,6 +1996,74 @@ export default function ResultsPage() {
           )}
         </div>
       )}
+
+        {/* PHASE8F2c: extra runs of Kruskal-Wallis Test */}
+        {Array.isArray(results.kruskalwallis_runs) && results.kruskalwallis_runs.map((mr: any) => (
+          <div key={'kruskalwallis_runs' + mr.run}>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginTop: '16px', marginBottom: '8px' }}>{'Kruskal-Wallis Test, Run ' + mr.run + (mr.outcomeVariableName ? ': ' + mr.outcomeVariableName + (mr.groupVariableName ? ' by ' + mr.groupVariableName : '') : '')}</p>
+{mr && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Kruskal-Wallis Test Ranks</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Group</th>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>Median</th>
+                <th style={thStyle}>Mean Rank</th>
+                <th style={thStyle}>Rank Sum</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mr.groups.map((g: any, idx: number) => (
+                <tr key={idx}>
+                  <td style={tdStyle}>{mr.groupLabels?.[idx] ?? `Group ${idx + 1}`}</td>
+                  <td style={tdStyle}>{g.n}</td>
+                  <td style={tdStyle}>{g.median.toFixed(2)}</td>
+                  <td style={tdStyle}>{g.meanRank.toFixed(2)}</td>
+                  <td style={tdStyle}>{g.rankSum.toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {viewMode === 'fullDocument' && p8RunInterps(tableInterpretations, mr.run)['Kruskal-Wallis Test Ranks'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {p8RunInterps(tableInterpretations, mr.run)['Kruskal-Wallis Test Ranks']}
+            </div>
+          )}
+        </div>
+      )}
+{mr && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Table {nextTable()}. Kruskal-Wallis Test Statistics</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>N</th>
+                <th style={thStyle}>H (Chi-Square)</th>
+                <th style={thStyle}>df</th>
+                <th style={thStyle}>Sig.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>{mr.N}</td>
+                <td style={tdStyle}>{mr.h.toFixed(3)}</td>
+                <td style={tdStyle}>{mr.df}</td>
+                <td style={tdStyle}>{formatSpssValue(mr.p, 3)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={noteStyle}>Note. Kruskal-Wallis H Test for k independent samples.</p>
+          {viewMode === 'fullDocument' && p8RunInterps(tableInterpretations, mr.run)['Kruskal-Wallis Test Statistics'] && (
+            <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
+              {p8RunInterps(tableInterpretations, mr.run)['Kruskal-Wallis Test Statistics']}
+            </div>
+          )}
+        </div>
+      )}
+          </div>
+        ))}
 
       {results.moderation && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
