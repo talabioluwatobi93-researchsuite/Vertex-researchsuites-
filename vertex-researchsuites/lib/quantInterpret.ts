@@ -48,7 +48,7 @@ const CITATION_STYLE_WRITING_RULES: Record<string, string> = {
   OSCOLA: "OSCOLA does not have an established convention for reporting quantitative statistics. Write the interpretation in plain, minimal-notation prose suitable for a legal-adjacent academic audience.",
 };
 
-function getCitationWritingRule(citationStyle?: string): string {
+export function getCitationWritingRule(citationStyle?: string): string {
   if (!citationStyle || !CITATION_STYLE_WRITING_RULES[citationStyle]) {
     return CITATION_STYLE_WRITING_RULES.APA7;
   }
