@@ -129,6 +129,7 @@ export default function AnalysisTypePage() {
   const [moderationPredictorId, setModerationPredictorId] = useState('')
   const [moderationModeratorId, setModerationModeratorId] = useState('')
   const [moderationOutcomeId, setModerationOutcomeId] = useState('')
+  const [testExtra, setTestExtra] = useState<Record<string, { g: string; o: string }[]>>({ ttest: [{ g: '', o: '' }, { g: '', o: '' }], mannwhitney: [{ g: '', o: '' }, { g: '', o: '' }], anova: [{ g: '', o: '' }, { g: '', o: '' }], kruskalwallis: [{ g: '', o: '' }, { g: '', o: '' }] }) // PHASE8F1
   const [modExtra, setModExtra] = useState<{ p: string; m: string; o: string }[]>([{ p: '', m: '', o: '' }, { p: '', m: '', o: '' }])
 
   useEffect(() => {
@@ -149,6 +150,10 @@ export default function AnalysisTypePage() {
       setRawData(data.raw_data || [])
       if (data.analysis_type && Array.isArray(data.analysis_type)) {
         setSelected(data.analysis_type)
+      }
+      {
+        const f1mk = (cfg: any) => [0, 1].map((i) => { const x = Array.isArray(cfg?.extraRuns) ? cfg.extraRuns[i] : null; return x ? { g: x.groupConstructId || '', o: x.outcomeConstructId || '' } : { g: '', o: '' } })
+        setTestExtra({ ttest: f1mk(data.ttest_config), mannwhitney: f1mk(data.mannwhitney_config), anova: f1mk(data.anova_config), kruskalwallis: f1mk(data.kruskalwallis_config) })
       }
       if (data.ttest_config) {
         setTtestGroupId(data.ttest_config.groupConstructId || '')
@@ -283,6 +288,39 @@ export default function AnalysisTypePage() {
   // paired-measurement (anything that isn't Demographic and has data mapped to it)
   const numericEligibleConstructs = constructs.filter((c) => c.role !== 'Demographic' && c.columnIndexes && c.columnIndexes.length > 0)
   const demographicEligibleConstructs = constructs.filter((c) => c.role === 'Demographic' && c.columnIndexes && c.columnIndexes.length > 0)
+  // PHASE8F1 helpers
+  const f1Clean = (t: string) => (testExtra[t] || []).filter((r) => r.g && r.o).map((r) => ({ groupConstructId: r.g, outcomeConstructId: r.o }))
+  const renderExtraRuns = (t: 'ttest' | 'mannwhitney' | 'anova' | 'kruskalwallis') => {
+    const useAnova = t === 'anova' || t === 'kruskalwallis'
+    const groups: any[] = useAnova ? groupEligibleConstructsAnova : groupEligibleConstructs
+    const runsX = testExtra[t] || []
+    const setRun = (i: number, patch: { g?: string; o?: string }) =>
+      setTestExtra((prev) => ({ ...prev, [t]: (prev[t] || []).map((r, ri) => (ri === i ? { ...r, ...patch } : r)) }))
+    const selStyle: any = { width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '10px' }
+    const lblStyle: any = { color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }
+    return (
+      <div>
+        {runsX.map((r, ri) => (
+          <div key={ri} style={{ borderTop: '1px solid #E5E5E5', marginTop: '10px', paddingTop: '10px' }}>
+            <div style={{ color: '#333333', fontSize: '12px', fontWeight: 700, marginBottom: '8px' }}>{'Run ' + (ri + 2) + ' (optional)'}</div>
+            <label style={lblStyle}>Grouping variable</label>
+            <select value={r.g} onChange={(e) => setRun(ri, e.target.value === r.o ? { g: e.target.value, o: '' } : { g: e.target.value })} style={selStyle}>
+              <option value="">Select a grouping variable...</option>
+              {groups.map((c: any) => (<option key={c.id} value={c.id}>{c.name} ({c.distinctValues.join(useAnova ? ', ' : ' vs ')})</option>))}
+            </select>
+            <label style={lblStyle}>Outcome variable</label>
+            <select value={r.o} onChange={(e) => setRun(ri, { o: e.target.value })} disabled={!r.g} style={selStyle}>
+              <option value="">Select an outcome variable...</option>
+              {constructs.filter((c: any) => c.id !== r.g).map((c: any) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+            </select>
+            {(r.g || r.o) && (
+              <button type="button" onClick={() => setRun(ri, { g: '', o: '' })} style={{ background: 'none', border: 'none', color: '#777777', fontSize: '11px', cursor: 'pointer', padding: 0, marginBottom: '6px' }}>Clear this run</button>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
   const roleEligibleConstructs = [...numericEligibleConstructs, ...demographicEligibleConstructs]
 
   // A binary DV (exactly 2 distinct values) is required for logistic regression
@@ -437,6 +475,28 @@ export default function AnalysisTypePage() {
         return
       }
     }
+    const f1Defs: { t: string; label: string; g: string; o: string; list: any[] }[] = [
+      { t: 'ttest', label: 't-test', g: ttestGroupId, o: ttestOutcomeId, list: groupEligibleConstructs },
+      { t: 'mannwhitney', label: 'Mann-Whitney U Test', g: mannwhitneyGroupId, o: mannwhitneyOutcomeId, list: groupEligibleConstructs },
+      { t: 'anova', label: 'ANOVA', g: anovaGroupId, o: anovaOutcomeId, list: groupEligibleConstructsAnova },
+      { t: 'kruskalwallis', label: 'Kruskal-Wallis Test', g: kruskalGroupId, o: kruskalOutcomeId, list: groupEligibleConstructsAnova },
+    ]
+    for (const d of f1Defs) {
+      if (!(selected as string[]).includes(d.t)) continue
+      const seenRuns: string[] = [d.g + '|' + d.o]
+      const runsX = testExtra[d.t] || []
+      for (let i = 0; i < runsX.length; i++) {
+        const r = runsX[i]
+        if (!r.g && !r.o) continue
+        const nm = 'Run ' + (i + 2) + ' for the ' + d.label
+        if (!r.g || !r.o) { setErrorMsg('Please complete or clear ' + nm + '.'); return }
+        if (r.g === r.o) { setErrorMsg(nm + ' uses the same variable as grouping and outcome.'); return }
+        if (!d.list.some((c: any) => c.id === r.g)) { setErrorMsg(nm + ' uses a grouping variable that is not valid for this test.'); return }
+        const k = r.g + '|' + r.o
+        if (seenRuns.includes(k)) { setErrorMsg(nm + ' repeats another run. Please choose a different combination.'); return }
+        seenRuns.push(k)
+      }
+    }
     if (selected.includes('mediation')) {
       if (!mediationPredictorId || !mediationMediatorId || !mediationOutcomeId) {
         setErrorMsg('Please choose the Predictor, Mediator, and Outcome for the Mediation Analysis.')
@@ -458,10 +518,10 @@ export default function AnalysisTypePage() {
       .update({
         analysis_type: selected,
         ttest_config: selected.includes('ttest')
-          ? { groupConstructId: ttestGroupId, outcomeConstructId: ttestOutcomeId }
+          ? { groupConstructId: ttestGroupId, outcomeConstructId: ttestOutcomeId, extraRuns: f1Clean('ttest') }
           : null,
         anova_config: selected.includes('anova')
-          ? { groupConstructId: anovaGroupId, outcomeConstructId: anovaOutcomeId }
+          ? { groupConstructId: anovaGroupId, outcomeConstructId: anovaOutcomeId, extraRuns: f1Clean('anova') }
           : null,
         chisquare_config: selected.includes('chisquare')
           ? { rowConstructId: chisquareRowId, colConstructId: chisquareColId }
@@ -473,13 +533,13 @@ export default function AnalysisTypePage() {
           ? { group1ConstructId: pairedGroup1Id, group2ConstructId: pairedGroup2Id }
           : null,
         mannwhitney_config: selected.includes('mannwhitney')
-          ? { groupConstructId: mannwhitneyGroupId, outcomeConstructId: mannwhitneyOutcomeId }
+          ? { groupConstructId: mannwhitneyGroupId, outcomeConstructId: mannwhitneyOutcomeId, extraRuns: f1Clean('mannwhitney') }
           : null,
         wilcoxon_config: selected.includes('wilcoxon')
           ? { group1ConstructId: wilcoxonGroup1Id, group2ConstructId: wilcoxonGroup2Id }
           : null,
         kruskalwallis_config: selected.includes('kruskalwallis')
-          ? { groupConstructId: kruskalGroupId, outcomeConstructId: kruskalOutcomeId }
+          ? { groupConstructId: kruskalGroupId, outcomeConstructId: kruskalOutcomeId, extraRuns: f1Clean('kruskalwallis') }
           : null,
         twowayanova_config: selected.includes('twowayanova')
           ? { factorAConstructId: twowayFactorAId, factorBConstructId: twowayFactorBId, outcomeConstructId: twowayOutcomeId }
@@ -643,7 +703,8 @@ export default function AnalysisTypePage() {
                     We'll compare {outcomeEligibleConstructs.find((c) => c.id === ttestOutcomeId)?.name} between the two groups of {groupEligibleConstructs.find((c) => c.id === ttestGroupId)?.name}.
                   </p>
                 )}
-              </div>
+              {renderExtraRuns('ttest')}
+            </div>
             )}
 
             {type === 'anova' && isSelected && avail.available && (
@@ -682,7 +743,8 @@ export default function AnalysisTypePage() {
                     We'll compare {outcomeEligibleConstructsAnova.find((c) => c.id === anovaOutcomeId)?.name} across the groups of {groupEligibleConstructsAnova.find((c) => c.id === anovaGroupId)?.name}.
                   </p>
                 )}
-              </div>
+              {renderExtraRuns('anova')}
+            </div>
             )}
 
             {type === 'chisquare' && isSelected && avail.available && (
@@ -756,6 +818,7 @@ export default function AnalysisTypePage() {
               {mannwhitneyGroupId && mannwhitneyOutcomeId && (
                 <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>We will compare {constructs.find((c) => c.id === mannwhitneyOutcomeId)?.name} between the two groups of {groupEligibleConstructs.find((c) => c.id === mannwhitneyGroupId)?.name}.</p>
               )}
+            {renderExtraRuns('mannwhitney')}
             </div>
           )}
           {type === 'wilcoxon' && isSelected && avail.available && (
@@ -791,6 +854,7 @@ export default function AnalysisTypePage() {
               {kruskalGroupId && kruskalOutcomeId && (
                 <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>We will compare {constructs.find((c) => c.id === kruskalOutcomeId)?.name} across the groups of {groupEligibleConstructsAnova.find((c) => c.id === kruskalGroupId)?.name}.</p>
               )}
+            {renderExtraRuns('kruskalwallis')}
             </div>
           )}
           {type === 'twowayanova' && isSelected && avail.available && (
