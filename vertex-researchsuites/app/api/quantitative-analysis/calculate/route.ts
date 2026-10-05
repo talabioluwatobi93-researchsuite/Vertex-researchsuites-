@@ -316,6 +316,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const extraRunErrors: { type: string; reason: string }[] = [] // PHASE7G
     let ttest: any = null
     if (analysisTypes.includes('ttest') && session.ttest_config) {
       const { groupConstructId, outcomeConstructId } = session.ttest_config
@@ -348,6 +349,48 @@ export async function POST(req: NextRequest) {
           }
         }
       }
+    }
+
+    // PHASE7G: extra runs (Run 2, Run 3) of ttest, calculated with exactly the same logic as run 1
+    const ttest_runs: any[] = []
+    if (analysisTypes.includes('ttest') && session.ttest_config && Array.isArray(session.ttest_config.extraRuns)) {
+      session.ttest_config.extraRuns.slice(0, 2).forEach((cfgRun: any, ri: number) => {
+        let ttest: any = null
+        if (analysisTypes.includes('ttest') && cfgRun) {
+      const { groupConstructId, outcomeConstructId } = cfgRun
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const group1Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[0]
+        const group2Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[1]
+
+        const group1Scores: number[] = []
+        const group2Scores: number[] = []
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
+          if (score === null) return
+          if (label === group1Label) group1Scores.push(score)
+          else if (label === group2Label) group2Scores.push(score)
+        })
+
+        if (group1Scores.length >= 2 && group2Scores.length >= 2) {
+          const ttestResult = independentTTest(group1Scores, group2Scores)
+          ttest = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            group1Label, group2Label,
+            ...ttestResult,
+          }
+        }
+      }
+    }
+        if (ttest) ttest_runs.push({ run: ri + 2, ...JSON.parse(JSON.stringify(ttest)) })
+        else extraRunErrors.push({ type: 'ttest (Run ' + (ri + 2) + ')', reason: 'This run could not be produced: a chosen variable was not found, or a group has fewer than 2 valid answers.' })
+      })
     }
     let moderation: any = null
     if (analysisTypes.includes('moderation') && session.moderation_config) {
@@ -533,6 +576,49 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // PHASE7G: extra runs (Run 2, Run 3) of mannwhitney, calculated with exactly the same logic as run 1
+    const mannwhitney_runs: any[] = []
+    if (analysisTypes.includes('mannwhitney') && session.mannwhitney_config && Array.isArray(session.mannwhitney_config.extraRuns)) {
+      session.mannwhitney_config.extraRuns.slice(0, 2).forEach((cfgRun: any, ri: number) => {
+        let mannwhitney: any = null
+        if (analysisTypes.includes('mannwhitney') && cfgRun) {
+      const { groupConstructId, outcomeConstructId } = cfgRun
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const group1Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[0]
+        const group2Label = Array.from(new Set(cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)))[1]
+
+        const group1Scores: number[] = []
+        const group2Scores: number[] = []
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
+          if (score === null) return
+          if (label === group1Label) group1Scores.push(score)
+          else if (label === group2Label) group2Scores.push(score)
+        })
+
+        if (group1Scores.length >= 2 && group2Scores.length >= 2) {
+          const mwResult = mannWhitneyU(group1Scores, group2Scores)
+          mannwhitney = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            group1Label,
+            group2Label,
+            ...mwResult
+          }
+        }
+      }
+    }
+        if (mannwhitney) mannwhitney_runs.push({ run: ri + 2, ...JSON.parse(JSON.stringify(mannwhitney)) })
+        else extraRunErrors.push({ type: 'mannwhitney (Run ' + (ri + 2) + ')', reason: 'This run could not be produced: a chosen variable was not found, or a group has fewer than 2 valid answers.' })
+      })
+    }
+
     let wilcoxon: any = null
     if (analysisTypes.includes('wilcoxon') && session.wilcoxon_config) {
       const { group1ConstructId, group2ConstructId, group1Label, group2Label } = session.wilcoxon_config
@@ -623,6 +709,82 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // PHASE7G: extra runs (Run 2, Run 3) of anova, calculated with exactly the same logic as run 1
+    const anova_runs: any[] = []
+    if (analysisTypes.includes('anova') && session.anova_config && Array.isArray(session.anova_config.extraRuns)) {
+      session.anova_config.extraRuns.slice(0, 2).forEach((cfgRun: any, ri: number) => {
+        let anova: any = null
+        if (analysisTypes.includes('anova') && cfgRun) {
+      const { groupConstructId, outcomeConstructId } = cfgRun
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const groupLabels = Array.from(new Set(
+          cleanedRows.map((r: any[]) => String(r[groupCol]).trim()).filter(Boolean)
+        )) as string[]
+
+        const groupedScores: Record<string, number[]> = {}
+        groupLabels.forEach((label) => { groupedScores[label] = [] })
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
+          if (score === null) return
+          if (groupedScores[label] !== undefined) groupedScores[label].push(score)
+        })
+
+        const validLabels = groupLabels.filter((label) => groupedScores[label].length >= 2)
+
+        if (validLabels.length >= 3) {
+          const groups = validLabels.map((label) => groupedScores[label])
+          const a = oneWayAnova(groups)
+          anova = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            groupLabels: validLabels,
+            k: a.k,
+            n: a.n,
+            grandMean: r3(a.grandMean),
+            ssBetween: r3(a.ssBetween),
+            ssWithin: r3(a.ssWithin),
+            ssTotal: r3(a.ssTotal),
+            dfBetween: a.dfBetween,
+            dfWithin: a.dfWithin,
+            msBetween: r3(a.msBetween),
+            msWithin: r3(a.msWithin),
+            F: r3(a.f),
+            p: r3(a.p),
+            groupStats: a.groupStats.map((g, i) => ({
+              label: validLabels[i],
+              n: g.n,
+              mean: r2(g.mean),
+              sd: r2(g.sd),
+              sem: r2(g.sem),
+              ciLower: r2(g.ciLower),
+              ciUpper: r2(g.ciUpper),
+              min: r2(g.min),
+              max: r2(g.max),
+            })),
+            tukey: a.tukey.map((t) => ({
+              groupA: validLabels[t.i],
+              groupB: validLabels[t.j],
+              meanDiff: r3(t.meanDiff),
+              seDiff: r3(t.seDiff),
+              p: r3(t.p),
+              ciLower: r3(t.ciLower),
+              ciUpper: r3(t.ciUpper),
+            })),
+          }
+        }
+      }
+    }
+        if (anova) anova_runs.push({ run: ri + 2, ...JSON.parse(JSON.stringify(anova)) })
+        else extraRunErrors.push({ type: 'anova (Run ' + (ri + 2) + ')', reason: 'This run could not be produced: a chosen variable was not found, or a group has fewer than 2 valid answers.' })
+      })
+    }
+
     let kruskalwallis: any = null
     if (analysisTypes.includes('kruskalwallis') && session.kruskalwallis_config) {
       const { groupConstructId, outcomeConstructId } = session.kruskalwallis_config
@@ -658,6 +820,51 @@ export async function POST(req: NextRequest) {
           }
         }
       }
+    }
+
+    // PHASE7G: extra runs (Run 2, Run 3) of kruskalwallis, calculated with exactly the same logic as run 1
+    const kruskalwallis_runs: any[] = []
+    if (analysisTypes.includes('kruskalwallis') && session.kruskalwallis_config && Array.isArray(session.kruskalwallis_config.extraRuns)) {
+      session.kruskalwallis_config.extraRuns.slice(0, 2).forEach((cfgRun: any, ri: number) => {
+        let kruskalwallis: any = null
+        if (analysisTypes.includes('kruskalwallis') && cfgRun) {
+      const { groupConstructId, outcomeConstructId } = cfgRun
+      const groupConstruct = resolveVariableConstruct(groupConstructId, constructs, columnHeaders)
+      const outcomeConstruct = resolveVariableConstruct(outcomeConstructId, constructs, columnHeaders)
+
+      if (groupConstruct && outcomeConstruct) {
+        const groupCol = groupConstruct.columnIndexes[0]
+        const groupLabels = Array.from(new Set(
+          cleanedRows.map((r: any[]) => String(r[groupCol]).trim())
+        )).filter(Boolean) as string[]
+
+        const groupedScores: Record<string, number[]> = {}
+        groupLabels.forEach((label) => { groupedScores[label] = [] })
+
+        cleanedRows.forEach((row: any[]) => {
+          const label = String(row[groupCol]).trim()
+          const score = getConstructScore(row, outcomeConstruct, textMappings)
+          if (score === null) return
+          if (groupedScores[label] !== undefined) groupedScores[label].push(score)
+        })
+
+        const validLabels = groupLabels.filter((label) => groupedScores[label].length >= 2)
+
+        if (validLabels.length >= 3) {
+          const groups = validLabels.map((label) => groupedScores[label])
+          const kwResult = kruskalWallis(groups)
+          kruskalwallis = {
+            groupVariableName: groupConstruct.name,
+            outcomeVariableName: outcomeConstruct.name,
+            groupLabels: validLabels,
+            ...kwResult
+          }
+        }
+      }
+    }
+        if (kruskalwallis) kruskalwallis_runs.push({ run: ri + 2, ...JSON.parse(JSON.stringify(kruskalwallis)) })
+        else extraRunErrors.push({ type: 'kruskalwallis (Run ' + (ri + 2) + ')', reason: 'This run could not be produced: a chosen variable was not found, or a group has fewer than 2 valid answers.' })
+      })
     }
 
     let twowayanova: any = null
@@ -900,6 +1107,7 @@ export async function POST(req: NextRequest) {
       skippedAnalyses.push({ type: t, reason: (t === 'moderation' && moderationError) ? moderationError : reason })
     }
     moderationRunErrors.forEach((e) => skippedAnalyses.push({ type: 'moderation (Run ' + e.run + ')', reason: e.reason }))
+      extraRunErrors.forEach((e) => skippedAnalyses.push(e))
       if (skippedAnalyses.length) console.log('[calculate] skipped analyses:', JSON.stringify(skippedAnalyses))
   }
 
@@ -924,6 +1132,10 @@ export async function POST(req: NextRequest) {
       logistic,
       skippedAnalyses: skippedAnalyses.length ? skippedAnalyses : undefined,
       moderation_runs: moderationRuns.length ? moderationRuns : undefined,
+      ttest_runs: ttest_runs.length ? ttest_runs : undefined,
+      mannwhitney_runs: mannwhitney_runs.length ? mannwhitney_runs : undefined,
+      anova_runs: anova_runs.length ? anova_runs : undefined,
+      kruskalwallis_runs: kruskalwallis_runs.length ? kruskalwallis_runs : undefined,
       computedAt: new Date().toISOString()
     }
 
