@@ -64,6 +64,31 @@ function withDisplayAliases(r: any) {
   return out
 }
 
+// PHASE7F: find the interpretation that belongs to a table from its saved title (never guesses across analyses)
+function p7Norm(t: string): string {
+  return String(t).toLowerCase().replace(/^table\s*\d+\.?\s*/, '').replace(/\s*\(default\)\s*$/, '').replace(/\s+/g, ' ').trim()
+}
+function p7FindInterp(ti: Record<string, string> | null | undefined, spec: { eq?: string[]; starts?: string[]; has?: string[]; all?: string[] }): string | null {
+  if (!ti) return null
+  const keys = Object.keys(ti).filter((k) => !/\(run \d+\)/i.test(k) && typeof ti[k] === 'string' && ti[k].trim() !== '')
+  const norm = keys.map((k) => ({ k, n: p7Norm(k) }))
+  for (const e of spec.eq || []) { const hit = norm.find((x) => x.n === e); if (hit) return ti[hit.k] }
+  for (const st of spec.starts || []) { const hit = norm.find((x) => x.n.startsWith(st)); if (hit) return ti[hit.k] }
+  for (const h of spec.has || []) { const hit = norm.find((x) => x.n.includes(h)); if (hit) return ti[hit.k] }
+  const all = spec.all
+  if (all && all.length) { const hit = norm.find((x) => all.every((a) => x.n.includes(a))); if (hit) return ti[hit.k] }
+  return null
+}
+function p7InterpBox(ti: Record<string, string> | null | undefined, spec: { eq?: string[]; starts?: string[]; has?: string[]; all?: string[] }) {
+  if (!ti || Object.keys(ti).length === 0) return null
+  const txt = p7FindInterp(ti, spec)
+  return txt ? (
+    <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', marginTop: '12px', marginBottom: '12px' }}>{txt}</div>
+  ) : (
+    <div style={{ fontSize: '12px', fontStyle: 'italic', color: '#777777', marginTop: '8px', marginBottom: '8px' }}>No interpretation was generated for this table.</div>
+  )
+}
+
 function checkInterpretationGate(gateInfo: any) {
   const reasons: string[] = []
   if (!gateInfo?.response_rate_info) reasons.push('Response rate information is missing.')
@@ -752,6 +777,7 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. M = Mean, SD = Standard Deviation.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['descriptive statistics for study variables', 'descriptive statistics'], starts: ['descriptive statistics for study'] })}
         </div>
       )}
 
@@ -810,6 +836,7 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>* p &lt; .05. Pearson is the default correlation reported.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { starts: ['pearson correlation'] })}
         </div>
       )}
 
@@ -871,6 +898,7 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>* p &lt; .05. Spearman reported alongside Pearson (the default) for robustness.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { starts: ['spearman'] })}
         </div>
       )}
 
@@ -897,6 +925,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
                 <p style={noteStyle}>a. Dependent Variable: {results.regression.dvName}.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['variables entered/removed'], starts: ['variables entered'] })}
                 <p style={noteStyle}>b. All requested variables entered.</p>
           </div>
 
@@ -935,6 +964,7 @@ export default function ResultsPage() {
                     </tr>
                   </tbody>
                 </table>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['model summary'], starts: ['regression model summary'] })}
           </div>
 
           <div style={tableWrap}>
@@ -978,6 +1008,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
                 <p style={noteStyle}>a. Dependent Variable: {results.regression.dvName}.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['anova'], starts: ['regression anova'] })}
                 <p style={noteStyle}>b. Predictors: (Constant), {results.regression.variablesEntered.entered.join(', ')}.</p>
           </div>
 
@@ -1008,6 +1039,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>Note. Dependent Variable: {results.regression.dvName}.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['coefficients'], starts: ['regression coefficients'] })}
           </div>
         </>
       )}
@@ -1045,6 +1077,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>Note. Dependent Variable: {results.ttest.outcomeVariableName}.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['group statistics'] })}
           </div>
 
           <div style={tableWrap}>
@@ -1092,6 +1125,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>Note. If Levene's Sig. &lt; .05, use the "Equal variances not assumed" row.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { starts: ['independent samples test'] })}
           </div>
         </>
       )}
@@ -1139,6 +1173,7 @@ export default function ResultsPage() {
                 </tr>
               </tbody>
             </table>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { all: ['descriptive statistics for', ' by '] })}
 
             <p style={tableTitle}>Table {nextTable()}. One-Way ANOVA: {results.anova.outcomeVariableName} by {results.anova.groupVariableName}</p>
             <table style={table}>
@@ -1179,6 +1214,7 @@ export default function ResultsPage() {
                 </tr>
               </tbody>
             </table>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { starts: ['one-way anova'] })}
 
             <p style={tableTitle}>Table {nextTable()}. Post Hoc Tests — Tukey HSD Multiple Comparisons</p>
             <table style={table}>
@@ -1208,6 +1244,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>Note. Post hoc comparisons use the Tukey HSD test. The mean difference is significant at the .05 level when Sig. is less than .05.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { has: ['post hoc'] })}
           </div>
         )}
         
@@ -1244,6 +1281,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>Note. Values shown are Count, with Expected Count in parentheses.</p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { has: ['crosstabulation'] })}
 
             <p style={tableTitle}>Table {nextTable()}. Chi-Square Tests</p>
             <table style={table}>
@@ -1286,6 +1324,7 @@ export default function ResultsPage() {
               Note. {results.chisquare.cellsUnderFive} cells ({results.chisquare.pctCellsUnderFive.toFixed(1)}%) have expected count less than 5.
               The minimum expected count is {results.chisquare.minExpected.toFixed(2)}. Cramér's V = {results.chisquare.cramersV.toFixed(3)}.
             </p>
+            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['chi-square tests'], starts: ['chi-square tests'] })}
           </div>
         )}
         
@@ -1456,9 +1495,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Model {results.logisticRegression.converged ? 'converged' : 'did not converge'} after {results.logisticRegression.iterations} iteration(s).</p>
-          {viewMode === 'fullDocument' && tableInterpretations['Model Summary'] && (
+          {viewMode === 'fullDocument' && (tableInterpretations['Logistic Model Summary'] || (!results.regression ? tableInterpretations['Model Summary'] : undefined)) && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {tableInterpretations['Model Summary']}
+              {(tableInterpretations['Logistic Model Summary'] || (!results.regression ? tableInterpretations['Model Summary'] : undefined))}
             </div>
           )}
         </div>
@@ -1492,9 +1531,9 @@ export default function ResultsPage() {
             </tbody>
           </table>
           <p style={noteStyle}>Note. Dependent Variable is binary (0/1). Exp(B) represents the odds ratio for each predictor.</p>
-          {viewMode === 'fullDocument' && tableInterpretations['Variables in the Equation'] && (
+          {viewMode === 'fullDocument' && (tableInterpretations['Logistic Variables in the Equation'] || tableInterpretations['Variables in the Equation']) && (
             <div style={{ backgroundColor: '#FAFAFA', borderRadius: '8px', padding: '12px 16px', margin: '10px 0 0 0', fontSize: '13px', color: '#333333', lineHeight: 1.6 }}>
-              {tableInterpretations['Variables in the Equation']}
+              {(tableInterpretations['Logistic Variables in the Equation'] || tableInterpretations['Variables in the Equation'])}
             </div>
           )}
         </div>

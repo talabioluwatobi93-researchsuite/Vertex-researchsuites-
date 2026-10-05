@@ -265,8 +265,9 @@ MANDATORY EXACT TABLE TITLES - use these exact strings for table_title, do not i
 - Two-way ANOVA: "Tests of Between-Subjects Effects"
 - Chi-Square: "{row} x {col} Crosstabulation", "Chi-Square Tests"
 - Moderation: "Moderation Model Summary", "Moderation Coefficients", "Moderation Interaction Step", "Moderation Simple Slopes"
+  (When the moderation result has deltaR2 you MUST output the table "Moderation Interaction Step" with its R-squared change, F change, df1, df2 and p. When it has simpleSlopes you MUST output "Moderation Simple Slopes" with one row per level. Never merge them into another table.)
 - Mediation: "Mediation Path Coefficients", "Sobel Test for Indirect Effect"
-- Logistic Regression: "Model Summary", "Variables in the Equation"
+- Logistic Regression: "Logistic Model Summary", "Logistic Variables in the Equation"
 
 Use the actual outcome/group/row/col variable names from the input data in place of {outcome}, {group}, {row}, {col}.
 
