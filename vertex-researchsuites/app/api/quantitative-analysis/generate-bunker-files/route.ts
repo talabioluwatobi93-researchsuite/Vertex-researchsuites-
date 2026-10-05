@@ -90,24 +90,48 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle):
   if (results.ttest) {
     safeBuild("ttest", () => buildTTestTables(results.ttest, n, citationStyle));
   }
+    // PHASE8F4: extra runs of t-test, each with its own tables
+    if (Array.isArray(results.ttest_runs)) {
+      results.ttest_runs.forEach((rr: any) => {
+        safeBuild("ttest run " + rr.run, () => buildTTestTables(rr, n, citationStyle).map((g: any) => ({ ...g, title: String(g.title) + " (Run " + rr.run + ")", source: "" })));
+      });
+    }
   if (results.paired) {
     safeBuild("paired", () => buildPairedTTestTable(results.paired, n, citationStyle));
   }
   if (results.mannwhitney) {
     safeBuild("mannwhitney", () => buildMannWhitneyTable(results.mannwhitney, n, citationStyle));
   }
+    // PHASE8F4: extra runs of Mann-Whitney U Test, each with its own tables
+    if (Array.isArray(results.mannwhitney_runs)) {
+      results.mannwhitney_runs.forEach((rr: any) => {
+        safeBuild("mannwhitney run " + rr.run, () => buildMannWhitneyTable(rr, n, citationStyle).map((g: any) => ({ ...g, title: String(g.title) + " (Run " + rr.run + ")", source: "" })));
+      });
+    }
   if (results.wilcoxon) {
     safeBuild("wilcoxon", () => buildWilcoxonTable(results.wilcoxon, n, citationStyle));
   }
   if (results.anova) {
     safeBuild("anova", () => buildAnovaTables(results.anova, n, citationStyle));
   }
+    // PHASE8F4: extra runs of ANOVA, each with its own tables
+    if (Array.isArray(results.anova_runs)) {
+      results.anova_runs.forEach((rr: any) => {
+        safeBuild("anova run " + rr.run, () => buildAnovaTables(rr, n, citationStyle).map((g: any) => ({ ...g, title: String(g.title) + " (Run " + rr.run + ")", source: "" })));
+      });
+    }
   if (results.chisquare) {
     safeBuild("chisquare", () => buildChiSquareTables(results.chisquare, n, citationStyle));
   }
   if (results.kruskalwallis) {
     safeBuild("kruskalwallis", () => buildKruskalWallisTables(results.kruskalwallis, n, citationStyle));
   }
+    // PHASE8F4: extra runs of Kruskal-Wallis Test, each with its own tables
+    if (Array.isArray(results.kruskalwallis_runs)) {
+      results.kruskalwallis_runs.forEach((rr: any) => {
+        safeBuild("kruskalwallis run " + rr.run, () => buildKruskalWallisTables(rr, n, citationStyle).map((g: any) => ({ ...g, title: String(g.title) + " (Run " + rr.run + ")", source: "" })));
+      });
+    }
   if (results.correlation) {
     safeBuild("correlation", () => buildCorrelationTables(results.correlation, n, citationStyle));
   }
