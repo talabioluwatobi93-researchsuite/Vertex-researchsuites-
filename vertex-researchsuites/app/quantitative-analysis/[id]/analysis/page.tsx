@@ -128,9 +128,10 @@ export default function AnalysisTypePage() {
   const [mediationOutcomeId, setMediationOutcomeId] = useState('')
   const [moderationPredictorId, setModerationPredictorId] = useState('')
   const [moderationModeratorId, setModerationModeratorId] = useState('')
+  const [moderatorOrdered, setModeratorOrdered] = useState(false) // PHASE8M
   const [moderationOutcomeId, setModerationOutcomeId] = useState('')
   const [testExtra, setTestExtra] = useState<Record<string, { g: string; o: string }[]>>({ ttest: [{ g: '', o: '' }, { g: '', o: '' }], mannwhitney: [{ g: '', o: '' }, { g: '', o: '' }], anova: [{ g: '', o: '' }, { g: '', o: '' }], kruskalwallis: [{ g: '', o: '' }, { g: '', o: '' }] }) // PHASE8F1
-  const [modExtra, setModExtra] = useState<{ p: string; m: string; o: string }[]>([{ p: '', m: '', o: '' }, { p: '', m: '', o: '' }])
+  const [modExtra, setModExtra] = useState<{ p: string; m: string; o: string; c?: boolean }[]>([{ p: '', m: '', o: '' }, { p: '', m: '', o: '' }])
 
   useEffect(() => {
     const load = async () => {
@@ -197,7 +198,8 @@ export default function AnalysisTypePage() {
         setModerationPredictorId(data.moderation_config.predictorConstructId || '')
         setModerationModeratorId(data.moderation_config.moderatorConstructId || '')
         setModerationOutcomeId(data.moderation_config.outcomeConstructId || '')
-        setModExtra([0, 1].map((i) => { const x = (Array.isArray(data.moderation_config.extraRuns) ? data.moderation_config.extraRuns : [])[i]; return x ? { p: x.predictorConstructId || '', m: x.moderatorConstructId || '', o: x.outcomeConstructId || '' } : { p: '', m: '', o: '' } }))
+        setModeratorOrdered(data.moderation_config.moderatorCoding === 'numeric')
+        setModExtra([0, 1].map((i) => { const x = (Array.isArray(data.moderation_config.extraRuns) ? data.moderation_config.extraRuns : [])[i]; return x ? { p: x.predictorConstructId || '', m: x.moderatorConstructId || '', o: x.outcomeConstructId || '', c: x.moderatorCoding === 'numeric' } : { p: '', m: '', o: '' } }))
       }
       setLoading(false)
     }
@@ -548,7 +550,7 @@ export default function AnalysisTypePage() {
           ? { predictorConstructId: mediationPredictorId, mediatorConstructId: mediationMediatorId, outcomeConstructId: mediationOutcomeId }
           : null,
         moderation_config: selected.includes('moderation')
-          ? { predictorConstructId: moderationPredictorId, moderatorConstructId: moderationModeratorId, outcomeConstructId: moderationOutcomeId, extraRuns: modExtra.filter((r) => r.p && r.m && r.o).map((r) => ({ predictorConstructId: r.p, moderatorConstructId: r.m, outcomeConstructId: r.o })) }
+          ? { predictorConstructId: moderationPredictorId, moderatorConstructId: moderationModeratorId, outcomeConstructId: moderationOutcomeId, moderatorCoding: (moderatorOrdered && demographicEligibleConstructs.some((c: any) => c.id === moderationModeratorId)) ? 'numeric' : undefined, extraRuns: modExtra.filter((r) => r.p && r.m && r.o).map((r) => ({ predictorConstructId: r.p, moderatorConstructId: r.m, outcomeConstructId: r.o, moderatorCoding: (r.c && demographicEligibleConstructs.some((c: any) => c.id === r.m)) ? 'numeric' : undefined })) }
           : null,
         updated_at: new Date().toISOString(),
       })
@@ -915,7 +917,10 @@ export default function AnalysisTypePage() {
                 <option value="">Select a variable...</option>
                 {roleEligibleConstructs.filter((c) => c.id !== moderationPredictorId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
-              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Final outcome</label>
+              {demographicEligibleConstructs.some((c: any) => c.id === moderationModeratorId) && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#555555', fontSize: '12px', marginBottom: '10px' }}><input type="checkbox" checked={moderatorOrdered} onChange={(e) => setModeratorOrdered(e.target.checked)} /> Treat this variable as an ordered scale (e.g. Level of Study, Age group)</label>
+            )}
+            <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Final outcome</label>
               <select value={moderationOutcomeId} onChange={(e) => setModerationOutcomeId(e.target.value)} disabled={!moderationModeratorId} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}>
                 <option value="">Select a variable...</option>
                 {numericEligibleConstructs.filter((c) => c.id !== moderationPredictorId && c.id !== moderationModeratorId).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
@@ -933,7 +938,10 @@ export default function AnalysisTypePage() {
                     <option value="">Select a variable...</option>
                     {roleEligibleConstructs.filter((c: any) => c.id !== modExtra[ri].p).map((c: any) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                   </select>
-                  <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Run {ri + 2} (optional): Outcome</label>
+                  {demographicEligibleConstructs.some((c: any) => c.id === modExtra[ri].m) && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#555555', fontSize: '12px', marginBottom: '10px' }}><input type="checkbox" checked={!!modExtra[ri].c} onChange={(e) => setModExtra((prev) => prev.map((r, i) => (i === ri ? { ...r, c: e.target.checked } : r)))} /> Treat this variable as an ordered scale (e.g. Level of Study, Age group)</label>
+              )}
+              <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Run {ri + 2} (optional): Outcome</label>
                   <select value={modExtra[ri].o} onChange={(e: any) => { const v = e.target.value; setModExtra((prev) => prev.map((r, i) => (i === ri ? { ...r, o: v } : r))) }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #CCCCCC', marginBottom: '8px' }}>
                     <option value="">Select a variable...</option>
                     {numericEligibleConstructs.filter((c: any) => c.id !== modExtra[ri].p && c.id !== modExtra[ri].m).map((c: any) => (<option key={c.id} value={c.id}>{c.name}</option>))}
