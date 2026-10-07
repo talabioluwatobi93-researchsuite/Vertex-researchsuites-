@@ -99,6 +99,13 @@ export async function transcribePart(
       transcription_config.language_codes = opts.languageCodes;
     }
 
+    try {
+      console.log("gemini-request:", JSON.stringify({
+        partBytes: blob.size,
+        mimeType,
+        config: transcription_config,
+      }));
+    } catch {}
     const res = await send(f, `${base}/v1beta/interactions`, {
       method: "POST",
       headers: {
@@ -112,7 +119,21 @@ export async function transcribePart(
         generation_config: { transcription_config },
       }),
     });
-    if (!res.ok) throw new Error(`Gemini transcription failed (${res.status})`);
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const raw = await res.text();
+        let msg: any = raw;
+        try {
+          const j: any = JSON.parse(raw);
+          msg = (j && j.error && j.error.message) || (j && j.message) || raw;
+        } catch {}
+        detail = String(msg).replace(/\s+/g, " ").replace(/AIza[0-9A-Za-z_-]{20,}/g, "[redacted]");
+        if (key) detail = detail.split(key).join("[redacted]");
+        detail = detail.slice(0, 300);
+      } catch {}
+      throw new Error(`Gemini transcription failed (${res.status})` + (detail ? ": " + detail : ""));
+    }
     const data: any = await res.json();
     if (data?.status && data.status !== "completed") {
       throw new Error(`Gemini transcription did not complete (status: ${String(data.status)})`);
