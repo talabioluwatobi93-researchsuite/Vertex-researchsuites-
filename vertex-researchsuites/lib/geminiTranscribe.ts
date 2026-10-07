@@ -119,6 +119,37 @@ export async function transcribePart(
     }
 
     const words = extractWords(data);
+    try {
+      const stepsArr: any[] = Array.isArray(data?.steps) ? data.steps : [];
+      const contentTypes: string[] = [];
+      const annTypes: string[] = [];
+      let annCount = 0;
+      let annKeys = "";
+      for (const s of stepsArr) {
+        const cs: any[] = Array.isArray(s?.content) ? s.content : [];
+        for (const c of cs) {
+          const ct = String(c?.type);
+          if (contentTypes.indexOf(ct) < 0) contentTypes.push(ct);
+          const anns: any[] = Array.isArray(c?.annotations) ? c.annotations : [];
+          annCount += anns.length;
+          for (const a of anns) {
+            const at = String(a?.type);
+            if (annTypes.indexOf(at) < 0) annTypes.push(at);
+            if (!annKeys && a && typeof a === "object") annKeys = Object.keys(a).join(",");
+          }
+        }
+      }
+      console.log("gemini-shape:", JSON.stringify({
+        status: data?.status,
+        topKeys: Object.keys(data || {}),
+        steps: stepsArr.map((s: any) => String(s?.type)),
+        contentTypes,
+        annotations: annCount,
+        annotationTypes: annTypes,
+        annotationKeys: annKeys,
+        words: words.length,
+      }));
+    } catch {}
     const text = (Array.isArray(data?.steps) ? data.steps : [])
       .filter((s: any) => !s?.type || s.type === "model_output")
       .flatMap((s: any) => (Array.isArray(s?.content) ? s.content : []))
