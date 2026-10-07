@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { stitchParts, type PartInput } from "@/lib/voiceStitch";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,8 +15,8 @@ const MUTED = "#555555";
 const BG = "#F9F9F9";
 const BORDER = "#EEEEEE";
 
-const CHUNK_LENGTH_SECONDS = 300; // 5 minutes
-const CHUNK_OVERLAP_SECONDS = 15;
+const CHUNK_LENGTH_SECONDS = 600; // 10 minutes (raise toward 28 after timing a real run)
+const CHUNK_OVERLAP_SECONDS = 60;
 
 type Stage = "loading" | "fee-confirm" | "upload" | "transcribing" | "review-transcript" | "notes";
 
@@ -125,6 +126,7 @@ export default function VoiceTranscription() {
 
   const runChunkedTranscription = async (audioPath: string, durationSeconds: number, lang: string) => {
     let accumulated = "";
+    const partsForStitch: PartInput[] = [];
     let start = 0;
     const step = CHUNK_LENGTH_SECONDS - CHUNK_OVERLAP_SECONDS;
     const totalChunks = Math.max(1, Math.ceil(durationSeconds / step));
@@ -136,7 +138,7 @@ export default function VoiceTranscription() {
 
       const chunkDuration = Math.min(CHUNK_LENGTH_SECONDS, durationSeconds - start);
 
-      const res = await fetch("/api/voice-transcription/chunk-transcribe", {
+      const res = await fetch("/api/voice-transcription/gemini-part", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audioPath, startSeconds: start, durationSeconds: chunkDuration, language: lang, languageHint }),
@@ -144,11 +146,13 @@ export default function VoiceTranscription() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Transcription failed on part ${chunkIndex}. Please try again.`);
 
+      partsForStitch.push({ offset: start, words: Array.isArray(data.words) ? data.words : [] });
       accumulated = mergeTranscriptChunks(accumulated, data.text || "");
       start += step;
     }
 
-    return accumulated;
+    const stitched = stitchParts(partsForStitch);
+    return stitched.words.length > 0 ? stitched.text : accumulated;
   };
 
   const handleTranscribeFromUrl = async () => {
@@ -181,7 +185,7 @@ export default function VoiceTranscription() {
       const probeData = await probeRes.json();
 
       let finalTranscript = "";
-      if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > CHUNK_LENGTH_SECONDS) {
+      if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > 0) {
         finalTranscript = await runChunkedTranscription(uploadData.path, probeData.durationSeconds, language);
       } else {
         finalTranscript = await runOneShotTranscription(uploadData.sessionId, uploadData.path, language);
@@ -240,7 +244,7 @@ export default function VoiceTranscription() {
 
       let finalTranscript = "";
 
-      if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > CHUNK_LENGTH_SECONDS) {
+      if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > 0) {
         finalTranscript = await runChunkedTranscription(path, probeData.durationSeconds, language);
       } else {
         finalTranscript = await runOneShotTranscription(session.id, path, language);
