@@ -113,16 +113,6 @@ export default function VoiceTranscription() {
     setPaying(false);
   };
 
-  const runOneShotTranscription = async (currentSessionId: string, audioPath: string, lang: string) => {
-    const res = await fetch("/api/voice-transcription/transcribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: currentSessionId, audioPath, language: lang, languageHint }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Transcription failed. Please try again.");
-    return data.transcript as string;
-  };
 
   const runChunkedTranscription = async (audioPath: string, durationSeconds: number, lang: string) => {
     let accumulated = "";
@@ -188,7 +178,7 @@ export default function VoiceTranscription() {
       if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > 0) {
         finalTranscript = await runChunkedTranscription(uploadData.path, probeData.durationSeconds, language);
       } else {
-        finalTranscript = await runOneShotTranscription(uploadData.sessionId, uploadData.path, language);
+        throw new Error("We could not read the length of this audio file. Please try another file (mp3, m4a or wav).");
       }
 
       await supabase
@@ -247,7 +237,7 @@ export default function VoiceTranscription() {
       if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > 0) {
         finalTranscript = await runChunkedTranscription(path, probeData.durationSeconds, language);
       } else {
-        finalTranscript = await runOneShotTranscription(session.id, path, language);
+        throw new Error("We could not read the length of this audio file. Please try another file (mp3, m4a or wav).");
       }
 
       await supabase
