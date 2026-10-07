@@ -19,7 +19,7 @@ function runFfmpegProbe(filePath: string): Promise<number> {
     execFile(ffmpegPath as string, ["-i", filePath], (_error, _stdout, stderr) => {
       const match = stderr.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/);
       if (!match) {
-        reject(new Error("Could not determine audio duration."));
+        reject(new Error("ffmpeg gave no duration: " + String(stderr || (_error as any)?.message || "").slice(0, 300)));
         return;
       }
       const hours = parseInt(match[1], 10);
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
     const { audioPath } = await req.json();
     const { data: fileData, error } = await supabaseAdmin.storage.from("interview-audio").download(audioPath);
     if (error || !fileData) {
+      console.error("probe download failed:", error?.message || "no data");
       return NextResponse.json({ error: "Could not download audio file." }, { status: 500 });
     }
     const buffer = Buffer.from(await fileData.arrayBuffer());
@@ -43,7 +44,8 @@ export async function POST(req: NextRequest) {
     await writeFile(tmpPath, buffer);
     const durationSeconds = await runFfmpegProbe(tmpPath);
     return NextResponse.json({ durationSeconds });
-  } catch {
+  } catch (err: any) {
+    console.error("probe error:", err?.code || "", err?.message || "unknown", "| ffmpeg path:", String(ffmpegPath));
     return NextResponse.json({ error: "Could not determine audio duration." }, { status: 500 });
   } finally {
     if (tmpPath) {

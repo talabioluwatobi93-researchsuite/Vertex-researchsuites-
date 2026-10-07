@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     const result = await transcribePart(key, partBlob, "audio/mp3", { languageCodes: codes, apiRevision: process.env.GEMINI_API_REVISION || undefined });
     return NextResponse.json({ words: result.words, text: result.text });
   } catch (err: any) {
-    console.error("gemini-part error:", err?.message || "unknown");
+    console.error("gemini-part error:", err?.code || "", err?.message || "unknown", "| ffmpeg path:", String(ffmpegPath));
     return NextResponse.json({ error: "Transcription failed for this segment. Please try again." }, { status: 500 });
   } finally {
     if (inputTmp) { try { await unlink(inputTmp); } catch {} }
