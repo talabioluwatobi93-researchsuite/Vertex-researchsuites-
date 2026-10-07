@@ -66,6 +66,7 @@ export default function VoiceTranscription() {
   const [processingMsg, setProcessingMsg] = useState("");
 
   const [transcript, setTranscript] = useState("");
+  const [transcriptNotice, setTranscriptNotice] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [generatingNotes, setGeneratingNotes] = useState(false);
 
@@ -118,6 +119,7 @@ export default function VoiceTranscription() {
   const runChunkedTranscription = async (audioPath: string, durationSeconds: number, lang: string) => {
     let accumulated = "";
     const partsForStitch: PartInput[] = [];
+    let textOnlyParts = 0;
     let start = 0;
     const step = CHUNK_LENGTH_SECONDS - CHUNK_OVERLAP_SECONDS;
     const totalChunks = Math.max(1, Math.ceil(durationSeconds / step));
@@ -138,12 +140,28 @@ export default function VoiceTranscription() {
       if (!res.ok) throw new Error(data.error || `Transcription failed on part ${chunkIndex}. Please try again.`);
 
       partsForStitch.push({ offset: start, words: Array.isArray(data.words) ? data.words : [] });
+      const partHasWords = Array.isArray(data.words) && data.words.length > 0;
+      const partHasText = typeof data.text === "string" && data.text.trim().length > 0;
+      if (!partHasWords && partHasText) textOnlyParts += 1;
       accumulated = mergeTranscriptChunks(accumulated, data.text || "");
       start += step;
     }
 
     const stitched = stitchParts(partsForStitch);
-    return stitched.words.length > 0 ? stitched.text : accumulated;
+    if (stitched.words.length > 0 && textOnlyParts === 0) {
+      setTranscriptNotice(
+        partsForStitch.length > 1
+          ? "This recording was transcribed in parts and speaker labels were matched across them. Please check who is speaking near the start of each part."
+          : ""
+      );
+      return stitched.text;
+    }
+    setTranscriptNotice(
+      stitched.words.length > 0
+        ? "Some parts of this recording came back without speaker labels or timestamps, so the transcript below is plain text without them."
+        : "Speaker labels and timestamps were not available for this recording, so the transcript below is plain text without them."
+    );
+    return accumulated;
   };
 
   const handleTranscribeFromUrl = async () => {
@@ -395,6 +413,9 @@ export default function VoiceTranscription() {
         <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}` }}>
           <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "8px" }}>Review Your Transcript</p>
           <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>Check for any misheard names or terms before generating your interpretive notes.</p>
+          {transcriptNotice && (
+            <p style={{ color: "#8A6D00", fontSize: 12, marginBottom: "12px" }}>Note: {transcriptNotice}</p>
+          )}
           <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} style={{ width: "100%", minHeight: "260px", padding: "12px 14px", borderRadius: "10px", border: "1px solid #DDDDDD", fontSize: "14px", color: DARK, lineHeight: 1.6, boxSizing: "border-box" as const, marginBottom: "16px" }} />
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           <button onClick={handleGenerateNotes} disabled={generatingNotes || !transcript.trim()} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
