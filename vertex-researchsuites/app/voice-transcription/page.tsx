@@ -360,7 +360,7 @@ export default function VoiceTranscription() {
             <input type="file" accept="audio/*" onChange={(e) => {
               const selected = e.target.files?.[0] || null
               if (selected) {
-                const allowedExt = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm"]
+                const allowedExt = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm", "aac", "aif", "aiff", "amr", "3gp", "3ga", "wma"]
                 const ext = selected.name.split(".").pop()?.toLowerCase() || ""
                 if (allowedExt.indexOf(ext) === -1) {
                   setErrorMsg("That file type (." + ext + ") isn't supported. Please choose an mp3, m4a, wav, or similar audio file.")
