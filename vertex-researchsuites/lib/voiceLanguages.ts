@@ -17,9 +17,7 @@ export type LanguageGroup = {
 export const AUTO_LANGUAGE_VALUE = "auto";
 
 export const LANGUAGE_NOTE =
-  "Mixed-language speech (for example Nigerian Pidgin with Yoruba and English) is expected. " +
-  "Pick the main language, or leave Auto-detect and describe the mix in the hint below. " +
-  "Languages marked experimental may be transcribed poorly.";
+  "Pick the main language, or leave Auto-detect and describe the mix in the hint below.";
 
 function slug(label: string): string {
   return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -31,29 +29,18 @@ function opt(label: string, code: string | null = null, experimental = false): L
 
 export const LANGUAGE_GROUPS: LanguageGroup[] = [
   {
-    label: "A. Nigerian languages",
+    label: "A. Nigerian English",
     options: [
       opt("Nigerian English"),
-      opt("Nigerian Pidgin English", null, true),
-      opt("Yoruba", null, true),
-      opt("Hausa", "ha-NG"),
-      opt("Igbo", null, true),
     ],
   },
   {
     label: "B. Other African languages",
     options: [
-      opt("Afrikaans (South Africa)"),
-      opt("Amharic (Ethiopia)"),
       opt("Kabuverdianu (Cape Verde)"),
       opt("Lingala (Congo)"),
       opt("Malagasy (Madagascar)"),
-      opt("Oromo (Ethiopia)"),
       opt("Somali (Somalia, Kenya)"),
-      opt("Swahili (Kenya, Tanzania, Uganda)", "sw-KE"),
-      opt("Wolof (Senegal)"),
-      opt("Xhosa (South Africa)"),
-      opt("Zulu (South Africa)"),
     ],
   },
   {
@@ -113,7 +100,6 @@ export const LANGUAGE_GROUPS: LanguageGroup[] = [
       opt("Telugu"),
       opt("Kannada"),
       opt("Malayalam"),
-      opt("Arabic (Standard, Egyptian, Gulf, Levantine, North Africa)"),
       opt("Persian / Farsi"),
       opt("Hebrew"),
       opt("Indonesian"),
