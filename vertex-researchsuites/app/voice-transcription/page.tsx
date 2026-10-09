@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { stitchParts, type PartInput } from "@/lib/voiceStitch";
 import { LANGUAGE_GROUPS, LANGUAGE_NOTE, languageCodesFor, optionText } from "@/lib/voiceLanguages";
+import { INTRON_LANGUAGE_GROUPS, INTRON_LANGUAGE_NOTE } from "@/lib/intronLanguages";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -90,6 +91,119 @@ export default function VoiceTranscription() {
     };
     init();
   }, []);
+
+  // ---- African languages (Intron). First version: one clip of up to 2 minutes. ----
+  const INTRON_MAX_SECONDS = 120;
+  const INTRON_ALLOWED_EXT = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm", "aac", "aif", "aiff", "amr", "3gp", "3ga", "wma"];
+  const [intronFile, setIntronFile] = useState<File | null>(null);
+  const [intronLanguage, setIntronLanguage] = useState<string>("yo");
+  const [intronBusy, setIntronBusy] = useState(false);
+  const [intronMsg, setIntronMsg] = useState("");
+  const [intronError, setIntronError] = useState("");
+  const [intronText, setIntronText] = useState("");
+  const [intronRaw, setIntronRaw] = useState("");
+  const [intronSessionId, setIntronSessionId] = useState("");
+
+  const handleIntronTranscribe = async () => {
+    if (!intronFile) return;
+    setIntronBusy(true);
+    setIntronError("");
+    setIntronText("");
+    setIntronRaw("");
+    try {
+      const { data: authData } = await supabase.auth.getSession();
+      const token = authData.session?.access_token;
+      if (!token) throw new Error("Please sign in again.");
+
+      const safeName = intronFile.name.replace(/[^A-Za-z0-9._-]+/g, "_");
+      const path = `${userId}/${Date.now()}-${safeName}`;
+      setIntronMsg("Uploading your audio...");
+      const { error: upErr } = await supabase.storage.from("interview-audio").upload(path, intronFile);
+      if (upErr) throw new Error("Could not upload audio. Please try again.");
+
+      const { data: session, error: sessErr } = await supabase
+        .from("voice_transcription_sessions")
+        .insert({ user_id: userId, audio_path: path, status: "uploaded", fee_charged: price })
+        .select()
+        .single();
+      if (sessErr || !session) throw new Error("Could not create transcription session. Please try again.");
+      setIntronSessionId(session.id);
+
+      const probeRes = await fetch("/api/voice-transcription/probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioPath: path }),
+      });
+      const probeData = await probeRes.json();
+      if (!probeRes.ok || typeof probeData.durationSeconds !== "number" || !(probeData.durationSeconds > 0)) {
+        throw new Error("We could not read the length of this audio file. Please try another file (mp3, m4a or wav).");
+      }
+      if (probeData.durationSeconds > INTRON_MAX_SECONDS) {
+        throw new Error("For this first version, African-language clips must be 2 minutes or shorter. Longer files are coming next.");
+      }
+
+      setIntronMsg("Starting transcription...");
+      const startRes = await fetch("/api/voice-transcription/intron-start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({
+          sessionId: session.id,
+          audioPath: path,
+          startSeconds: 0,
+          durationSeconds: Math.min(INTRON_MAX_SECONDS, probeData.durationSeconds),
+          language: intronLanguage,
+          diarize: true,
+        }),
+      });
+      const startData = await startRes.json();
+      if (!startRes.ok) throw new Error(startData.error || "Could not start transcription. Please try again.");
+
+      let unknownCount = 0;
+      for (let i = 0; i < 75; i++) {
+        await new Promise<void>((r) => setTimeout(r, 4000));
+        setIntronMsg("Transcribing... " + (i + 1) * 4 + " seconds so far. Please don't close this page.");
+        const stRes = await fetch("/api/voice-transcription/intron-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify({ fileId: startData.fileId, fileToken: startData.fileToken }),
+        });
+        if (stRes.status === 429) continue;
+        const st = await stRes.json();
+        if (!stRes.ok) throw new Error(st.error || "Could not check progress. Please try again.");
+        if (st.state === "done") {
+          const text = typeof st.transcript === "string" ? st.transcript : "";
+          setIntronText(text);
+          setIntronRaw(JSON.stringify(st.raw, null, 2) || "");
+          setIntronMsg(text ? "Done." : "Done, but the transcript came back in a different format. See the raw response below.");
+          if (text) {
+            await supabase
+              .from("voice_transcription_sessions")
+              .update({ raw_transcript: text, status: "transcribed", updated_at: new Date().toISOString() })
+              .eq("id", session.id);
+          }
+          return;
+        }
+        if (st.state === "failed") throw new Error("Transcription failed for this audio. Please try again.");
+        if (st.state === "unknown") {
+          unknownCount += 1;
+          if (unknownCount >= 5) throw new Error("Transcription returned an unexpected status. Please try again.");
+        }
+      }
+      throw new Error("Transcription is taking longer than expected. Please try again later.");
+    } catch (err: any) {
+      setIntronError(err?.message || "Something went wrong. Please try again.");
+      setIntronMsg("");
+    } finally {
+      setIntronBusy(false);
+    }
+  };
+
+  const handleUseIntronTranscript = () => {
+    setTranscript(intronText);
+    setTranscriptNotice("This transcript came from the African-language engine. Speaker labels, if any, depend on what the engine returned.");
+    setSessionId(intronSessionId);
+    setStage("review-transcript");
+  };
 
   const handleAcceptFee = async () => {
     setPaying(true);
@@ -350,6 +464,82 @@ export default function VoiceTranscription() {
             <button onClick={handleAcceptFee} disabled={paying} style={{ flex: 1, backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>{paying ? "Processing..." : "Accept & Continue"}</button>
           </div>
         </div>
+      )}
+
+      {stage === "upload" && (
+        <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}`, marginBottom: "16px" }}>
+          <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "6px" }}>African languages</p>
+          <p style={{ color: MUTED, fontSize: 13, marginBottom: "14px" }}>
+            For Yoruba, Igbo, Hausa, Pidgin and other African languages, including speech mixed with English. First version: one clip of up to 2 minutes.
+          </p>
+          <label style={{ display: "block", width: "100%", padding: "14px", marginBottom: "16px", backgroundColor: "#F5F5F5", border: "2px dashed #CCCCCC", borderRadius: "10px", textAlign: "center", fontSize: "14px", color: "#333333", fontWeight: 600, cursor: "pointer" }}>
+            {intronFile ? intronFile.name : "Tap here to choose an audio file"}
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={(e) => {
+                const selected = e.target.files?.[0] || null;
+                if (selected) {
+                  const ext = selected.name.split(".").pop()?.toLowerCase() || "";
+                  if (INTRON_ALLOWED_EXT.indexOf(ext) === -1) {
+                    setIntronError("That file type (." + ext + ") isn't supported. Please choose an mp3, m4a, wav, or similar audio file.");
+                    setIntronFile(null);
+                    return;
+                  }
+                }
+                setIntronError("");
+                setIntronFile(selected);
+              }}
+              style={{ display: "none" }}
+            />
+          </label>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#333333", marginBottom: "6px" }}>Language spoken</label>
+          <select
+            value={intronLanguage}
+            onChange={(e) => setIntronLanguage(e.target.value)}
+            style={{ width: "100%", padding: "10px 12px", fontSize: "14px", borderRadius: "10px", border: "1px solid #CCCCCC", color: "#333333", marginBottom: "12px" }}
+          >
+            {INTRON_LANGUAGE_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.options.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <p style={{ color: "#888888", fontSize: 12, marginTop: "-8px", marginBottom: "12px" }}>{INTRON_LANGUAGE_NOTE}</p>
+          {intronError && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{intronError}</p>}
+          {intronMsg && <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>{intronMsg}</p>}
+          <button
+            onClick={handleIntronTranscribe}
+            disabled={!intronFile || intronBusy}
+            style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
+          >
+            {intronBusy ? "Working..." : "Upload & Transcribe (African languages)"}
+          </button>
+          {intronText && (
+            <div style={{ marginTop: "16px" }}>
+              <p style={{ color: DARK, fontSize: 14, fontWeight: 700, marginBottom: "6px" }}>Transcript</p>
+              <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "inherit", fontSize: "13px", color: DARK, lineHeight: "1.6", margin: "0 0 12px 0" }}>{intronText}</pre>
+              <button
+                onClick={handleUseIntronTranscript}
+                style={{ width: "100%", backgroundColor: DARK, color: "#ffffff", border: "none", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Use this transcript
+              </button>
+            </div>
+          )}
+          {intronRaw && (
+            <div style={{ marginTop: "16px" }}>
+              <p style={{ color: MUTED, fontSize: 12, fontWeight: 700, marginBottom: "6px" }}>Raw response (for testing)</p>
+              <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: "300px", overflow: "auto", fontSize: "11px", color: MUTED, backgroundColor: "#FAFAFA", border: "1px solid #EEEEEE", borderRadius: "8px", padding: "10px", margin: 0 }}>{intronRaw}</pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {stage === "upload" && (
+        <p style={{ color: DARK, fontSize: 14, fontWeight: 700, margin: "4px 0 10px 0" }}>Other languages (global)</p>
       )}
 
       {stage === "upload" && (
