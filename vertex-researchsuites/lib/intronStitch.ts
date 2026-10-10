@@ -1,470 +1,489 @@
-// Planning and stitching for Intron transcripts cut into overlapping parts.
-// Pure functions (no network, no database). Intron returns diarized text as lines like
-// "SPEAKER_00: words" with NO timestamps, and speaker numbers restart in every part.
-// Parts overlap by a few seconds. The overlap words are matched (tolerating spelling
-// differences) to remove the duplicate once and to carry each speaker across the seam.
+// Intron long-file helpers. Pure TypeScript, no imports.
+// Plans overlapping parts, reads "SPEAKER_00: words" text, and joins the parts back together.
 
 export const INTRON_PART_SECONDS = 120;
 export const INTRON_OVERLAP_SECONDS = 10;
 
+const TAIL_WORDS = 80;
+const HEAD_WORDS = 80;
+const EDGE_WORDS = 12;
+const MIN_PAIRS = 4;
+const MIN_EXACT = 3;
+const MIN_RATIO = 0.5;
+const MAX_DROP_DIFF = 30;
+const MAX_DROP = 90;
+const HIGH_PAIRS = 6;
+const HIGH_RATIO = 0.6;
+const HIGH_EXACT_SHARE = 0.5;
+const RECENT_WORDS = 600;
+const MIN_VOTES = 2;
+const VOTE_SHARE = 0.6;
+const S_EXACT = 6;
+const S_NEAR = 1;
+const S_MISS = -4;
+const S_GAP = -4;
+const NEG = -1000000000;
+
 export type PlannedPart = { index: number; startSeconds: number; durationSeconds: number };
 
-// Part i starts at i * (partSeconds - overlapSeconds). Stops as soon as a part reaches the end.
+function round3(x: number): number {
+  return Math.round(x * 1000) / 1000;
+}
+
 export function planIntronParts(
   totalSeconds: number,
   partSeconds: number = INTRON_PART_SECONDS,
   overlapSeconds: number = INTRON_OVERLAP_SECONDS
 ): PlannedPart[] {
-  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return [];
-  if (!(partSeconds > 0) || !(overlapSeconds >= 0) || overlapSeconds >= partSeconds) {
-    throw new Error("Invalid part settings");
-  }
-  const step = partSeconds - overlapSeconds;
+  const total = Number(totalSeconds);
+  if (!isFinite(total) || !(total > 0) || !(partSeconds > 0)) return [];
+  const overlap = overlapSeconds >= 0 && overlapSeconds < partSeconds ? overlapSeconds : 0;
+  const step = partSeconds - overlap;
   const parts: PlannedPart[] = [];
-  for (let i = 0; ; i++) {
-    const start = i * step;
-    const dur = Math.min(partSeconds, totalSeconds - start);
-    parts.push({ index: i, startSeconds: start, durationSeconds: dur });
-    if (start + dur >= totalSeconds - 1e-9) break;
+  for (let i = 0; i < 100000; i++) {
+    const start = round3(i * step);
+    const duration = round3(Math.min(partSeconds, total - start));
+    parts.push({ index: i, startSeconds: start, durationSeconds: duration });
+    if (start + partSeconds >= total) break;
   }
   return parts;
 }
 
-// Total audio seconds sent to the engine (this is what is billed).
-export function billedSeconds(parts: PlannedPart[]): number {
-  let t = 0;
-  for (const p of parts) t += p.durationSeconds;
-  return t;
+export function billedSeconds(parts: { durationSeconds: number }[]): number {
+  let sum = 0;
+  for (const p of parts) sum += Math.ceil(p.durationSeconds);
+  return sum;
 }
 
 export function formatTime(seconds: number): string {
-  const s = Math.max(0, Math.round(seconds));
+  const s = Math.max(0, Math.floor(Number(seconds) || 0));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const r = s % 60;
-  const mm = String(m).padStart(2, "0");
-  const ss = String(r).padStart(2, "0");
-  return h > 0 ? h + ":" + mm + ":" + ss : mm + ":" + ss;
+  const two = (n: number) => (n < 10 ? "0" + n : String(n));
+  return h > 0 ? h + ":" + two(m) + ":" + two(r) : two(m) + ":" + two(r);
 }
 
-// ---------- parsing ----------
+const MARKS = new RegExp("\\p{M}", "gu");
+const NOT_ALNUM = new RegExp("[^\\p{L}\\p{N}]", "gu");
 
-const RE_MARKS = new RegExp("\\p{M}", "gu");
-const RE_NONWORD = new RegExp("[^\\p{L}\\p{N}]+", "gu");
-
-// Lowercase, no accents or tone marks, letters and digits only. Used for matching only.
-export function normalizeWord(raw: string): string {
-  return raw.normalize("NFD").replace(RE_MARKS, "").toLowerCase().replace(RE_NONWORD, "");
+export function normalizeWord(w: string): string {
+  return String(w).normalize("NFD").replace(MARKS, "").toLowerCase().replace(NOT_ALNUM, "");
 }
 
-type LocalTok = { raw: string; norm: string; local: number | null };
-export type ParsedPart = { toks: LocalTok[]; emptyTurns: number; labelled: boolean };
+export type Turn = { label: number; text: string };
 
-const LABEL_LINE = /^\s*SPEAKER[_ ]?(\d+)\s*:\s?(.*)$/i;
-
-export function parseDiarizedText(text: string): ParsedPart {
-  const turns: { local: number | null; text: string }[] = [];
+// Reads lines like "SPEAKER_01: words". Text with no speaker lines becomes one turn with label -1.
+export function parseDiarizedText(text: string): { turns: Turn[]; emptyTurns: number; labelled: boolean } {
+  const re = /^\s*SPEAKER[_ ]?(\d+)\s*:\s?(.*)$/i;
+  const turns: Turn[] = [];
   let labelled = false;
-  const lines = text.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const m = LABEL_LINE.exec(line);
+  let cur: Turn | null = null;
+  for (const line of String(text || "").split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const m = re.exec(line);
     if (m) {
       labelled = true;
-      turns.push({ local: parseInt(m[1], 10), text: m[2] });
-    } else if (line.trim()) {
-      if (turns.length) turns[turns.length - 1].text += " " + line.trim();
-      else turns.push({ local: null, text: line.trim() });
+      cur = { label: parseInt(m[1], 10), text: m[2] };
+      turns.push(cur);
+    } else if (cur) {
+      cur.text += " " + line.trim();
+    } else {
+      cur = { label: -1, text: line.trim() };
+      turns.push(cur);
     }
   }
-  let emptyTurns = 0;
-  const toks: LocalTok[] = [];
-  for (const t of turns) {
-    const words = t.text.split(/\s+/).filter(Boolean);
-    if (words.length === 0) {
-      emptyTurns++;
-      continue;
-    }
-    for (const w of words) toks.push({ raw: w, norm: normalizeWord(w), local: t.local });
-  }
-  return { toks, emptyTurns, labelled };
+  const kept = turns.filter((t) => t.text.trim().length > 0);
+  return { turns: kept, emptyTurns: turns.length - kept.length, labelled };
 }
 
-// ---------- matching ----------
-
-function withinEdits(a: string, b: string, max: number): boolean {
-  if (Math.abs(a.length - b.length) > max) return false;
+function editDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
   let prev: number[] = [];
   for (let j = 0; j <= b.length; j++) prev.push(j);
   for (let i = 1; i <= a.length; i++) {
-    const cur: number[] = [i];
+    const row: number[] = [i];
+    let best = i;
     for (let j = 1; j <= b.length; j++) {
-      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
-      cur.push(Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost));
+      const v = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1));
+      row.push(v);
+      if (v < best) best = v;
     }
-    prev = cur;
+    if (best > max) return max + 1;
+    prev = row;
   }
-  return prev[b.length] <= max;
+  return prev[b.length];
 }
 
-// 2 = same word, 1 = same word with a small spelling difference, 0 = different.
-function matchKind(a: string, b: string): number {
-  if (!a || !b) return 0;
-  if (a === b) return 2;
-  const L = Math.min(a.length, b.length);
-  if (L >= 9) return withinEdits(a, b, 2) ? 1 : 0;
-  if (L >= 5) return withinEdits(a, b, 1) ? 1 : 0;
-  return 0;
+function isNear(a: string, b: string): boolean {
+  const len = Math.min(a.length, b.length);
+  if (len < 5) return false;
+  return editDistance(a, b, len >= 9 ? 2 : 1) <= (len >= 9 ? 2 : 1);
 }
 
-type Pair = { a: number; b: number; exact: boolean };
+type Aligned = { matched: [number, number, boolean][]; mismatches: number };
 
-const TAIL_WORDS = 80;
-const HEAD_WORDS = 80;
-const SLACK_WORDS = 12;
-const MIN_PAIRS_LOW = 4;
-const MIN_PAIRS_HIGH = 6;
-const MIN_EXACT = 3;
-const MIN_EXACT_SHARE_HIGH = 0.5;
-const MIN_RATIO_LOW = 0.5;
-const MIN_RATIO_HIGH = 0.6;
-const MAX_DROP_GAP = 30;
-// Alignment scores. Exact matches count far more than near-matches, so a long chain of
-// look-alike words cannot outscore the real overlap.
-const SC_EXACT = 6;
-const SC_NEAR = 1;
-const SC_MISMATCH = -4;
-const SC_GAP = -4;
-const MIN_VOTES = 2;
-const MAX_DROP_WORDS = 90;
-
-// Local alignment of the end of the text so far (A) with the start of the new part (B).
-// The match must end near the end of A and begin near the start of B, because the overlap
-// is the last seconds of the previous part and the first seconds of this one.
-function alignOverlap(A: string[], B: string[]): Pair[] | null {
-  const n = A.length;
-  const m = B.length;
-  if (n === 0 || m === 0) return null;
-  const W = m + 1;
-  const NEG = -1e9;
-  const H = new Float64Array((n + 1) * W).fill(NEG);
-  const D = new Uint8Array((n + 1) * W);
-  const K = new Uint8Array(n * m);
-  for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) K[i * m + j] = matchKind(A[i], B[j]);
-
-  for (let i = 1; i <= n; i++) {
-    for (let j = 1; j <= m; j++) {
-      const k = K[(i - 1) * m + (j - 1)];
-      const s = k === 2 ? SC_EXACT : k === 1 ? SC_NEAR : SC_MISMATCH;
+// Local alignment of the end of the earlier text against the start of the new part.
+function align(tail: string[], head: string[]): Aligned | null {
+  const a = tail.length;
+  const b = head.length;
+  if (!a || !b) return null;
+  const W = b + 1;
+  const H = new Int32Array((a + 1) * W).fill(NEG);
+  const P = new Int8Array((a + 1) * W);
+  for (let i = 1; i <= a; i++) {
+    for (let j = 1; j <= b; j++) {
+      const x = tail[i - 1];
+      const y = head[j - 1];
+      const s = x === y ? S_EXACT : isNear(x, y) ? S_NEAR : S_MISS;
       let best = NEG;
-      let dir = 0;
-      if (s > 0 && j - 1 < SLACK_WORDS) {
-        best = s;
-        dir = 0;
-      }
+      let p = 0;
       const diag = H[(i - 1) * W + (j - 1)];
-      if (diag > NEG / 2 && diag + s > best) {
+      if (diag > NEG / 2) {
         best = diag + s;
-        dir = 1;
+        p = 1;
+      }
+      if (j - 1 < EDGE_WORDS && s > best) {
+        best = s;
+        p = 2;
       }
       const up = H[(i - 1) * W + j];
-      if (up > NEG / 2 && up + SC_GAP > best) {
-        best = up + SC_GAP;
-        dir = 2;
+      if (up > NEG / 2 && up + S_GAP > best) {
+        best = up + S_GAP;
+        p = 3;
       }
       const left = H[i * W + (j - 1)];
-      if (left > NEG / 2 && left + SC_GAP > best) {
-        best = left + SC_GAP;
-        dir = 3;
+      if (left > NEG / 2 && left + S_GAP > best) {
+        best = left + S_GAP;
+        p = 4;
       }
-      if (best <= 0) best = NEG;
       H[i * W + j] = best;
-      D[i * W + j] = dir;
+      P[i * W + j] = p;
     }
   }
-
   let bi = -1;
   let bj = -1;
-  let bs = NEG;
-  for (let i = Math.max(1, n - SLACK_WORDS); i <= n; i++) {
-    for (let j = 1; j <= m; j++) {
-      if (K[(i - 1) * m + (j - 1)] === 0) continue;
-      const d = D[i * W + j];
-      if (d !== 0 && d !== 1) continue;
-      const v = H[i * W + j];
-      if (v > bs) {
-        bs = v;
+  let bs = 0;
+  for (let i = Math.max(1, a - EDGE_WORDS + 1); i <= a; i++) {
+    for (let j = 1; j <= b; j++) {
+      const p = P[i * W + j];
+      if ((p === 1 || p === 2) && H[i * W + j] > bs) {
+        bs = H[i * W + j];
         bi = i;
         bj = j;
       }
     }
   }
   if (bi < 0) return null;
-
-  const pairs: Pair[] = [];
-  let ci = bi;
-  let cj = bj;
-  for (;;) {
-    const d = D[ci * W + cj];
-    const kk = K[(ci - 1) * m + (cj - 1)];
-    if ((d === 0 || d === 1) && kk > 0) pairs.push({ a: ci - 1, b: cj - 1, exact: kk === 2 });
-    if (d === 0) break;
-    if (d === 1) {
-      ci--;
-      cj--;
-    } else if (d === 2) ci--;
-    else cj--;
+  const pairs: [number, number][] = [];
+  let i = bi;
+  let j = bj;
+  while (i > 0 && j > 0) {
+    const p = P[i * W + j];
+    if (p === 1 || p === 2) {
+      pairs.push([i - 1, j - 1]);
+      if (p === 2) break;
+      i--;
+      j--;
+    } else if (p === 3) i--;
+    else if (p === 4) j--;
+    else break;
   }
   pairs.reverse();
-  return pairs;
+  const matched: [number, number, boolean][] = [];
+  let mismatches = 0;
+  for (const [ti, hj] of pairs) {
+    if (tail[ti] === head[hj]) matched.push([ti, hj, true]);
+    else if (isNear(tail[ti], head[hj])) matched.push([ti, hj, false]);
+    else mismatches++;
+  }
+  return { matched, mismatches };
 }
 
-// ---------- stitching ----------
-
-type Tok = { raw: string; norm: string; spk: number }; // spk 0 = unlabelled
-type Marker = { marker: string };
-type Item = Tok | Marker;
-
-function isMarker(x: Item): x is Marker {
-  return (x as Marker).marker !== undefined;
-}
-
-export type StitchInput = {
+export type StitchPartInput = {
   index: number;
-  text: string | null; // null = this part failed
+  text: string | null;
   startSeconds?: number;
+  durationSeconds?: number;
 };
-
-export type StitchOptions = {
-  partSeconds?: number;
-  overlapSeconds?: number;
-  markers?: boolean; // insert "[Joined two parts here ...]" lines where a seam needs a check
-};
-
-export type SeamInfo = {
+export type StitchOptions = { partSeconds?: number; overlapSeconds?: number };
+export type SeamConfidence = "high" | "medium" | "low" | "none" | "gap";
+export type Seam = {
   part: number;
   atSeconds: number;
-  confidence: "high" | "low" | "none" | "gap";
+  confidence: SeamConfidence;
   matchedWords: number;
   droppedFromPrevious: number;
   droppedFromThis: number;
   newSpeakers: number;
   inferredSpeakers: number;
 };
-
 export type StitchResult = {
   text: string;
   speakerCount: number;
-  seams: SeamInfo[];
+  seams: Seam[];
   emptyTurns: number;
   failedParts: number[];
   notices: string[];
 };
 
-export function stitchIntronParts(parts: StitchInput[], opts: StitchOptions = {}): StitchResult {
-  const partSeconds = opts.partSeconds !== undefined ? opts.partSeconds : INTRON_PART_SECONDS;
-  const overlap = opts.overlapSeconds !== undefined ? opts.overlapSeconds : INTRON_OVERLAP_SECONDS;
-  const step = partSeconds - overlap;
-  const markersOn = opts.markers !== false;
-  const sorted = parts.slice().sort((x, y) => x.index - y.index);
+type WordItem = { k: "w"; raw: string; n: string; spk: number };
+type MarkerItem = { k: "m"; text: string; reset: boolean };
+type Item = WordItem | MarkerItem;
+type PartWord = { raw: string; n: string; label: number };
 
-  const out: Item[] = [];
-  const seams: SeamInfo[] = [];
-  const failed: number[] = [];
-  let nextSpk = 1;
-  let emptyTurns = 0;
-  let anyLabelled = false;
-
-  for (const part of sorted) {
-    const startSec = part.startSeconds !== undefined ? part.startSeconds : part.index * step;
-
-    if (part.text === null) {
-      failed.push(part.index);
-      if (markersOn) {
-        out.push({
-          marker:
-            "[Part " + (part.index + 1) + " could not be transcribed. The audio from about " +
-            formatTime(startSec) + " to " + formatTime(startSec + partSeconds) + " is missing here.]",
-        });
-      }
-      continue;
-    }
-
-    const parsed = parseDiarizedText(part.text);
-    emptyTurns += parsed.emptyTurns;
-    if (parsed.labelled) anyLabelled = true;
-    const P = parsed.toks;
-    if (P.length === 0) {
-      if (part.index > 0) {
-        seams.push({ part: part.index, atSeconds: startSec, confidence: "none", matchedWords: 0, droppedFromPrevious: 0, droppedFromThis: 0, newSpeakers: 0, inferredSpeakers: 0 });
-      }
-      continue;
-    }
-
-    // Indices in `out` of the last words (stop at a marker, never match across a gap).
-    const tailIdx: number[] = [];
-    for (let i = out.length - 1; i >= 0 && tailIdx.length < TAIL_WORDS; i--) {
-      if (isMarker(out[i])) break;
-      tailIdx.unshift(i);
-    }
-
-    const map = new Map<number, number>();
-    let confidence: SeamInfo["confidence"] = "none";
-    let matched = 0;
-    let droppedPrev = 0;
-    let droppedThis = 0;
-    let keepFrom = 0;
-
-    if (tailIdx.length === 0) {
-      confidence = out.length > 0 ? "gap" : "none";
-    } else {
-      const A = tailIdx.map((i) => (out[i] as Tok).norm);
-      const B = P.slice(0, HEAD_WORDS).map((t) => t.norm);
-      const pairs = alignOverlap(A, B);
-      const exactCount = pairs ? pairs.filter((q) => q.exact).length : 0;
-      if (pairs && pairs.length >= MIN_PAIRS_LOW && exactCount >= MIN_EXACT) {
-        const spanA = pairs[pairs.length - 1].a - pairs[0].a + 1;
-        const spanB = pairs[pairs.length - 1].b - pairs[0].b + 1;
-        const ratio = pairs.length / Math.max(spanA, spanB);
-        const mid = pairs[Math.floor(pairs.length / 2)];
-        const dropPrev = tailIdx.length - mid.a;
-        const dropThis = mid.b;
-        if (ratio >= MIN_RATIO_LOW && dropPrev <= MAX_DROP_WORDS && dropThis <= MAX_DROP_WORDS && Math.abs(dropPrev - dropThis) <= MAX_DROP_GAP) {
-          // Which earlier speaker is each new label? Vote with the matched words.
-          const votes = new Map<number, Map<number, number>>();
-          for (const p of pairs) {
-            const at = out[tailIdx[p.a]] as Tok;
-            const lb = P[p.b].local;
-            if (at.spk > 0 && lb !== null) {
-              let gm = votes.get(lb);
-              if (!gm) {
-                gm = new Map<number, number>();
-                votes.set(lb, gm);
-              }
-              gm.set(at.spk, (gm.get(at.spk) || 0) + 1);
-            }
-          }
-          const cands: { l: number; g: number; c: number }[] = [];
-          votes.forEach((gm, l) => gm.forEach((c, g) => cands.push({ l, g, c })));
-          cands.sort((x, y) => y.c - x.c);
-          const claimed = new Set<number>();
-          for (const c of cands) {
-            if (map.has(c.l) || claimed.has(c.g)) continue;
-            let total = 0;
-            (votes.get(c.l) as Map<number, number>).forEach((v) => (total += v));
-            if (c.c >= MIN_VOTES && c.c >= 0.6 * total) {
-              map.set(c.l, c.g);
-              claimed.add(c.g);
-            }
-          }
-          const allVotedResolved = Array.from(votes.keys()).every((l) => map.has(l));
-          confidence = pairs.length >= MIN_PAIRS_HIGH && ratio >= MIN_RATIO_HIGH && exactCount / pairs.length >= MIN_EXACT_SHARE_HIGH && allVotedResolved ? "high" : "low";
-          matched = pairs.length;
-          keepFrom = mid.b;
-          droppedThis = dropThis;
-          // Remove the earlier version of the second half of the overlap.
-          const cutAt = tailIdx[mid.a];
-          droppedPrev = out.length - cutAt;
-          out.length = cutAt;
-        }
-      }
-    }
-
-    const kept = P.slice(keepFrom);
-
-    // Labels that the overlap words could not place. If exactly one label is unplaced and exactly one
-    // earlier speaker is still unclaimed, they are the same person (the common two-person interview,
-    // or one speaker throughout). With two or more unplaced labels we do not guess.
-    const labelOrder: number[] = [];
-    for (const t of kept) if (t.local !== null && labelOrder.indexOf(t.local) === -1) labelOrder.push(t.local);
-    const unplaced = labelOrder.filter((l) => !map.has(l));
-    const claimedNow = new Set<number>();
-    map.forEach((g) => claimedNow.add(g));
-    const unclaimed: number[] = [];
-    for (let g = 1; g < nextSpk; g++) if (!claimedNow.has(g)) unclaimed.push(g);
-    let inferred = 0;
-    if (unplaced.length === 1 && unclaimed.length === 1) {
-      map.set(unplaced[0], unclaimed[0]);
-      inferred = 1;
-      if (confidence === "none") confidence = "low";
-    }
-    const hadSpeakersBefore = nextSpk > 1;
-    let newSpeakers = 0;
-    for (const l of labelOrder) {
-      if (!map.has(l)) {
-        map.set(l, nextSpk++);
-        newSpeakers++;
-      }
-    }
-    // A new speaker number while earlier speakers exist cannot be confirmed from the audio: flag it.
-    if (hadSpeakersBefore && newSpeakers > 0 && confidence === "high") confidence = "low";
-
-    if (markersOn && (confidence === "low" || confidence === "none" || confidence === "gap") && out.length > 0) {
-      const hasLabels = parsed.labelled && anyLabelled;
-      out.push({
-        marker:
-          "[Joined two parts here (about " + formatTime(startSec) + "). " +
-          (confidence === "low"
-            ? "Please check this spot."
-            : hasLabels
-            ? "Speaker labels may have changed, and a few words may repeat or be missing."
-            : "A few words may repeat or be missing.") +
-          "]",
-      });
-    }
-
-    for (const t of kept) {
-      out.push({ raw: t.raw, norm: t.norm, spk: t.local === null ? 0 : (map.get(t.local) as number) });
-    }
-
-    if (part.index > 0 || seams.length > 0 || out.length > kept.length) {
-      seams.push({
-        part: part.index,
-        atSeconds: startSec,
-        confidence,
-        matchedWords: matched,
-        droppedFromPrevious: droppedPrev,
-        droppedFromThis: droppedThis,
-        newSpeakers,
-        inferredSpeakers: inferred,
-      });
-    }
-  }
-
-  // Render: one line per speaker turn, markers on their own line.
+function render(items: Item[], labelled: boolean): string {
   const lines: string[] = [];
-  let curSpk = -1;
-  let curWords: string[] = [];
+  let cur: { spk: number; words: string[] } | null = null;
   const flush = () => {
-    if (curWords.length) lines.push((curSpk > 0 ? "Speaker " + curSpk + ": " : "") + curWords.join(" "));
-    curWords = [];
-    curSpk = -1;
+    if (cur) lines.push(labelled ? "Speaker " + cur.spk + ": " + cur.words.join(" ") : cur.words.join(" "));
+    cur = null;
   };
-  for (const it of out) {
-    if (isMarker(it)) {
+  for (const it of items) {
+    if (it.k === "m") {
       flush();
-      lines.push(it.marker);
+      lines.push(it.text);
     } else {
-      if (curWords.length && it.spk !== curSpk) flush();
-      curSpk = it.spk;
-      curWords.push(it.raw);
+      if (!cur || (labelled && cur.spk !== it.spk)) {
+        flush();
+        cur = { spk: it.spk, words: [] };
+      }
+      cur.words.push(it.raw);
     }
   }
   flush();
+  return lines.join("\n");
+}
 
+export function stitchIntronParts(partsIn: StitchPartInput[], opts: StitchOptions = {}): StitchResult {
+  const partSec = opts.partSeconds ?? INTRON_PART_SECONDS;
+  const overlap = opts.overlapSeconds ?? INTRON_OVERLAP_SECONDS;
+  const parts = [...partsIn].sort((x, y) => x.index - y.index);
+  const out: Item[] = [];
+  const seams: Seam[] = [];
+  const failedParts: number[] = [];
   const notices: string[] = [];
-  const needCheck = seams.filter((s) => s.confidence === "low" || s.confidence === "gap" || (s.confidence === "none" && s.newSpeakers > 0));
-  if (failed.length) notices.push(failed.length + " part(s) of the recording could not be transcribed and are marked in the text.");
-  if (needCheck.length) notices.push(needCheck.length + " place(s) where parts were joined need a quick check. They are marked in the text.");
-  if (nextSpk - 1 >= 3 && seams.some((x) => x.inferredSpeakers > 0)) notices.push("With three or more speakers, some speaker labels were matched by elimination. Please check them.");
-  if (emptyTurns > 0) notices.push("The engine returned " + emptyTurns + " empty speaker turn(s). Quiet or unclear speech in those spots may be missing.");
+  let nextSpk = 1;
+  let emptyTurns = 0;
+  let anyLabelled = false;
+  let wordsInOut = 0;
 
+  const pushWords = (words: PartWord[], from: number, map: Map<number, number>) => {
+    for (let k = from; k < words.length; k++) {
+      out.push({ k: "w", raw: words[k].raw, n: words[k].n, spk: map.get(words[k].label) as number });
+      wordsInOut++;
+    }
+  };
+  const newMap = (words: PartWord[], from: number, map: Map<number, number>): number => {
+    let made = 0;
+    for (let k = from; k < words.length; k++) {
+      if (!map.has(words[k].label)) {
+        map.set(words[k].label, nextSpk++);
+        made++;
+      }
+    }
+    return made;
+  };
+
+  parts.forEach((p, pos) => {
+    const start = p.startSeconds ?? p.index * (partSec - overlap);
+    if (p.text === null || p.text === undefined) {
+      failedParts.push(p.index);
+      const dur = p.durationSeconds ?? partSec;
+      const from = pos === 0 ? start : start + overlap;
+      const to = pos === parts.length - 1 ? start + dur : start + dur - overlap;
+      out.push({
+        k: "m",
+        reset: true,
+        text:
+          "[Part " + (p.index + 1) + " could not be transcribed. The audio from about " +
+          formatTime(from) + " to " + formatTime(Math.max(from, to)) + " is missing here.]",
+      });
+      return;
+    }
+    const parsed = parseDiarizedText(p.text);
+    emptyTurns += parsed.emptyTurns;
+    if (parsed.labelled) anyLabelled = true;
+    const words: PartWord[] = [];
+    for (const t of parsed.turns) {
+      for (const tok of t.text.split(/\s+/)) {
+        if (tok) words.push({ raw: tok, n: normalizeWord(tok), label: t.label });
+      }
+    }
+    if (!words.length) return;
+
+    const seamBase = { part: p.index, atSeconds: start };
+    const map = new Map<number, number>();
+
+    // Nothing written yet (first part, or only failed parts so far).
+    if (wordsInOut === 0) {
+      newMap(words, 0, map);
+      pushWords(words, 0, map);
+      return;
+    }
+
+    const tailIdx: number[] = [];
+    for (let k = out.length - 1; k >= 0 && tailIdx.length < TAIL_WORDS; k--) {
+      const it = out[k];
+      if (it.k === "m") break;
+      if (it.n) tailIdx.push(k);
+    }
+    tailIdx.reverse();
+
+    // The earlier text ends with a missing-part marker: nothing to match against.
+    if (!tailIdx.length) {
+      const made = newMap(words, 0, map);
+      pushWords(words, 0, map);
+      seams.push({ ...seamBase, confidence: "gap", matchedWords: 0, droppedFromPrevious: 0, droppedFromThis: 0, newSpeakers: made, inferredSpeakers: 0 });
+      return;
+    }
+
+    const headIdx: number[] = [];
+    for (let k = 0; k < words.length && headIdx.length < HEAD_WORDS; k++) {
+      if (words[k].n) headIdx.push(k);
+    }
+    const tailN = tailIdx.map((k) => (out[k] as WordItem).n);
+    const headN = headIdx.map((k) => words[k].n);
+
+    let accepted: {
+      cutTail: number; keptStart: number; matched: [number, number, boolean][];
+      dropPrev: number; dropThis: number; ratio: number; exact: number;
+    } | null = null;
+    const al = align(tailN, headN);
+    if (al && al.matched.length >= MIN_PAIRS) {
+      const m = al.matched;
+      const exact = m.filter((x) => x[2]).length;
+      const span = Math.max(m[m.length - 1][0] - m[0][0] + 1, m[m.length - 1][1] - m[0][1] + 1);
+      const ratio = m.length / span;
+      const mid = m[Math.floor(m.length / 2)];
+      const dropPrev = tailN.length - mid[0];
+      const dropThis = mid[1];
+      if (
+        exact >= MIN_EXACT && ratio >= MIN_RATIO &&
+        Math.abs(dropPrev - dropThis) <= MAX_DROP_DIFF && dropPrev <= MAX_DROP && dropThis <= MAX_DROP
+      ) {
+        accepted = { cutTail: tailIdx[mid[0]], keptStart: headIdx[mid[1]], matched: m, dropPrev, dropThis, ratio, exact };
+      }
+    }
+
+    // No usable overlap match: start new speaker numbers and say so in the text.
+    if (!accepted) {
+      out.push({
+        k: "m",
+        reset: true,
+        text:
+          "[Joined two parts here (about " + formatTime(start) +
+          "). The overlap could not be matched, so a few words may be missing or repeated, and speaker numbers may restart here.]",
+      });
+      const made = newMap(words, 0, map);
+      pushWords(words, 0, map);
+      seams.push({ ...seamBase, confidence: "none", matchedWords: 0, droppedFromPrevious: 0, droppedFromThis: 0, newSpeakers: made, inferredSpeakers: 0 });
+      return;
+    }
+
+    // Speaker mapping from votes of matched word pairs (read before the tail is cut).
+    const votes = new Map<number, Map<number, number>>();
+    for (const [ti, hj] of accepted.matched) {
+      const label = words[headIdx[hj]].label;
+      const g = (out[tailIdx[ti]] as WordItem).spk;
+      const per = votes.get(label) || new Map<number, number>();
+      per.set(g, (per.get(g) || 0) + 1);
+      votes.set(label, per);
+    }
+    const cands: { label: number; g: number; top: number; total: number }[] = [];
+    votes.forEach((per, label) => {
+      let g = -1;
+      let top = 0;
+      let total = 0;
+      per.forEach((c, gg) => {
+        total += c;
+        if (c > top) { top = c; g = gg; }
+      });
+      if (top >= MIN_VOTES && top / total >= VOTE_SHARE) cands.push({ label, g, top, total });
+    });
+    cands.sort((x, y) => y.top - x.top);
+    const claimed = new Set<number>();
+    for (const c of cands) {
+      if (!claimed.has(c.g)) {
+        map.set(c.label, c.g);
+        claimed.add(c.g);
+      }
+    }
+    let allResolved = true;
+    votes.forEach((_v, label) => {
+      if (!map.has(label)) allResolved = false;
+    });
+
+    out.length = accepted.cutTail;
+    wordsInOut = out.filter((x) => x.k === "w").length;
+
+    const keptLabels: number[] = [];
+    for (let k = accepted.keptStart; k < words.length; k++) {
+      if (keptLabels.indexOf(words[k].label) < 0) keptLabels.push(words[k].label);
+    }
+    const unplaced = keptLabels.filter((l) => !map.has(l));
+    const recent = new Set<number>();
+    let seen = 0;
+    for (let k = out.length - 1; k >= 0 && seen < RECENT_WORDS; k--) {
+      const it = out[k];
+      if (it.k === "m") {
+        if (it.reset) break;
+        continue;
+      }
+      recent.add(it.spk);
+      seen++;
+    }
+    const used = new Set<number>();
+    map.forEach((g) => used.add(g));
+    const unclaimed: number[] = [];
+    recent.forEach((g) => { if (!used.has(g)) unclaimed.push(g); });
+
+    let inferred = 0;
+    let made = 0;
+    if (unplaced.length === 1 && unclaimed.length === 1) {
+      map.set(unplaced[0], unclaimed[0]);
+      inferred = 1;
+    } else {
+      for (const l of unplaced) {
+        map.set(l, nextSpk++);
+        made++;
+      }
+    }
+    if (made > 0) {
+      out.push({
+        k: "m",
+        reset: false,
+        text: "[Joined two parts here (about " + formatTime(start) + "). Speaker numbers may not match across this point.]",
+      });
+    }
+    pushWords(words, accepted.keptStart, map);
+
+    const n = accepted.matched.length;
+    let confidence: SeamConfidence = "medium";
+    if (made > 0) confidence = "low";
+    else if (inferred === 0 && allResolved && n >= HIGH_PAIRS && accepted.ratio >= HIGH_RATIO && accepted.exact / n >= HIGH_EXACT_SHARE) confidence = "high";
+    seams.push({
+      ...seamBase, confidence, matchedWords: n,
+      droppedFromPrevious: accepted.dropPrev, droppedFromThis: accepted.dropThis,
+      newSpeakers: made, inferredSpeakers: inferred,
+    });
+  });
+
+  const spk = new Set<number>();
+  for (const it of out) if (it.k === "w") spk.add(it.spk);
+  const weak = seams.filter((s) => s.confidence === "low" || s.confidence === "none" || s.confidence === "gap").length;
+  if (failedParts.length) {
+    notices.push(failedParts.length + " part(s) could not be transcribed. Look for the [Part ... could not be transcribed] notes in the text.");
+  }
+  if (weak) {
+    notices.push("Wording or speaker numbers may be off at " + weak + " place(s) where parts were joined. Look for the [Joined two parts here ...] notes.");
+  }
+  if (emptyTurns) {
+    notices.push("The engine returned " + emptyTurns + " empty speaker turn(s). They were removed.");
+  }
   return {
-    text: lines.join("\n"),
-    speakerCount: nextSpk - 1,
-    seams,
-    emptyTurns,
-    failedParts: failed,
-    notices,
+    text: render(out, anyLabelled),
+    speakerCount: anyLabelled ? spk.size : 0,
+    seams, emptyTurns, failedParts, notices,
   };
 }
