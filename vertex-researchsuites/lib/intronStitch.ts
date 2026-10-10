@@ -74,7 +74,7 @@ export function normalizeWord(w: string): string {
 export type Turn = { label: number; text: string };
 
 // Reads lines like "SPEAKER_01: words". Text with no speaker lines becomes one turn with label -1.
-export function parseDiarizedText(text: string): { turns: Turn[]; emptyTurns: number; labelled: boolean } {
+export function parseDiarizedText(text: string, keepEmpty = false): { turns: Turn[]; emptyTurns: number; labelled: boolean } {
   const re = /^\s*SPEAKER[_ ]?(\d+)\s*:\s?(.*)$/i;
   const turns: Turn[] = [];
   let labelled = false;
@@ -93,8 +93,8 @@ export function parseDiarizedText(text: string): { turns: Turn[]; emptyTurns: nu
       turns.push(cur);
     }
   }
-  const kept = turns.filter((t) => t.text.trim().length > 0);
-  return { turns: kept, emptyTurns: turns.length - kept.length, labelled };
+  const kept = keepEmpty ? turns : turns.filter((t) => t.text.trim().length > 0);
+  return { turns: kept, emptyTurns: turns.filter((t) => t.text.trim().length === 0).length, labelled };
 }
 
 function editDistance(a: string, b: string, max: number): number {

@@ -113,15 +113,24 @@ export function joinIntronParts(partsIn: JoinPartInput[]): JoinResult {
       lines.push("[Part " + (p.index + 1) + " could not be transcribed. The audio from about " + at + " is missing here.]");
       return;
     }
-    const parsed = parseDiarizedText(p.text);
+    const parsed = parseDiarizedText(p.text, true);
     emptyTurns += parsed.emptyTurns;
-    if (!parsed.turns.length) return;
+    if (!parsed.turns.length) {
+      lines.push("[Part " + (p.index + 1) + " returned no text (about " + at + ").]");
+      return;
+    }
     if (parsed.labelled) labelled = true;
     if (pos > 0) lines.push("[Part " + (p.index + 1) + " starts here (about " + at + ")]");
     multi++;
     for (const t of parsed.turns) {
       const words = t.text.split(/\s+/).filter(Boolean).join(" ");
-      if (!words) continue;
+      if (!words) {
+        if (t.label >= 0) {
+          speakers.add(t.label + 1);
+          lines.push("Speaker " + (t.label + 1) + ": [no text returned]");
+        }
+        continue;
+      }
       if (t.label >= 0) {
         speakers.add(t.label + 1);
         lines.push("Speaker " + (t.label + 1) + ": " + words);
@@ -133,6 +142,6 @@ export function joinIntronParts(partsIn: JoinPartInput[]): JoinResult {
   if (labelled && multi > 1) {
     notices.push("This recording was transcribed in parts. Speaker numbers can differ between parts, so the same person may appear under a different number. Use the speaker tools below to fix this.");
   }
-  if (emptyTurns) notices.push("The engine returned " + emptyTurns + " empty speaker turn(s). They were removed.");
+  if (emptyTurns) notices.push("The engine returned " + emptyTurns + " empty speaker turn(s). Each one is shown as [no text returned], so you can see where words are missing.");
   return { text: lines.join("\n"), speakerCount: speakers.size, failedParts, emptyTurns, notices };
 }

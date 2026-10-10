@@ -109,6 +109,7 @@ export default function VoiceTranscription() {
   const [intronSessionId, setIntronSessionId] = useState("");
   const [intronNotice, setIntronNotice] = useState("");
 
+  const [intronDiarize, setIntronDiarize] = useState(true);
   const handleIntronTranscribe = async () => {
     if (!intronFile) return;
     setIntronBusy(true);
@@ -173,7 +174,7 @@ export default function VoiceTranscription() {
         startBatch: async (parts) => {
           try {
             const { res, data } = await post("/api/voice-transcription/intron-start", {
-              sessionId: session.id, audioPath: path, language: intronLanguage, diarize: true, totalSeconds: probeData.durationSeconds, parts,
+              sessionId: session.id, audioPath: path, language: intronLanguage, diarize: intronDiarize, totalSeconds: probeData.durationSeconds, parts,
             });
             if (res.status === 429) return { busy: true };
             if (!res.ok || !data || !Array.isArray(data.jobs)) return { error: (data && data.error) || "Could not start." };
@@ -208,7 +209,7 @@ export default function VoiceTranscription() {
         JSON.stringify(
           {
             parts: plan.length,
-            partsTranscribed: okParts,
+            partsTranscribed: okParts, diarize: intronDiarize,
             audioSecondsSent: Math.round(probeData.durationSeconds),
             uploads: run.uploads,
             statusChecks: run.polls,
@@ -550,6 +551,10 @@ export default function VoiceTranscription() {
           {intronError && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{intronError}</p>}
           {intronMsg && <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>{intronMsg}</p>}
         {intronNotice && <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>{intronNotice}</p>}
+          <label style={{ display: "flex", alignItems: "center", fontSize: 12, color: MUTED, marginBottom: "12px" }}>
+            <input type="checkbox" checked={!intronDiarize} onChange={(e) => setIntronDiarize(!e.target.checked)} disabled={intronBusy} style={{ marginRight: "8px" }} />
+            Test: turn speaker labels off
+          </label>
           <button
             onClick={handleIntronTranscribe}
             disabled={!intronFile || intronBusy}
@@ -560,7 +565,7 @@ export default function VoiceTranscription() {
           {intronText && (
             <div style={{ marginTop: "16px" }}>
               <p style={{ color: DARK, fontSize: 14, fontWeight: 700, marginBottom: "6px" }}>Transcript</p>
-              <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "inherit", fontSize: "13px", color: DARK, lineHeight: "1.6", margin: "0 0 12px 0" }}>{intronText}</pre>
+              <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "inherit", fontSize: "13px", color: DARK, lineHeight: "1.6", margin: "0 0 12px 0", maxHeight: "420px", overflowY: "auto" }}>{intronText}</pre>
               <button
                 onClick={handleUseIntronTranscript}
                 style={{ width: "100%", backgroundColor: DARK, color: "#ffffff", border: "none", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}

@@ -30,6 +30,25 @@ function runFfmpegProbe(filePath: string): Promise<number> {
   });
 }
 
+// Decodes the whole file to find its true length. Raw .aac files have no length
+// in their header, so ffmpeg only guesses from the file size. Returns 0 if it fails.
+function runFfmpegDecodedDuration(filePath: string): Promise<number> {
+  return new Promise((resolve) => {
+    execFile(
+      ffmpegPath as string,
+      ["-nostdin", "-i", filePath, "-vn", "-f", "null", "-"],
+      { timeout: 40000, maxBuffer: 8 * 1024 * 1024 },
+      (_error, _stdout, stderr) => {
+        const all = String(stderr || "").match(/time=(\d+):(\d+):(\d+\.\d+)/g);
+        if (!all || all.length === 0) { resolve(0); return; }
+        const m = /time=(\d+):(\d+):(\d+\.\d+)/.exec(all[all.length - 1]);
+        if (!m) { resolve(0); return; }
+        resolve(parseInt(m[1], 10) * 3600 + parseInt(m[2], 10) * 60 + parseFloat(m[3]));
+      }
+    );
+  });
+}
+
 export async function POST(req: NextRequest) {
   let tmpPath = "";
   try {
@@ -42,7 +61,9 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await fileData.arrayBuffer());
     tmpPath = join(tmpdir(), `probe-${Date.now()}.audio`);
     await writeFile(tmpPath, buffer);
-    const durationSeconds = await runFfmpegProbe(tmpPath);
+    const headerSeconds = await runFfmpegProbe(tmpPath);
+    const decodedSeconds = await runFfmpegDecodedDuration(tmpPath);
+    const durationSeconds = Math.max(headerSeconds, decodedSeconds);
     return NextResponse.json({ durationSeconds });
   } catch (err: any) {
     console.error("probe error:", err?.code || "", err?.message || "unknown", "| ffmpeg path:", String(ffmpegPath));
