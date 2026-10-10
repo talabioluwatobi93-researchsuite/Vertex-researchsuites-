@@ -172,18 +172,118 @@ function mmss(sec: number): string {
 }
 
 /** One line per speaker turn: "[MM:SS] Speaker N: text". */
-export function renderTranscript(words: Word[]): string {
-  const lines: string[] = [];
-  let cur: { speaker: string; start: number; text: string } | null = null;
-  for (const w of words) {
-    if (!cur || cur.speaker !== w.speaker) {
-      if (cur) lines.push(`[${mmss(cur.start)}] Speaker ${cur.speaker.slice(1)}: ${cur.text}`);
-      cur = { speaker: w.speaker, start: w.start, text: w.text };
-    } else {
-      const glue = NO_SPACE_SCRIPT.test(w.text) || NO_SPACE_SCRIPT.test(cur.text.slice(-1)) ? "" : " ";
-      cur.text += glue + w.text;
+// Display-only tidy-up of the model's word list. The raw words are never changed.
+// 1) Bursts: 3 or more very short turns within a few seconds are shown as one line,
+//    under the speaker who said most of those words.
+// 2) Exact repeats: a short phrase repeated many times in a row is shown twice,
+//    followed by [repeated].
+const RT_BURST_SECONDS = 6;
+const RT_BURST_MIN_TURNS = 3;
+const RT_BURST_MAX_WORDS = 2;
+const RT_REPEAT_MAX_BLOCK = 6;
+
+type RtTurn = { speaker: string; start: number; text: string; count: number };
+
+function rtNoSpace(s: string): boolean {
+  NO_SPACE_SCRIPT.lastIndex = 0;
+  return NO_SPACE_SCRIPT.test(s);
+}
+
+function rtJoin(a: string, b: string): string {
+  return a + (rtNoSpace(b.charAt(0)) || rtNoSpace(a.slice(-1)) ? "" : " ") + b;
+}
+
+function rtNorm(t: string): string {
+  return t.toLowerCase().replace(/[.,!?;:"'()\[\]\u2026\u2019\u201C\u201D]/g, "");
+}
+
+function rtCollapseRepeats(text: string): string {
+  const toks = text.split(/\s+/).filter(Boolean);
+  if (toks.length < 8) return text;
+  const norm = toks.map(rtNorm);
+  const res: string[] = [];
+  let changed = false;
+  let i = 0;
+  while (i < toks.length) {
+    let hit = false;
+    for (let n = 1; n <= RT_REPEAT_MAX_BLOCK && !hit; n++) {
+      if (i + n > toks.length) break;
+      const block = norm.slice(i, i + n);
+      if (block.some((x) => x === "")) continue;
+      const key = block.join(" ");
+      let r = 1;
+      while (i + (r + 1) * n <= toks.length && norm.slice(i + r * n, i + (r + 1) * n).join(" ") === key) r++;
+      if (r >= (n === 1 ? 6 : 4)) {
+        for (let k = 0; k < 2 * n; k++) res.push(toks[i + k]);
+        res.push("[repeated]");
+        i += r * n;
+        hit = true;
+        changed = true;
+      }
+    }
+    if (!hit) {
+      res.push(toks[i]);
+      i++;
     }
   }
-  if (cur) lines.push(`[${mmss(cur.start)}] Speaker ${cur.speaker.slice(1)}: ${cur.text}`);
-  return lines.join("\n");
+  return changed ? res.join(" ") : text;
+}
+
+export function renderTranscript(words: Word[]): string {
+  // Group consecutive words by speaker, as before.
+  const turns: RtTurn[] = [];
+  let cur: RtTurn | null = null;
+  for (const w of words) {
+    if (!cur || cur.speaker !== w.speaker) {
+      cur = { speaker: w.speaker, start: w.start, text: w.text, count: 1 };
+      turns.push(cur);
+    } else {
+      cur.text = rtJoin(cur.text, w.text);
+      cur.count += 1;
+    }
+  }
+  // Merge bursts of very short turns.
+  const out: RtTurn[] = [];
+  let i = 0;
+  while (i < turns.length) {
+    let j = i;
+    while (j < turns.length && turns[j].count <= RT_BURST_MAX_WORDS && turns[j].start - turns[i].start <= RT_BURST_SECONDS) j++;
+    if (j - i >= RT_BURST_MIN_TURNS) {
+      const tally = new Map<string, number>();
+      let text = turns[i].text;
+      let count = 0;
+      for (let k = i; k < j; k++) {
+        tally.set(turns[k].speaker, (tally.get(turns[k].speaker) || 0) + turns[k].count);
+        count += turns[k].count;
+        if (k > i) text = rtJoin(text, turns[k].text);
+      }
+      let best = turns[i].speaker;
+      let bestCount = -1;
+      tally.forEach((c, s) => {
+        if (c > bestCount) {
+          best = s;
+          bestCount = c;
+        }
+      });
+      out.push({ speaker: best, start: turns[i].start, text, count });
+      i = j;
+    } else {
+      out.push(turns[i]);
+      i++;
+    }
+  }
+  // A merged burst can sit next to the same speaker: join them.
+  const merged: RtTurn[] = [];
+  for (const t of out) {
+    const last = merged.length ? merged[merged.length - 1] : null;
+    if (last && last.speaker === t.speaker) {
+      last.text = rtJoin(last.text, t.text);
+      last.count += t.count;
+    } else {
+      merged.push({ speaker: t.speaker, start: t.start, text: t.text, count: t.count });
+    }
+  }
+  return merged
+    .map((t) => "[" + mmss(t.start) + "] Speaker " + t.speaker.slice(1) + ": " + rtCollapseRepeats(t.text))
+    .join("\n");
 }
