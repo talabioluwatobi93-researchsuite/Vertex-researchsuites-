@@ -427,7 +427,12 @@ export default function VoiceTranscription() {
     }
   };
 
+  const [savedTranscript, setSavedTranscript] = useState("");
   const handleGenerateNotes = async () => {
+    if (transcript.trim() && transcript !== savedTranscript) {
+      downloadTextFile("transcript-" + downloadStamp() + ".txt", transcript);
+      setSavedTranscript(transcript);
+    }
     setGeneratingNotes(true);
     setErrorMsg("");
     try {
@@ -436,7 +441,10 @@ export default function VoiceTranscription() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ transcript }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || typeof data.notes !== "string") {
+        throw new Error((data && data.error) || "The notes service returned an error (status " + res.status + ").");
+      }
       setNotes(data.notes);
 
       await supabase
@@ -445,8 +453,8 @@ export default function VoiceTranscription() {
         .eq("id", sessionId);
 
       setStage("notes");
-    } catch {
-      setErrorMsg("Something went wrong generating notes. Please try again.");
+    } catch (err: any) {
+      setErrorMsg(err && err.message ? "Something went wrong generating notes: " + err.message : "Something went wrong generating notes. Please try again.");
     }
     setGeneratingNotes(false);
   };
@@ -653,6 +661,7 @@ export default function VoiceTranscription() {
           )}
           <SpeakerToolsPanel text={transcript} onChange={setTranscript} />
           <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} style={{ width: "100%", minHeight: "260px", padding: "12px 14px", borderRadius: "10px", border: "1px solid #DDDDDD", fontSize: "14px", color: DARK, lineHeight: 1.6, boxSizing: "border-box" as const, marginBottom: "16px" }} />
+          <button type="button" onClick={() => downloadTextFile("transcript-" + downloadStamp() + ".txt", transcript)} disabled={!transcript.trim()} style={{ width: "100%", backgroundColor: "#FFFFFF", color: DARK, border: "1px solid " + BORDER, borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", marginBottom: "12px" }}>Download transcript (.txt)</button>
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           <button onClick={handleGenerateNotes} disabled={generatingNotes || !transcript.trim()} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
             {generatingNotes ? "Generating interpretive notes..." : "Generate Interpretive Notes"}
@@ -660,6 +669,12 @@ export default function VoiceTranscription() {
         </div>
       )}
 
+      {stage === "notes" && notes && (
+        <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+          <button type="button" onClick={() => downloadTextFile("interpretive-notes-" + downloadStamp() + ".txt", notes)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "none", backgroundColor: GOLD, color: DARK, fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Download notes (.txt)</button>
+          <button type="button" onClick={() => downloadTextFile("transcript-" + downloadStamp() + ".txt", transcript)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid " + BORDER, backgroundColor: "#FFFFFF", color: DARK, fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Download transcript (.txt)</button>
+        </div>
+      )}
       {stage === "notes" && (
         <div>
           <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}`, marginBottom: "16px" }}>
@@ -766,4 +781,25 @@ function SpeakerToolsPanel({ text, onChange }: { text: string; onChange: (t: str
       </div>
     </div>
   );
+}
+
+function downloadStamp(): string {
+  const d = new Date();
+  const p = (n: number) => (n < 10 ? "0" : "") + n;
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+}
+
+// Saves text as a file on the user's device (UTF-8 with a marker so accents show correctly).
+function downloadTextFile(filename: string, text: string) {
+  try {
+    const blob = new Blob(["\uFEFF", text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch {}
 }
