@@ -5,6 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 import { stitchParts, type PartInput } from "@/lib/voiceStitch";
 import { LANGUAGE_GROUPS, LANGUAGE_NOTE, languageCodesFor, optionText } from "@/lib/voiceLanguages";
 import { INTRON_LANGUAGE_GROUPS, INTRON_LANGUAGE_NOTE } from "@/lib/intronLanguages";
+import { planIntronParts, stitchIntronParts, billedSeconds as intronBilledSeconds } from "@/lib/intronStitch";
+import { runIntronParts, type RunnerDeps } from "@/lib/intronRunner";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -93,7 +95,8 @@ export default function VoiceTranscription() {
   }, []);
 
   // ---- African languages (Intron). First version: one clip of up to 2 minutes. ----
-  const INTRON_MAX_SECONDS = 120;
+  const INTRON_MAX_AUDIO_SECONDS = 3600;
+  const INTRON_MAX_FILE_BYTES = 50 * 1024 * 1024;
   const INTRON_ALLOWED_EXT = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm", "aac", "aif", "aiff", "amr", "3gp", "3ga", "wma"];
   const [intronFile, setIntronFile] = useState<File | null>(null);
   const [intronLanguage, setIntronLanguage] = useState<string>("yo");
@@ -103,6 +106,7 @@ export default function VoiceTranscription() {
   const [intronText, setIntronText] = useState("");
   const [intronRaw, setIntronRaw] = useState("");
   const [intronSessionId, setIntronSessionId] = useState("");
+  const [intronNotice, setIntronNotice] = useState("");
 
   const handleIntronTranscribe = async () => {
     if (!intronFile) return;
@@ -110,10 +114,18 @@ export default function VoiceTranscription() {
     setIntronError("");
     setIntronText("");
     setIntronRaw("");
+    setIntronNotice("");
     try {
-      const { data: authData } = await supabase.auth.getSession();
-      const token = authData.session?.access_token;
-      if (!token) throw new Error("Please sign in again.");
+      if (intronFile.size > INTRON_MAX_FILE_BYTES) {
+        throw new Error("This file is larger than 50 MB. Please choose a smaller file, or cut the recording into shorter files.");
+      }
+      const getToken = async (): Promise<string> => {
+        const { data: authData } = await supabase.auth.getSession();
+        const t = authData.session?.access_token;
+        if (!t) throw new Error("Please sign in again.");
+        return t;
+      };
+      await getToken();
 
       const safeName = intronFile.name.replace(/[^A-Za-z0-9._-]+/g, "_");
       const path = `${userId}/${Date.now()}-${safeName}`;
@@ -138,60 +150,89 @@ export default function VoiceTranscription() {
       if (!probeRes.ok || typeof probeData.durationSeconds !== "number" || !(probeData.durationSeconds > 0)) {
         throw new Error("We could not read the length of this audio file. Please try another file (mp3, m4a or wav).");
       }
-      if (probeData.durationSeconds > INTRON_MAX_SECONDS) {
-        throw new Error("For this first version, African-language clips must be 2 minutes or shorter. Longer files are coming next.");
+      if (probeData.durationSeconds > INTRON_MAX_AUDIO_SECONDS) {
+        throw new Error("This recording is longer than 1 hour. Please cut it into shorter files. Cut at a pause and repeat about 15 seconds at the start of the next file.");
       }
 
-      setIntronMsg("Starting transcription...");
-      const startRes = await fetch("/api/voice-transcription/intron-start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-        body: JSON.stringify({
-          sessionId: session.id,
-          audioPath: path,
-          startSeconds: 0,
-          durationSeconds: Math.min(INTRON_MAX_SECONDS, probeData.durationSeconds),
-          language: intronLanguage,
-          diarize: true,
-        }),
-      });
-      const startData = await startRes.json();
-      if (!startRes.ok) throw new Error(startData.error || "Could not start transcription. Please try again.");
-
-      let unknownCount = 0;
-      for (let i = 0; i < 75; i++) {
-        await new Promise<void>((r) => setTimeout(r, 4000));
-        setIntronMsg("Transcribing... " + (i + 1) * 4 + " seconds so far. Please don't close this page.");
-        const stRes = await fetch("/api/voice-transcription/intron-status", {
+      const plan = planIntronParts(probeData.durationSeconds);
+      const post = async (url: string, payload: any) => {
+        const token = await getToken();
+        const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-          body: JSON.stringify({ fileId: startData.fileId, fileToken: startData.fileToken }),
+          body: JSON.stringify(payload),
         });
-        if (stRes.status === 429) continue;
-        const st = await stRes.json();
-        if (!stRes.ok) throw new Error(st.error || "Could not check progress. Please try again.");
-        if (st.state === "done") {
-          const text = typeof st.transcript === "string" ? st.transcript : "";
-          setIntronText(text);
-          setIntronRaw(JSON.stringify(st.raw, null, 2) || "");
-          setIntronMsg(text ? "Done." : "Done, but the transcript came back in a different format. See the raw response below.");
-          if (text) {
-            await supabase
-              .from("voice_transcription_sessions")
-              .update({ raw_transcript: text, status: "transcribed", updated_at: new Date().toISOString() })
-              .eq("id", session.id);
+        let data: any = null;
+        try { data = await res.json(); } catch { data = null; }
+        return { res, data };
+      };
+      const deps: RunnerDeps = {
+        now: () => Date.now(),
+        sleep: (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
+        startBatch: async (parts) => {
+          try {
+            const { res, data } = await post("/api/voice-transcription/intron-start", {
+              sessionId: session.id, audioPath: path, language: intronLanguage, diarize: true, parts,
+            });
+            if (res.status === 429) return { busy: true };
+            if (!res.ok || !data || !Array.isArray(data.jobs)) return { error: (data && data.error) || "Could not start." };
+            return { jobs: data.jobs };
+          } catch {
+            return { error: "Network problem." };
           }
-          return;
-        }
-        if (st.state === "failed") throw new Error("Transcription failed for this audio. Please try again.");
-        if (st.state === "unknown") {
-          unknownCount += 1;
-          if (unknownCount >= 5) throw new Error("Transcription returned an unexpected status. Please try again.");
-        }
+        },
+        pollBatch: async (jobs) => {
+          try {
+            const { res, data } = await post("/api/voice-transcription/intron-status", { jobs });
+            if (res.status === 429) return { busy: true };
+            if (!res.ok || !data || !Array.isArray(data.items)) return { error: (data && data.error) || "Could not check." };
+            return { items: data.items };
+          } catch {
+            return { error: "Network problem." };
+          }
+        },
+        onProgress: (p) => setIntronMsg("Transcribing... " + p.done + " of " + p.total + " parts done. Please don't close this page."),
+      };
+      setIntronMsg("Transcribing... 0 of " + plan.length + " parts done. Please don't close this page.");
+      const run = await runIntronParts(plan, deps);
+      const okParts = run.parts.filter((p) => p.text !== null).length;
+      if (okParts === 0) throw new Error("Transcription failed for every part of this audio. Please try again.");
+
+      const stitched = stitchIntronParts(
+        run.parts.map((p) => ({ index: p.index, text: p.text, startSeconds: p.startSeconds, durationSeconds: p.durationSeconds }))
+      );
+      const notices = [...stitched.notices];
+      if (run.timedOut) notices.push("Transcription took too long, so the last parts are missing.");
+      setIntronText(stitched.text);
+      setIntronNotice(notices.join(" "));
+      setIntronRaw(
+        JSON.stringify(
+          {
+            parts: plan.length,
+            partsTranscribed: okParts,
+            audioSecondsSent: intronBilledSeconds(plan),
+            uploads: run.uploads,
+            statusChecks: run.polls,
+            speakers: stitched.speakerCount,
+            failedParts: stitched.failedParts,
+            emptyTurns: stitched.emptyTurns,
+            seamsToCheck: stitched.seams
+              .filter((s) => s.confidence !== "high")
+              .map((s) => ({ part: s.part + 1, atSeconds: Math.round(s.atSeconds), confidence: s.confidence, newSpeakers: s.newSpeakers })),
+          },
+          null,
+          2
+        )
+      );
+      setIntronMsg(stitched.text ? "Done." : "Done, but no text came back.");
+      if (stitched.text) {
+        await supabase
+          .from("voice_transcription_sessions")
+          .update({ raw_transcript: stitched.text, status: "transcribed", updated_at: new Date().toISOString() })
+          .eq("id", session.id);
       }
-      throw new Error("Transcription is taking longer than expected. Please try again later.");
     } catch (err: any) {
-      setIntronError(err?.message || "Something went wrong. Please try again.");
+      setIntronError(err.message || "Something went wrong. Please try again.");
       setIntronMsg("");
     } finally {
       setIntronBusy(false);
@@ -200,7 +241,9 @@ export default function VoiceTranscription() {
 
   const handleUseIntronTranscript = () => {
     setTranscript(intronText);
-    setTranscriptNotice("This transcript came from the African-language engine. Speaker labels, if any, depend on what the engine returned.");
+    setTranscriptNotice(
+      intronNotice || "This transcript came from the African-language engine. Speaker labels, if any, depend on what the engine returned."
+    );
     setSessionId(intronSessionId);
     setStage("review-transcript");
   };
@@ -470,7 +513,7 @@ export default function VoiceTranscription() {
         <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}`, marginBottom: "16px" }}>
           <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "6px" }}>African languages</p>
           <p style={{ color: MUTED, fontSize: 13, marginBottom: "14px" }}>
-            For Yoruba, Igbo, Hausa, Pidgin and other African languages, including speech mixed with English. First version: one clip of up to 2 minutes.
+            For Yoruba, Igbo, Hausa, Pidgin and other African languages, including speech mixed with English. Up to 1 hour and 50 MB per file. Long recordings are processed in parts and joined automatically.
           </p>
           <label style={{ display: "block", width: "100%", padding: "14px", marginBottom: "16px", backgroundColor: "#F5F5F5", border: "2px dashed #CCCCCC", borderRadius: "10px", textAlign: "center", fontSize: "14px", color: "#333333", fontWeight: 600, cursor: "pointer" }}>
             {intronFile ? intronFile.name : "Tap here to choose an audio file"}
@@ -510,6 +553,7 @@ export default function VoiceTranscription() {
           <p style={{ color: "#888888", fontSize: 12, marginTop: "-8px", marginBottom: "12px" }}>{INTRON_LANGUAGE_NOTE}</p>
           {intronError && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{intronError}</p>}
           {intronMsg && <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>{intronMsg}</p>}
+        {intronNotice && <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>{intronNotice}</p>}
           <button
             onClick={handleIntronTranscribe}
             disabled={!intronFile || intronBusy}
@@ -531,7 +575,7 @@ export default function VoiceTranscription() {
           )}
           {intronRaw && (
             <div style={{ marginTop: "16px" }}>
-              <p style={{ color: MUTED, fontSize: 12, fontWeight: 700, marginBottom: "6px" }}>Raw response (for testing)</p>
+              <p style={{ color: MUTED, fontSize: 12, fontWeight: 700, marginBottom: "6px" }}>Join report (for testing)</p>
               <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: "300px", overflow: "auto", fontSize: "11px", color: MUTED, backgroundColor: "#FAFAFA", border: "1px solid #EEEEEE", borderRadius: "8px", padding: "10px", margin: 0 }}>{intronRaw}</pre>
             </div>
           )}
