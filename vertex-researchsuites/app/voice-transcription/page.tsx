@@ -5,7 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 import { stitchParts, type PartInput } from "@/lib/voiceStitch";
 import { LANGUAGE_GROUPS, LANGUAGE_NOTE, languageCodesFor, optionText } from "@/lib/voiceLanguages";
 import { INTRON_LANGUAGE_GROUPS, INTRON_LANGUAGE_NOTE } from "@/lib/intronLanguages";
-import { planIntronParts, stitchIntronParts, billedSeconds as intronBilledSeconds } from "@/lib/intronStitch";
+import { nominalPlan, joinIntronParts } from "@/lib/intronCuts";
+import { speakerNumbers, partNumbers, mergeSpeakers, swapSpeakersInPart } from "@/lib/speakerTools";
 import { runIntronParts, type RunnerDeps } from "@/lib/intronRunner";
 
 const supabase = createClient(
@@ -154,7 +155,7 @@ export default function VoiceTranscription() {
         throw new Error("This recording is longer than 1 hour. Please cut it into shorter files. Cut at a pause and repeat about 15 seconds at the start of the next file.");
       }
 
-      const plan = planIntronParts(probeData.durationSeconds);
+      const plan = nominalPlan(probeData.durationSeconds);
       const post = async (url: string, payload: any) => {
         const token = await getToken();
         const res = await fetch(url, {
@@ -172,7 +173,7 @@ export default function VoiceTranscription() {
         startBatch: async (parts) => {
           try {
             const { res, data } = await post("/api/voice-transcription/intron-start", {
-              sessionId: session.id, audioPath: path, language: intronLanguage, diarize: true, parts,
+              sessionId: session.id, audioPath: path, language: intronLanguage, diarize: true, totalSeconds: probeData.durationSeconds, parts,
             });
             if (res.status === 429) return { busy: true };
             if (!res.ok || !data || !Array.isArray(data.jobs)) return { error: (data && data.error) || "Could not start." };
@@ -198,9 +199,7 @@ export default function VoiceTranscription() {
       const okParts = run.parts.filter((p) => p.text !== null).length;
       if (okParts === 0) throw new Error("Transcription failed for every part of this audio. Please try again.");
 
-      const stitched = stitchIntronParts(
-        run.parts.map((p) => ({ index: p.index, text: p.text, startSeconds: p.startSeconds, durationSeconds: p.durationSeconds }))
-      );
+      const stitched = joinIntronParts(run.parts.map((p) => ({ index: p.index, text: p.text, startSeconds: p.startSeconds })));
       const notices = [...stitched.notices];
       if (run.timedOut) notices.push("Transcription took too long, so the last parts are missing.");
       setIntronText(stitched.text);
@@ -210,15 +209,12 @@ export default function VoiceTranscription() {
           {
             parts: plan.length,
             partsTranscribed: okParts,
-            audioSecondsSent: intronBilledSeconds(plan),
+            audioSecondsSent: Math.round(probeData.durationSeconds),
             uploads: run.uploads,
             statusChecks: run.polls,
             speakers: stitched.speakerCount,
             failedParts: stitched.failedParts,
             emptyTurns: stitched.emptyTurns,
-            seamsToCheck: stitched.seams
-              .filter((s) => s.confidence !== "high")
-              .map((s) => ({ part: s.part + 1, atSeconds: Math.round(s.atSeconds), confidence: s.confidence, newSpeakers: s.newSpeakers })),
           },
           null,
           2
@@ -650,6 +646,7 @@ export default function VoiceTranscription() {
           {transcriptNotice && (
             <p style={{ color: "#8A6D00", fontSize: 12, marginBottom: "12px" }}>Note: {transcriptNotice}</p>
           )}
+          <SpeakerToolsPanel text={transcript} onChange={setTranscript} />
           <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} style={{ width: "100%", minHeight: "260px", padding: "12px 14px", borderRadius: "10px", border: "1px solid #DDDDDD", fontSize: "14px", color: DARK, lineHeight: 1.6, boxSizing: "border-box" as const, marginBottom: "16px" }} />
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           <button onClick={handleGenerateNotes} disabled={generatingNotes || !transcript.trim()} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
@@ -686,6 +683,82 @@ export default function VoiceTranscription() {
             </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SpeakerToolsPanel({ text, onChange }: { text: string; onChange: (t: string) => void }) {
+  const [mergeFrom, setMergeFrom] = useState("");
+  const [mergeTo, setMergeTo] = useState("");
+  const [swapPart, setSwapPart] = useState("");
+  const [swapA, setSwapA] = useState("");
+  const [swapB, setSwapB] = useState("");
+  const [prevText, setPrevText] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const nums: number[] = Array.from(speakerNumbers(text) as unknown as Iterable<number>);
+  if (nums.length < 2 && prevText === null) return null;
+  const parts: number[] = Array.from(partNumbers(text) as unknown as Iterable<number>);
+  const partList: number[] = parts.length > 0 ? parts : [1];
+  const pick = (v: string, list: number[], fallbackIndex: number): number => {
+    const n = Number(v);
+    return v !== "" && list.includes(n) ? n : list[Math.min(fallbackIndex, list.length - 1)];
+  };
+  const from = pick(mergeFrom, nums, 0);
+  const to = pick(mergeTo, nums, 1);
+  const part = pick(swapPart, partList, 0);
+  const a = pick(swapA, nums, 0);
+  const b = pick(swapB, nums, 1);
+  const apply = (out: unknown, message: string) => {
+    if (typeof out === "string" && out !== text) {
+      setPrevText(text);
+      onChange(out);
+      setNote(message);
+    } else {
+      setNote("Nothing changed.");
+    }
+  };
+  const selStyle = { padding: "6px 8px", borderRadius: "8px", border: "1px solid " + BORDER, fontSize: "13px", color: DARK, backgroundColor: "#FFFFFF", margin: "0 6px" };
+  const btnStyle = (off: boolean) => ({ padding: "7px 12px", borderRadius: "8px", border: "none", fontSize: "13px", fontWeight: 700, cursor: off ? "not-allowed" : "pointer", opacity: off ? 0.5 : 1, backgroundColor: GOLD, color: DARK });
+  const rowStyle = { display: "flex", flexWrap: "wrap" as const, alignItems: "center", marginBottom: "10px", fontSize: "13px", color: DARK };
+  const pickList = (value: number, list: number[], set: (v: string) => void, label: string) => (
+    <select value={String(value)} onChange={(e) => set(e.target.value)} aria-label={label} style={selStyle}>
+      {list.map((n) => (
+        <option key={n} value={String(n)}>{n}</option>
+      ))}
+    </select>
+  );
+  return (
+    <div style={{ backgroundColor: "#FAFAFA", border: "1px solid " + BORDER, borderRadius: "10px", padding: "12px 14px", marginBottom: "12px" }}>
+      <p style={{ color: DARK, fontSize: "13px", fontWeight: 700, margin: "0 0 4px 0" }}>Speaker tools</p>
+      <p style={{ color: MUTED, fontSize: "12px", margin: "0 0 10px 0" }}>
+        {nums.length} speaker labels found. Speaker numbers restart in each part, so the same person can have different numbers in different parts. Fix them here before generating notes.
+      </p>
+      {nums.length > 1 && (
+        <div>
+          <div style={rowStyle}>
+            <span>Merge Speaker</span>
+            {pickList(from, nums, setMergeFrom, "Merge from speaker")}
+            <span>into</span>
+            {pickList(to, nums, setMergeTo, "Merge into speaker")}
+            <button type="button" disabled={from === to} onClick={() => apply(mergeSpeakers(text, from, to), "Merged Speaker " + from + " into Speaker " + to + ".")} style={btnStyle(from === to)}>Merge</button>
+          </div>
+          <div style={rowStyle}>
+            <span>Swap Speaker</span>
+            {pickList(a, nums, setSwapA, "Swap speaker")}
+            <span>and</span>
+            {pickList(b, nums, setSwapB, "With speaker")}
+            <span>in Part</span>
+            {pickList(part, partList, setSwapPart, "In part")}
+            <button type="button" disabled={a === b} onClick={() => apply(swapSpeakersInPart(text, part, a, b), "Swapped Speaker " + a + " and Speaker " + b + " in Part " + part + ".")} style={btnStyle(a === b)}>Swap</button>
+          </div>
+        </div>
+      )}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center" }}>
+        {prevText !== null && (
+          <button type="button" onClick={() => { onChange(prevText); setPrevText(null); setNote("Undone."); }} style={btnStyle(false)}>Undo last tool change</button>
+        )}
+        {note && <span style={{ color: MUTED, fontSize: "12px", marginLeft: "10px" }}>{note}</span>}
+      </div>
     </div>
   );
 }
