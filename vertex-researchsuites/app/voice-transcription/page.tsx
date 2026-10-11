@@ -9,6 +9,7 @@ import { nominalPlan, joinIntronParts } from "@/lib/intronCuts";
 import { speakerNumbers, partNumbers, mergeSpeakers, swapSpeakersInPart } from "@/lib/speakerTools";
 import { downloadWordFile } from "@/lib/wordExport";
 import { limitSpeakers } from "@/lib/speakerLimit";
+import SpeakerCards from "./SpeakerCards";
 import { runIntronParts, type RunnerDeps } from "@/lib/intronRunner";
 
 const supabase = createClient(
@@ -794,12 +795,7 @@ function SpeakerToolsPanel({ text, onChange }: { text: string; onChange: (t: str
       <p style={{ color: MUTED, fontSize: "12px", margin: "0 0 10px 0" }}>
         {nums.length + " speaker labels found." + (manyParts ? " Speaker numbers can restart in each part, so check them." : "") + " If one person has two labels, combine them."}
       </p>
-      {nums.map((n) => (
-        <p key={n} style={{ color: DARK, fontSize: "12px", margin: "0 0 4px 0" }}>
-          <span style={{ fontWeight: 700 }}>{"Speaker " + n}</span>
-          {" (" + linesOf(n) + (linesOf(n) === 1 ? " line)" : " lines)") + (sampleOf(n) ? ": " + sampleOf(n) : "")}
-        </p>
-      ))}
+      <SpeakerCards text={text} apply={apply} dark={DARK} muted={MUTED} gold={GOLD} border={BORDER} />
       {nums.length > 1 && (
         <div style={{ marginTop: "12px" }}>
           <div style={rowStyle}>
@@ -815,28 +811,7 @@ function SpeakerToolsPanel({ text, onChange }: { text: string; onChange: (t: str
           <p style={smallStyle}>{limitHelp}</p>
         </div>
       )}
-      {nums.length > 1 && (
-        <div style={{ marginTop: "12px" }}>
-          <div style={rowStyle}>
-            <span>Make Speaker</span>
-            {pickList(from, nums, setMergeFrom, "Speaker to change")}
-            <span>the same as Speaker</span>
-            {pickList(to, nums, setMergeTo, "Speaker to keep")}
-            <button type="button" disabled={from === to} onClick={() => apply(mergeSpeakers(text, from, to), "Done. Every Speaker " + from + " line is now Speaker " + to + ".")} style={btnStyle(from === to)}>Combine</button>
-          </div>
-          <p style={smallStyle}>{'Every "Speaker ' + from + '" line will become "Speaker ' + to + '".'}</p>
-          <div style={rowStyle}>
-            <span>Wrong way round? Swap Speaker</span>
-            {pickList(a, nums, setSwapA, "First speaker")}
-            <span>and Speaker</span>
-            {pickList(b, nums, setSwapB, "Second speaker")}
-            {manyParts && <span>in Part</span>}
-            {manyParts && pickList(part, partList, setSwapPart, "In part")}
-            <button type="button" disabled={a === b} onClick={() => apply(swapSpeakersInPart(text, part, a, b), "Done. Swapped Speaker " + a + " and Speaker " + b + (manyParts ? " in Part " + part : "") + ".")} style={btnStyle(a === b)}>Swap</button>
-          </div>
-          {manyParts && <p style={smallStyle}>Only the lines in that part change.</p>}
-        </div>
-      )}
+      
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center" }}>
         {prevText !== null && (
           <button type="button" onClick={() => { onChange(prevText); setPrevText(null); setNote("Undone."); }} style={{ ...btnStyle(false), marginLeft: "0" }}>Undo last change</button>
