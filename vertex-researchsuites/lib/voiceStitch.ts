@@ -15,6 +15,7 @@ export type Seam = {
   part: number;
   matchedWords: number;
   lowConfidence: boolean;
+  inferred?: boolean; // P11-8: joined by elimination, not by shared words
 };
 
 export type StitchResult = {
@@ -137,6 +138,24 @@ export function stitchParts(parts: PartInput[]): StitchResult {
     }
     const spks: string[] = [];
     abs.forEach((w) => { if (!spks.includes(w.speaker)) spks.push(w.speaker); });
+    // P11-8 elimination: the overlap is the same audio in both parts. A new-part speaker
+    // who is silent in the overlap can only be an earlier speaker who is silent in it too.
+    let inferred = false;
+    if (hasOverlap) {
+      const heardOld = new Set<string>();
+      acc.forEach((w) => { if (w.start >= overlapStart - MATCH_WINDOW_SECONDS) heardOld.add(w.speaker); });
+      const heardNew = new Set<string>();
+      abs.forEach((w) => { if (w.start <= prevEnd) heardNew.add(w.speaker); });
+      const silentNew = spks.filter((x) => !mapping.has(x) && !heardNew.has(x));
+      const silentOld: string[] = [];
+      acc.forEach((w) => {
+        if (!silentOld.includes(w.speaker) && !takenGlobal.has(w.speaker) && !heardOld.has(w.speaker)) silentOld.push(w.speaker);
+      });
+      if (silentNew.length === 1 && silentOld.length === 1) {
+        mapping.set(silentNew[0], silentOld[0]);
+        inferred = true;
+      }
+    }
     spks.forEach((s) => { if (!mapping.has(s)) mapping.set(s, newGlobal()); });
 
     // Cut in the middle of the overlap so both sides have context.
@@ -149,6 +168,7 @@ export function stitchParts(parts: PartInput[]): StitchResult {
     seams.push({
       part: pi,
       matchedWords: matched,
+      inferred,
       lowConfidence: !hasOverlap || matched < MIN_MATCHED_WORDS,
     });
   });

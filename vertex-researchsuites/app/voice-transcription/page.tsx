@@ -23,7 +23,7 @@ const BG = "#F9F9F9";
 const BORDER = "#EEEEEE";
 
 const CHUNK_LENGTH_SECONDS = 600; // 10 minutes (raise toward 28 after timing a real run)
-const CHUNK_OVERLAP_SECONDS = 60;
+const CHUNK_OVERLAP_SECONDS = 120; // P11-8: longer overlap so quiet speakers are heard in it
 
 type Stage = "loading" | "fee-confirm" | "upload" | "transcribing" | "review-transcript" | "notes";
 
@@ -278,7 +278,7 @@ export default function VoiceTranscription() {
     let textOnlyParts = 0;
     let start = 0;
     const step = CHUNK_LENGTH_SECONDS - CHUNK_OVERLAP_SECONDS;
-    const totalChunks = Math.max(1, Math.ceil(durationSeconds / step));
+    const totalChunks = Math.max(1, Math.ceil((durationSeconds - CHUNK_OVERLAP_SECONDS) / step));
     let chunkIndex = 0;
 
     while (start < durationSeconds) {
@@ -300,6 +300,7 @@ export default function VoiceTranscription() {
       const partHasText = typeof data.text === "string" && data.text.trim().length > 0;
       if (!partHasWords && partHasText) textOnlyParts += 1;
       accumulated = mergeTranscriptChunks(accumulated, data.text || "");
+      if (start + chunkDuration >= durationSeconds) break; // P11-8: last part reached the end
       start += step;
     }
 
