@@ -7,6 +7,8 @@ import { LANGUAGE_GROUPS, LANGUAGE_NOTE, languageCodesFor, optionText } from "@/
 import { INTRON_LANGUAGE_GROUPS, INTRON_LANGUAGE_NOTE } from "@/lib/intronLanguages";
 import { nominalPlan, joinIntronParts } from "@/lib/intronCuts";
 import { speakerNumbers, partNumbers, mergeSpeakers, swapSpeakersInPart } from "@/lib/speakerTools";
+import { downloadWordFile } from "@/lib/wordExport";
+import { limitSpeakers } from "@/lib/speakerLimit";
 import { runIntronParts, type RunnerDeps } from "@/lib/intronRunner";
 
 const supabase = createClient(
@@ -430,7 +432,7 @@ export default function VoiceTranscription() {
   const [savedTranscript, setSavedTranscript] = useState("");
   const handleGenerateNotes = async () => {
     if (transcript.trim() && transcript !== savedTranscript) {
-      downloadTextFile("transcript-" + downloadStamp() + ".txt", transcript);
+      downloadWordFile("transcript-" + downloadStamp() + ".docx", transcript, "transcript");
       setSavedTranscript(transcript);
     }
     setGeneratingNotes(true);
@@ -442,10 +444,11 @@ export default function VoiceTranscription() {
         body: JSON.stringify({ transcript }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok || !data || typeof data.notes !== "string") {
+      if (!res.ok || !data || data.notes === undefined || data.notes === null) {
         throw new Error((data && data.error) || "The notes service returned an error (status " + res.status + ").");
       }
       setNotes(data.notes);
+      downloadWordFile("interpretive-notes-" + downloadStamp() + ".docx", data.notes, "notes");
 
       await supabase
         .from("voice_transcription_sessions")
@@ -661,7 +664,7 @@ export default function VoiceTranscription() {
           )}
           <SpeakerToolsPanel text={transcript} onChange={setTranscript} />
           <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} style={{ width: "100%", minHeight: "260px", padding: "12px 14px", borderRadius: "10px", border: "1px solid #DDDDDD", fontSize: "14px", color: DARK, lineHeight: 1.6, boxSizing: "border-box" as const, marginBottom: "16px" }} />
-          <button type="button" onClick={() => downloadTextFile("transcript-" + downloadStamp() + ".txt", transcript)} disabled={!transcript.trim()} style={{ width: "100%", backgroundColor: "#FFFFFF", color: DARK, border: "1px solid " + BORDER, borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", marginBottom: "12px" }}>Download transcript (.txt)</button>
+          <button type="button" onClick={() => downloadWordFile("transcript-" + downloadStamp() + ".docx", transcript, "transcript")} disabled={!transcript.trim()} style={{ width: "100%", backgroundColor: "#FFFFFF", color: DARK, border: "1px solid " + BORDER, borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", marginBottom: "12px" }}>Download transcript (Word)</button>
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           <button onClick={handleGenerateNotes} disabled={generatingNotes || !transcript.trim()} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
             {generatingNotes ? "Generating interpretive notes..." : "Generate Interpretive Notes"}
@@ -671,8 +674,8 @@ export default function VoiceTranscription() {
 
       {stage === "notes" && notes && (
         <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-          <button type="button" onClick={() => downloadTextFile("interpretive-notes-" + downloadStamp() + ".txt", notes)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "none", backgroundColor: GOLD, color: DARK, fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Download notes (.txt)</button>
-          <button type="button" onClick={() => downloadTextFile("transcript-" + downloadStamp() + ".txt", transcript)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid " + BORDER, backgroundColor: "#FFFFFF", color: DARK, fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Download transcript (.txt)</button>
+          <button type="button" onClick={() => downloadWordFile("interpretive-notes-" + downloadStamp() + ".docx", notes, "notes")} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "none", backgroundColor: GOLD, color: DARK, fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Download notes (Word)</button>
+          <button type="button" onClick={() => downloadWordFile("transcript-" + downloadStamp() + ".docx", transcript, "transcript")} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid " + BORDER, backgroundColor: "#FFFFFF", color: DARK, fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Download transcript (Word)</button>
         </div>
       )}
       {stage === "notes" && (
@@ -715,19 +718,55 @@ function SpeakerToolsPanel({ text, onChange }: { text: string; onChange: (t: str
   const [swapB, setSwapB] = useState("");
   const [prevText, setPrevText] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [mainCount, setMainCount] = useState("");
   const nums: number[] = Array.from(speakerNumbers(text) as unknown as Iterable<number>);
   if (nums.length < 2 && prevText === null) return null;
   const parts: number[] = Array.from(partNumbers(text) as unknown as Iterable<number>);
   const partList: number[] = parts.length > 0 ? parts : [1];
-  const pick = (v: string, list: number[], fallbackIndex: number): number => {
-    const n = Number(v);
-    return v !== "" && list.includes(n) ? n : list[Math.min(fallbackIndex, list.length - 1)];
+  const manyParts = partList.length > 1;
+  // How many lines each speaker has, and their first words.
+  const lineRe = /^((?:\[\d{1,3}:\d{2}(?::\d{2})?\] ?)?)Speaker (\d+): ?(.*)$/;
+  const info = new Map<number, { lines: number; sample: string }>();
+  for (const line of String(text || "").split("\n")) {
+    const m = lineRe.exec(line);
+    if (!m) continue;
+    const n = Number(m[2]);
+    const entry = info.get(n) || { lines: 0, sample: "" };
+    entry.lines += 1;
+    const words = m[3].trim();
+    if (!entry.sample && words && words.indexOf("[no text returned]") < 0) {
+      const w = words.split(/\s+/);
+      entry.sample = w.slice(0, 7).join(" ") + (w.length > 7 ? " ..." : "");
+    }
+    info.set(n, entry);
+  }
+  const linesOf = (n: number): number => {
+    const e = info.get(n);
+    return e ? e.lines : 0;
   };
-  const from = pick(mergeFrom, nums, 0);
-  const to = pick(mergeTo, nums, 1);
-  const part = pick(swapPart, partList, 0);
-  const a = pick(swapA, nums, 0);
-  const b = pick(swapB, nums, 1);
+  const sampleOf = (n: number): string => {
+    const e = info.get(n);
+    return e ? e.sample : "";
+  };
+  const fewestFirst = [...nums].sort((x, y) => linesOf(x) - linesOf(y) || y - x);
+  const defFrom = fewestFirst.length > 0 ? fewestFirst[0] : 0;
+  const defTo = fewestFirst.length > 0 ? fewestFirst[fewestFirst.length - 1] : 0;
+  const pick = (v: string, list: number[], fallback: number): number => {
+    const n = Number(v);
+    return v !== "" && list.includes(n) ? n : fallback;
+  };
+  const from = pick(mergeFrom, nums, defFrom);
+  const to = pick(mergeTo, nums, defTo);
+  const a = pick(swapA, nums, nums.length > 0 ? nums[0] : 0);
+  const b = pick(swapB, nums, nums.length > 1 ? nums[1] : a);
+  const part = pick(swapPart, partList, partList[0]);
+  const limitN = mainCount === "" ? 0 : Number(mainCount);
+  const limitHelp =
+    limitN === 0
+      ? "Choose a number if you know it. Extra labels will then join the line before them."
+      : nums.length <= limitN
+        ? "There are already " + nums.length + " speaker labels, so nothing to limit."
+        : "The " + limitN + " speaker" + (limitN === 1 ? "" : "s") + " with the most words stay. Lines from other labels join the line before them." + (manyParts ? " This works best when the recording has one part." : "");
   const apply = (out: unknown, message: string) => {
     if (typeof out === "string" && out !== text) {
       setPrevText(text);
@@ -738,8 +777,9 @@ function SpeakerToolsPanel({ text, onChange }: { text: string; onChange: (t: str
     }
   };
   const selStyle = { padding: "6px 8px", borderRadius: "8px", border: "1px solid " + BORDER, fontSize: "13px", color: DARK, backgroundColor: "#FFFFFF", margin: "0 6px" };
-  const btnStyle = (off: boolean) => ({ padding: "7px 12px", borderRadius: "8px", border: "none", fontSize: "13px", fontWeight: 700, cursor: off ? "not-allowed" : "pointer", opacity: off ? 0.5 : 1, backgroundColor: GOLD, color: DARK });
-  const rowStyle = { display: "flex", flexWrap: "wrap" as const, alignItems: "center", marginBottom: "10px", fontSize: "13px", color: DARK };
+  const btnStyle = (off: boolean) => ({ padding: "7px 12px", borderRadius: "8px", border: "none", fontSize: "13px", fontWeight: 700, cursor: off ? "not-allowed" : "pointer", opacity: off ? 0.5 : 1, backgroundColor: GOLD, color: DARK, marginLeft: "8px" });
+  const rowStyle = { display: "flex", flexWrap: "wrap" as const, alignItems: "center", marginBottom: "8px", fontSize: "13px", color: DARK };
+  const smallStyle = { color: MUTED, fontSize: "12px", margin: "0 0 12px 0" };
   const pickList = (value: number, list: number[], set: (v: string) => void, label: string) => (
     <select value={String(value)} onChange={(e) => set(e.target.value)} aria-label={label} style={selStyle}>
       {list.map((n) => (
@@ -749,33 +789,56 @@ function SpeakerToolsPanel({ text, onChange }: { text: string; onChange: (t: str
   );
   return (
     <div style={{ backgroundColor: "#FAFAFA", border: "1px solid " + BORDER, borderRadius: "10px", padding: "12px 14px", marginBottom: "12px" }}>
-      <p style={{ color: DARK, fontSize: "13px", fontWeight: 700, margin: "0 0 4px 0" }}>Speaker tools</p>
+      <p style={{ color: DARK, fontSize: "14px", fontWeight: 700, margin: "0 0 4px 0" }}>Who is speaking?</p>
       <p style={{ color: MUTED, fontSize: "12px", margin: "0 0 10px 0" }}>
-        {nums.length} speaker labels found. Speaker numbers restart in each part, so the same person can have different numbers in different parts. Fix them here before generating notes.
+        {nums.length + " speaker labels found." + (manyParts ? " Speaker numbers can restart in each part, so check them." : "") + " If one person has two labels, combine them."}
       </p>
+      {nums.map((n) => (
+        <p key={n} style={{ color: DARK, fontSize: "12px", margin: "0 0 4px 0" }}>
+          <span style={{ fontWeight: 700 }}>{"Speaker " + n}</span>
+          {" (" + linesOf(n) + (linesOf(n) === 1 ? " line)" : " lines)") + (sampleOf(n) ? ": " + sampleOf(n) : "")}
+        </p>
+      ))}
       {nums.length > 1 && (
-        <div>
+        <div style={{ marginTop: "12px" }}>
           <div style={rowStyle}>
-            <span>Merge Speaker</span>
-            {pickList(from, nums, setMergeFrom, "Merge from speaker")}
-            <span>into</span>
-            {pickList(to, nums, setMergeTo, "Merge into speaker")}
-            <button type="button" disabled={from === to} onClick={() => apply(mergeSpeakers(text, from, to), "Merged Speaker " + from + " into Speaker " + to + ".")} style={btnStyle(from === to)}>Merge</button>
+            <span>How many main speakers are in this recording?</span>
+            <select value={mainCount} onChange={(e) => setMainCount(e.target.value)} aria-label="Main speakers" style={selStyle}>
+              <option value="">Not sure</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+            <button type="button" disabled={limitN === 0 || nums.length <= limitN} onClick={() => apply(limitSpeakers(text, limitN), "Done. Showing " + limitN + " main speaker" + (limitN === 1 ? "" : "s") + ".")} style={btnStyle(limitN === 0 || nums.length <= limitN)}>Limit</button>
           </div>
+          <p style={smallStyle}>{limitHelp}</p>
+        </div>
+      )}
+      {nums.length > 1 && (
+        <div style={{ marginTop: "12px" }}>
           <div style={rowStyle}>
-            <span>Swap Speaker</span>
-            {pickList(a, nums, setSwapA, "Swap speaker")}
-            <span>and</span>
-            {pickList(b, nums, setSwapB, "With speaker")}
-            <span>in Part</span>
-            {pickList(part, partList, setSwapPart, "In part")}
-            <button type="button" disabled={a === b} onClick={() => apply(swapSpeakersInPart(text, part, a, b), "Swapped Speaker " + a + " and Speaker " + b + " in Part " + part + ".")} style={btnStyle(a === b)}>Swap</button>
+            <span>Make Speaker</span>
+            {pickList(from, nums, setMergeFrom, "Speaker to change")}
+            <span>the same as Speaker</span>
+            {pickList(to, nums, setMergeTo, "Speaker to keep")}
+            <button type="button" disabled={from === to} onClick={() => apply(mergeSpeakers(text, from, to), "Done. Every Speaker " + from + " line is now Speaker " + to + ".")} style={btnStyle(from === to)}>Combine</button>
           </div>
+          <p style={smallStyle}>{'Every "Speaker ' + from + '" line will become "Speaker ' + to + '".'}</p>
+          <div style={rowStyle}>
+            <span>Wrong way round? Swap Speaker</span>
+            {pickList(a, nums, setSwapA, "First speaker")}
+            <span>and Speaker</span>
+            {pickList(b, nums, setSwapB, "Second speaker")}
+            {manyParts && <span>in Part</span>}
+            {manyParts && pickList(part, partList, setSwapPart, "In part")}
+            <button type="button" disabled={a === b} onClick={() => apply(swapSpeakersInPart(text, part, a, b), "Done. Swapped Speaker " + a + " and Speaker " + b + (manyParts ? " in Part " + part : "") + ".")} style={btnStyle(a === b)}>Swap</button>
+          </div>
+          {manyParts && <p style={smallStyle}>Only the lines in that part change.</p>}
         </div>
       )}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center" }}>
         {prevText !== null && (
-          <button type="button" onClick={() => { onChange(prevText); setPrevText(null); setNote("Undone."); }} style={btnStyle(false)}>Undo last tool change</button>
+          <button type="button" onClick={() => { onChange(prevText); setPrevText(null); setNote("Undone."); }} style={{ ...btnStyle(false), marginLeft: "0" }}>Undo last change</button>
         )}
         {note && <span style={{ color: MUTED, fontSize: "12px", marginLeft: "10px" }}>{note}</span>}
       </div>
