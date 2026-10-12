@@ -11,6 +11,9 @@ import { downloadWordFile } from "@/lib/wordExport";
 import { limitSpeakers } from "@/lib/speakerLimit";
 import SpeakerCards from "./SpeakerCards";
 import { runIntronParts, type RunnerDeps } from "@/lib/intronRunner";
+import { runDiarize, toPieceIn, toRunnerParts } from "@/lib/diarizeRun";
+import { finishSpeakerFirst, reportText } from "@/lib/diarizeFinish";
+import type { Piece } from "@/lib/diarizePlan";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -159,7 +162,7 @@ export default function VoiceTranscription() {
         throw new Error("This recording is longer than 1 hour. Please cut it into shorter files. Cut at a pause and repeat about 15 seconds at the start of the next file.");
       }
 
-      const plan = nominalPlan(probeData.durationSeconds);
+      let plan: { index: number; startSeconds: number; durationSeconds: number }[] = nominalPlan(probeData.durationSeconds);
       const post = async (url: string, payload: any) => {
         const token = await getToken();
         const res = await fetch(url, {
@@ -171,6 +174,39 @@ export default function VoiceTranscription() {
         try { data = await res.json(); } catch { data = null; }
         return { res, data };
       };
+      let sfPieces: Piece[] | null = null;
+      let sfLine = "";
+      if (new URLSearchParams(window.location.search).get("speakerfirst") === "1") {
+        setIntronMsg("Detecting speakers... 0 parts done. Please don't close this page.");
+        const dres = await runDiarize(probeData.durationSeconds, {
+          now: () => Date.now(),
+          sleep: (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
+          onProgress: (t) => setIntronMsg(t + " Please don't close this page."),
+          startChunk: async (c) => {
+            try {
+              const { res, data } = await post("/api/voice-transcription/diarize-start", {
+                sessionId: session.id, audioPath: path, totalSeconds: probeData.durationSeconds,
+                startSeconds: c.startSeconds, durationSeconds: c.durationSeconds,
+              });
+              if (res.status === 429) return { busy: true };
+              if (!res.ok || !data || typeof data.predictionId !== "string") return { error: (data && data.error) || "Could not start." };
+              return { job: { predictionId: data.predictionId, token: data.token, chunkPath: data.chunkPath } };
+            } catch { return { error: "Network problem." }; }
+          },
+          checkChunk: async (j) => {
+            try {
+              const { res, data } = await post("/api/voice-transcription/diarize-status", {
+                sessionId: session.id, predictionId: j.predictionId, token: j.token, chunkPath: j.chunkPath,
+              });
+              if (res.status === 429) return { busy: true };
+              if (!res.ok || !data) return { error: (data && data.error) || "Could not check." };
+              return { state: data.state, segments: data.segments };
+            } catch { return { error: "Network problem." }; }
+          },
+        });
+        if (dres.ok) { sfPieces = dres.pieces; plan = toRunnerParts(dres.pieces); sfLine = reportText(dres.report); }
+        else { sfLine = "Speaker-first detection did not work (" + dres.error + "), so the standard method was used."; }
+      }
       const deps: RunnerDeps = {
         now: () => Date.now(),
         sleep: (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
@@ -198,13 +234,31 @@ export default function VoiceTranscription() {
         },
         onProgress: (p) => setIntronMsg("Transcribing... " + p.done + " of " + p.total + " parts done. Please don't close this page."),
       };
+      if (sfPieces) {
+        const pcs: Piece[] = sfPieces;
+        deps.startBatch = async (parts) => {
+          try {
+            const pieces = parts
+              .map((x) => pcs.find((q) => q.startSeconds === x.startSeconds))
+              .filter((q): q is Piece => !!q)
+              .map(toPieceIn);
+            const { res, data } = await post("/api/voice-transcription/intron-pieces", {
+              sessionId: session.id, audioPath: path, language: intronLanguage, totalSeconds: probeData.durationSeconds, pieces,
+            });
+            if (res.status === 429) return { busy: true };
+            if (!res.ok || !data || !Array.isArray(data.jobs)) return { error: (data && data.error) || "Could not start." };
+            return { jobs: data.jobs };
+          } catch { return { error: "Network problem." }; }
+        };
+      }
       setIntronMsg("Transcribing... 0 of " + plan.length + " parts done. Please don't close this page.");
-      const run = await runIntronParts(plan, deps);
+      const run = await runIntronParts(plan, deps, sfPieces ? { maxRunning: 4, pollMs: 10000 } : {});
       const okParts = run.parts.filter((p) => p.text !== null).length;
       if (okParts === 0) throw new Error("Transcription failed for every part of this audio. Please try again.");
 
-      const stitched = joinIntronParts(run.parts.map((p) => ({ index: p.index, text: p.text, startSeconds: p.startSeconds })));
+      const stitched = sfPieces ? finishSpeakerFirst(sfPieces, run.parts) : joinIntronParts(run.parts.map((p) => ({ index: p.index, text: p.text, startSeconds: p.startSeconds })));
       const notices = [...stitched.notices];
+      if (sfLine) notices.push(sfLine);
       if (run.timedOut) notices.push("Transcription took too long, so the last parts are missing.");
       setIntronText(stitched.text);
       setIntronNotice(notices.join(" "));

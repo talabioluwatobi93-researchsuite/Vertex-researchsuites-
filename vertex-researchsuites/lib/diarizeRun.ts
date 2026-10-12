@@ -60,6 +60,7 @@ export async function runDiarize(totalSeconds: number, deps: DiarDeps, cfgIn: Pa
       let r: DiarCheck;
       try { r = await deps.checkChunk(x.job); } catch (e: any) { r = { error: String((e && e.message) || "check failed") }; }
       if (r.busy) continue;
+      if (r.state === "failed") return { ok: false, error: r.error || "Speaker detection failed for one part." };
       if (r.error || !r.state) {
         x.errs++;
         if (x.errs > cfg.maxCheckErrors) return { ok: false, error: r.error || "Could not check speaker detection." };
