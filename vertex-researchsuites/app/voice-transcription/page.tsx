@@ -111,11 +111,11 @@ export default function VoiceTranscription() {
   const [intronMsg, setIntronMsg] = useState("");
   const [intronError, setIntronError] = useState("");
   const [intronText, setIntronText] = useState("");
-  const [intronRaw, setIntronRaw] = useState("");
+  const [, setIntronRaw] = useState("");
   const [intronSessionId, setIntronSessionId] = useState("");
   const [intronNotice, setIntronNotice] = useState("");
 
-  const [intronDiarize, setIntronDiarize] = useState(true);
+  const [intronDiarize] = useState(true);
   const handleIntronTranscribe = async () => {
     if (!intronFile) return;
     setIntronBusy(true);
@@ -618,10 +618,6 @@ export default function VoiceTranscription() {
           {intronError && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{intronError}</p>}
           {intronMsg && <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>{intronMsg}</p>}
         {intronNotice && <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>{intronNotice}</p>}
-          <label style={{ display: "flex", alignItems: "center", fontSize: 12, color: MUTED, marginBottom: "12px" }}>
-            <input type="checkbox" checked={!intronDiarize} onChange={(e) => setIntronDiarize(!e.target.checked)} disabled={intronBusy} style={{ marginRight: "8px" }} />
-            Test: turn speaker labels off
-          </label>
           <button
             onClick={handleIntronTranscribe}
             disabled={!intronFile || intronBusy}
@@ -641,13 +637,7 @@ export default function VoiceTranscription() {
               </button>
             </div>
           )}
-          {intronRaw && (
-            <div style={{ marginTop: "16px" }}>
-              <p style={{ color: MUTED, fontSize: 12, fontWeight: 700, marginBottom: "6px" }}>Join report (for testing)</p>
-              <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: "300px", overflow: "auto", fontSize: "11px", color: MUTED, backgroundColor: "#FAFAFA", border: "1px solid #EEEEEE", borderRadius: "8px", padding: "10px", margin: 0 }}>{intronRaw}</pre>
-            </div>
-          )}
-        </div>
+          </div>
       )}
 
       {stage === "upload" && (
