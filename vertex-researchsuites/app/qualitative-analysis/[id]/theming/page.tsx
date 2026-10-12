@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { qualAuthHeaders } from '@/lib/qualAuth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,7 +42,7 @@ export default function ThemingPage() {
     try {
       const res = await fetch('/api/qualitative-analysis/suggest-themes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await qualAuthHeaders(supabase),
         body: JSON.stringify({ sessionId: id })
       })
       const data = await res.json()
