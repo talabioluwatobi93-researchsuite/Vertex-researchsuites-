@@ -118,6 +118,7 @@ export default function VoiceTranscription() {
   const [intronNotice, setIntronNotice] = useState("");
 
   const [intronDiarize] = useState(true);
+  const [speakerFirst, setSpeakerFirst] = useState(false);
   const handleIntronTranscribe = async () => {
     if (!intronFile) return;
     setIntronBusy(true);
@@ -178,7 +179,7 @@ export default function VoiceTranscription() {
       };
       let sfPieces: Piece[] | null = null;
       let sfLine = "";
-      if (new URLSearchParams(window.location.search).get("speakerfirst") === "1") {
+      if (speakerFirst || new URLSearchParams(window.location.search).get("speakerfirst") === "1") {
         setIntronMsg("Detecting speakers... 0 parts done. Please don't close this page.");
         const dres = await runDiarize(probeData.durationSeconds, {
           now: () => Date.now(),
@@ -623,6 +624,11 @@ export default function VoiceTranscription() {
           {intronError && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{intronError}</p>}
           {intronMsg && <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>{intronMsg}</p>}
         {intronNotice && <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>{intronNotice}</p>}
+          <label style={{ display: "flex", alignItems: "flex-start", fontSize: 13, color: DARK, marginBottom: "4px" }}>
+            <input type="checkbox" checked={speakerFirst} onChange={(e) => setSpeakerFirst(e.target.checked)} disabled={intronBusy} style={{ marginRight: "8px", marginTop: "3px" }} />
+            Detect speakers more accurately (beta)
+          </label>
+          <p style={{ color: MUTED, fontSize: 12, marginTop: 0, marginBottom: "12px" }}>Uses a separate speaker-detection service (Replicate). Use it for non-sensitive recordings while it is in beta. If it fails, the normal method runs instead.</p>
           <button
             onClick={handleIntronTranscribe}
             disabled={!intronFile || intronBusy}
