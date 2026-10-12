@@ -274,3 +274,40 @@ export async function callProposalChain(prompt: string): Promise<OpenRouterResul
     return { content, providerUsed: 'gpt4o-mini-fallback' };
   }
 }
+
+// ---- Phase 9: dual-coder qualitative analysis (Rev2 Section 4) ----
+// Coder A: Gemini 3.1 Pro (Preview) -> falls back to DeepSeek V4 Pro 0813.
+export const QUAL_CODER_A_MODEL_ROUTES = {
+  primary: 'google/gemini-3.1-pro-preview',
+  fallback: 'deepseek/deepseek-v4-pro-0813',
+}
+
+export async function callQualCoderAChain(prompt: string, timeoutMs: number = 45000): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUAL_CODER_A_MODEL_ROUTES.primary, prompt, timeoutMs)
+    return { content, providerUsed: 'gemini31-openrouter' }
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err
+    console.error('Qual Coder A primary failed, falling back:', err)
+    const content = await callOpenRouterStreaming(QUAL_CODER_A_MODEL_ROUTES.fallback, prompt, timeoutMs)
+    return { content, providerUsed: 'deepseek0813-fallback' }
+  }
+}
+
+// Coder B: Claude Opus 5.5. No model fallback on purpose: a substitute model
+// would break coder independence. One retry on the same model, then it throws.
+export const QUAL_CODER_B_MODEL_ROUTES = {
+  primary: 'anthropic/claude-opus-5.5',
+}
+
+export async function callQualCoderBChain(prompt: string, timeoutMs: number = 45000): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUAL_CODER_B_MODEL_ROUTES.primary, prompt, timeoutMs)
+    return { content, providerUsed: 'opus55-openrouter' }
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err
+    console.error('Qual Coder B failed, retrying once:', err)
+    const content = await callOpenRouterStreaming(QUAL_CODER_B_MODEL_ROUTES.primary, prompt, timeoutMs)
+    return { content, providerUsed: 'opus55-openrouter-retry' }
+  }
+}
