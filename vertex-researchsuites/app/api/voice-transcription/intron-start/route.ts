@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { startWithDiarizeFallback } from "@/lib/intronStartSafe";
 import ffmpegPath from "ffmpeg-static";
 import { execFile } from "node:child_process";
 import { writeFile, readFile, unlink } from "node:fs/promises";
@@ -165,7 +166,7 @@ export async function POST(req: NextRequest) {
         }
         await runFfmpegExtract(inputTmp, outputTmp, range.startSeconds, range.durationSeconds);
         const partBuffer = await readFile(outputTmp);
-        const job = await startIntronJob(apiKey, {
+        const job = await startWithDiarizeFallback(apiKey, {
           blob: new Blob([partBuffer]),
           fileName: "part.mp3",
           languageCode: code,
