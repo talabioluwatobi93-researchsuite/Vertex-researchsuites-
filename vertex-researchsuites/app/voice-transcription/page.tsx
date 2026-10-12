@@ -10,6 +10,7 @@ import { speakerNumbers, partNumbers, mergeSpeakers, swapSpeakersInPart } from "
 import { downloadWordFile } from "@/lib/wordExport";
 import { limitSpeakers } from "@/lib/speakerLimit";
 import SpeakerCards from "./SpeakerCards";
+import { applyNames } from "@/lib/speakerNames";
 import { runIntronParts, type RunnerDeps } from "@/lib/intronRunner";
 import { runDiarize, toPieceIn, toRunnerParts } from "@/lib/diarizeRun";
 import { finishSpeakerFirst, reportText } from "@/lib/diarizeFinish";
@@ -78,6 +79,7 @@ export default function VoiceTranscription() {
   const [transcript, setTranscript] = useState("");
   const [transcriptNotice, setTranscriptNotice] = useState<string>("");
   const [notes, setNotes] = useState("");
+  const [speakerNames, setSpeakerNames] = useState<Record<number, string>>({});
   const [generatingNotes, setGeneratingNotes] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -295,6 +297,7 @@ export default function VoiceTranscription() {
 
   const handleUseIntronTranscript = () => {
     setTranscript(intronText);
+    setSpeakerNames({});
     setTranscriptNotice(
       intronNotice || "This transcript came from the African-language engine. Speaker labels, if any, depend on what the engine returned."
     );
@@ -418,6 +421,7 @@ export default function VoiceTranscription() {
         .eq("id", uploadData.sessionId);
 
       setTranscript(finalTranscript);
+    setSpeakerNames({});
       setStage("review-transcript");
     } catch (err: any) {
       setErrorMsg(err?.message || "Something went wrong. Please try again.");
@@ -477,6 +481,7 @@ export default function VoiceTranscription() {
         .eq("id", session.id);
 
       setTranscript(finalTranscript);
+    setSpeakerNames({});
       setStage("review-transcript");
     } catch (err: any) {
       setErrorMsg(err?.message || "Something went wrong. Please try again.");
@@ -488,7 +493,7 @@ export default function VoiceTranscription() {
   const [savedTranscript, setSavedTranscript] = useState("");
   const handleGenerateNotes = async () => {
     if (transcript.trim() && transcript !== savedTranscript) {
-      downloadWordFile("transcript-" + downloadStamp() + ".docx", transcript, "transcript");
+      downloadWordFile("transcript-" + downloadStamp() + ".docx", applyNames(transcript, speakerNames), "transcript");
       setSavedTranscript(transcript);
     }
     setGeneratingNotes(true);
@@ -497,7 +502,7 @@ export default function VoiceTranscription() {
       const res = await fetch("/api/voice-transcription/interpret", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript }),
+        body: JSON.stringify({ transcript: applyNames(transcript, speakerNames) }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || data.notes === undefined || data.notes === null) {
@@ -708,9 +713,9 @@ export default function VoiceTranscription() {
           {transcriptNotice && (
             <p style={{ color: "#8A6D00", fontSize: 12, marginBottom: "12px" }}>Note: {transcriptNotice}</p>
           )}
-          <SpeakerToolsPanel text={transcript} onChange={setTranscript} />
+          <SpeakerToolsPanel text={transcript} onChange={setTranscript} names={speakerNames} setNames={setSpeakerNames} />
           <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} style={{ width: "100%", minHeight: "260px", padding: "12px 14px", borderRadius: "10px", border: "1px solid #DDDDDD", fontSize: "14px", color: DARK, lineHeight: 1.6, boxSizing: "border-box" as const, marginBottom: "16px" }} />
-          <button type="button" onClick={() => downloadWordFile("transcript-" + downloadStamp() + ".docx", transcript, "transcript")} disabled={!transcript.trim()} style={{ width: "100%", backgroundColor: "#FFFFFF", color: DARK, border: "1px solid " + BORDER, borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", marginBottom: "12px" }}>Download transcript (Word)</button>
+          <button type="button" onClick={() => downloadWordFile("transcript-" + downloadStamp() + ".docx", applyNames(transcript, speakerNames), "transcript")} disabled={!transcript.trim()} style={{ width: "100%", backgroundColor: "#FFFFFF", color: DARK, border: "1px solid " + BORDER, borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", marginBottom: "12px" }}>Download transcript (Word)</button>
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           <button onClick={handleGenerateNotes} disabled={generatingNotes || !transcript.trim()} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
             {generatingNotes ? "Generating interpretive notes..." : "Generate Interpretive Notes"}
@@ -721,7 +726,7 @@ export default function VoiceTranscription() {
       {stage === "notes" && notes && (
         <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
           <button type="button" onClick={() => downloadWordFile("interpretive-notes-" + downloadStamp() + ".docx", notes, "notes")} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "none", backgroundColor: GOLD, color: DARK, fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Download notes (Word)</button>
-          <button type="button" onClick={() => downloadWordFile("transcript-" + downloadStamp() + ".docx", transcript, "transcript")} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid " + BORDER, backgroundColor: "#FFFFFF", color: DARK, fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Download transcript (Word)</button>
+          <button type="button" onClick={() => downloadWordFile("transcript-" + downloadStamp() + ".docx", applyNames(transcript, speakerNames), "transcript")} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid " + BORDER, backgroundColor: "#FFFFFF", color: DARK, fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Download transcript (Word)</button>
         </div>
       )}
       {stage === "notes" && (
@@ -756,7 +761,7 @@ export default function VoiceTranscription() {
   );
 }
 
-function SpeakerToolsPanel({ text, onChange }: { text: string; onChange: (t: string) => void }) {
+function SpeakerToolsPanel({ text, onChange, names, setNames }: { text: string; onChange: (t: string) => void; names: Record<number, string>; setNames: (n: Record<number, string>) => void }) {
   const [mergeFrom, setMergeFrom] = useState("");
   const [mergeTo, setMergeTo] = useState("");
   const [swapPart, setSwapPart] = useState("");
@@ -816,8 +821,9 @@ function SpeakerToolsPanel({ text, onChange }: { text: string; onChange: (t: str
   const apply = (out: unknown, message: string) => {
     if (typeof out === "string" && out !== text) {
       setPrevText(text);
+      setNames({});
       onChange(out);
-      setNote(message);
+      setNote(message + (Object.keys(names).length ? " Speaker names were cleared; add them again." : ""));
     } else {
       setNote("Nothing changed.");
     }
@@ -839,7 +845,7 @@ function SpeakerToolsPanel({ text, onChange }: { text: string; onChange: (t: str
       <p style={{ color: MUTED, fontSize: "12px", margin: "0 0 10px 0" }}>
         {nums.length + " speaker labels found." + (manyParts ? " Speaker numbers can restart in each part, so check them." : "") + " If one person has two labels, combine them."}
       </p>
-      <SpeakerCards text={text} apply={apply} dark={DARK} muted={MUTED} gold={GOLD} border={BORDER} />
+      <SpeakerCards text={text} apply={apply} names={names} setNames={setNames} dark={DARK} muted={MUTED} gold={GOLD} border={BORDER} />
       {nums.length > 1 && (
         <div style={{ marginTop: "12px" }}>
           <div style={rowStyle}>

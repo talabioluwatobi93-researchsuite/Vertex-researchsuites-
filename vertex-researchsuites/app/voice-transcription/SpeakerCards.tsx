@@ -9,6 +9,8 @@ import type { SpeakerCard } from "@/lib/speakerCards";
 type Props = {
   text: string;
   apply: (out: unknown, message: string) => void;
+  names: Record<number, string>;
+  setNames: (n: Record<number, string>) => void;
   dark: string;
   muted: string;
   gold: string;
@@ -16,7 +18,7 @@ type Props = {
 };
 type OpenCard = { n: number; mode: "merge" | "swap" } | null;
 
-export default function SpeakerCards({ text, apply, dark, muted, gold, border }: Props) {
+export default function SpeakerCards({ text, apply, dark, muted, gold, border, names, setNames }: Props) {
   const [open, setOpen] = useState<OpenCard>(null);
   const [target, setTarget] = useState("");
   const [swapPart, setSwapPart] = useState("");
@@ -56,7 +58,8 @@ export default function SpeakerCards({ text, apply, dark, muted, gold, border }:
         const where = many ? "In Part " + pt + ", " : "";
         return (
           <div key={c.n} style={box}>
-            <p style={{ color: dark, fontSize: "14px", fontWeight: 700, margin: "0" }}>{"Speaker " + c.n}</p>
+            <p style={{ color: dark, fontSize: "14px", fontWeight: 700, margin: "0" }}>{"Speaker " + c.n + (names[c.n] ? " (" + names[c.n] + ")" : "")}</p>
+            <input type="text" value={names[c.n] || ""} onChange={(e) => setNames({ ...names, [c.n]: e.target.value })} placeholder="Name (e.g. Teacher)" aria-label={"Name for Speaker " + c.n} maxLength={40} style={{ ...sel, width: "100%", boxSizing: "border-box", margin: "4px 0" }} />
             <p style={small}>
               {plural(c.lines) + ", " + c.words + " words" + (c.first ? ", first heard at " + c.first : "") +
                 (many ? ", in " + (c.parts.length === 1 ? "Part " : "Parts ") + c.parts.join(", ") : "")}
