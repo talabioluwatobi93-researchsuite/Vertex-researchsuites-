@@ -10,7 +10,10 @@ export type ChunkSeam = {
   inferred: number; newSpeakers: number; lowConfidence: boolean;
 };
 export type Turn = { speaker: number; start: number; end: number };
-export type Piece = { index: number; startSeconds: number; durationSeconds: number; speaker: number; soft: boolean };
+export type Piece = {
+  index: number; startSeconds: number; endSeconds: number; durationSeconds: number;
+  speaker: number; soft: boolean; softEnd: boolean;
+};
 
 export const DIAR_CHUNK_SECONDS = 900; // 15 min per Replicate call
 export const DIAR_OVERLAP_SECONDS = 360; // tested in simulation: 120 s splits speakers, 360 s mostly does not
@@ -56,7 +59,7 @@ export function parseSegments(output: unknown): Seg[] {
   return out;
 }
 
-// Chunks of 15 min that overlap by 2 min. The last chunk ends exactly at the end of the audio.
+// Chunks of 15 min that overlap by 6 min. The last chunk ends exactly at the end of the audio.
 export function planDiarChunks(totalSeconds: number): Chunk[] {
   const out: Chunk[] = [];
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return out;
@@ -217,11 +220,15 @@ export function planPieces(turns: Turn[], totalSeconds: number): Piece[] {
     const len = t.end - t.start;
     const n = Math.max(1, Math.ceil(len / PIECE_TARGET_SECONDS));
     const each = len / n;
+    // One list of cut points per turn, so a piece's end is exactly the next piece's start.
+    const cuts: number[] = [];
+    for (let i = 0; i <= n; i++) cuts.push(r3(t.start + i * each));
     for (let i = 0; i < n; i++) {
-      const a = t.start + i * each;
-      const s = Math.max(0, a - (i === 0 ? PAD_SECONDS : 0));
-      const e = Math.min(totalSeconds, a + each + (i === n - 1 ? PAD_SECONDS : 0));
-      if (e > s) out.push({ index: out.length, startSeconds: r3(s), durationSeconds: r3(e - s), speaker: t.speaker, soft: i > 0 });
+      const s = i === 0 ? Math.max(0, cuts[0] - PAD_SECONDS) : cuts[i];
+      const e = i === n - 1 ? Math.min(totalSeconds, cuts[n] + PAD_SECONDS) : cuts[i + 1];
+      if (e > s) {
+        out.push({ index: out.length, startSeconds: r3(s), endSeconds: r3(e), durationSeconds: r3(e - s), speaker: t.speaker, soft: i > 0, softEnd: i < n - 1 });
+      }
     }
   }
   return out;
