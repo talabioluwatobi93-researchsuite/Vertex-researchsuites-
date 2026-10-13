@@ -128,8 +128,8 @@ export default function AgreementPage() {
   }
 
   const wrap = { backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '40px 16px' }
-  const card = { maxWidth: '700px', margin: '0 auto', backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '24px' }
-  const btn = { padding: '12px 20px', borderRadius: '8px', border: 'none', fontSize: '14px', cursor: 'pointer' }
+  const card = { maxWidth: '700px', margin: '0 auto', backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #EEEEEE' }
+  const btn = { padding: '10px 18px', borderRadius: '10px', border: '1px solid #D4AF37', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }
 
   if (phase === 'running') {
     return (
@@ -145,7 +145,7 @@ export default function AgreementPage() {
       <div style={wrap}>
         <div style={card}>
           <p style={{ color: '#C0392B', fontSize: '14px' }}>{errorMsg || 'Something went wrong.'}</p>
-          <button style={{ ...btn, backgroundColor: '#333333', color: '#FFFFFF' }} onClick={() => runCheck()}>Try again</button>
+          <button style={{ ...btn, backgroundColor: '#F9F9F9', color: '#333333' }} onClick={() => runCheck()}>Try again</button>
         </div>
       </div>
     )
@@ -177,7 +177,7 @@ export default function AgreementPage() {
         )}
         {(result.disagreementCount || 0) > 0 && (
           <div style={{ margin: '12px 0' }}>
-            <button style={{ ...btn, padding: 0, backgroundColor: 'transparent', color: '#333333', fontSize: '13px', textDecoration: 'underline' }} onClick={() => setShowDiff(!showDiff)}>
+            <button style={{ ...btn, padding: 0, border: 'none', backgroundColor: 'transparent', color: '#333333', fontSize: '13px', textDecoration: 'underline' }} onClick={() => setShowDiff(!showDiff)}>
               {showDiff ? 'Hide' : 'Show'} where the coders disagreed ({result.disagreementCount})
             </button>
             {showDiff && (
@@ -205,7 +205,7 @@ export default function AgreementPage() {
         )}
         {errorMsg && <p style={{ color: '#C0392B', fontSize: '13px' }}>{errorMsg}</p>}
         <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap' as const }}>
-          <button style={{ ...btn, backgroundColor: '#333333', color: '#FFFFFF' }} disabled={busy} onClick={() => decide('proceed')}>
+          <button style={{ ...btn, backgroundColor: '#F9F9F9', color: '#333333' }} disabled={busy} onClick={() => decide('proceed')}>
             {result.reliable ? 'Continue to my report' : 'Proceed anyway'}
           </button>
           <button style={{ ...btn, backgroundColor: '#EEEEEE', color: '#333333' }} disabled={busy} onClick={() => decide('stop')}>
@@ -213,7 +213,7 @@ export default function AgreementPage() {
           </button>
         </div>
         <p style={{ marginTop: '16px' }}>
-          <button style={{ ...btn, padding: 0, backgroundColor: 'transparent', color: '#777777', fontSize: '12px', textDecoration: 'underline' }} disabled={busy} onClick={() => runCheck()}>
+          <button style={{ ...btn, padding: 0, border: 'none', backgroundColor: 'transparent', color: '#777777', fontSize: '12px', textDecoration: 'underline' }} disabled={busy} onClick={() => runCheck()}>
             Run the check again
           </button>
         </p>
