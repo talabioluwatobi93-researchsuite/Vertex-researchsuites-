@@ -83,20 +83,10 @@ export function buildCodebookTable(themes: ThemeDef[], counts: Record<string, nu
   }))
 }
 
-const MODEL_NAMES: Record<string, string> = {
-  'gemini31-openrouter': 'Gemini 3.1 Pro (Preview)',
-  'deepseek0813-fallback': 'DeepSeek V4 Pro 0813',
-  'opus55-openrouter': 'Claude Opus 5.5',
-  'opus55-openrouter-retry': 'Claude Opus 5.5',
-}
-
 export function agreementStatement(agreement: any): string {
   const r = agreement && agreement.result
   if (!r) return 'Inter-coder agreement was not calculated for this analysis.'
-  const a = MODEL_NAMES[agreement.providerA] || 'Coder A'
-  const b = MODEL_NAMES[agreement.providerB] || 'Claude Opus 5.5 (unavailable)'
-  let s = 'Inter-coder agreement. Two independent AI coders (Coder A: ' + a + '; Coder B: ' + b +
-    ') each assigned participant paragraphs to one of the confirmed themes, or to none. '
+  let s = 'Inter-coder agreement. Two independent automated coders (Coder A and Coder B) each assigned participant paragraphs to one of the confirmed themes, or to none. '
   if (r.kappa === null || r.kappa === undefined) {
     s += 'Cohen\u2019s kappa could not be calculated for this transcript.'
   } else {
