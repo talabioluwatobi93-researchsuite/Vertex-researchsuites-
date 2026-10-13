@@ -168,7 +168,14 @@ export default function QualResultsPage() {
         setErrorMsg(asm.data.error || 'Report generation failed.')
         return
       }
-      const data = asm.data
+      let data = asm.data
+      setStatus('Checking your references...')
+      try {
+        const rf = await callGen(hdrs, { sessionId: id, action: 'references' })
+        if (rf.ok && rf.data && rf.data.results) data = rf.data
+      } catch (e: any) {
+        /* the report still works without the reference list */
+      }
       const readyAt = new Date().toISOString()
       await supabase
         .from('qualitative_analysis_sessions')
