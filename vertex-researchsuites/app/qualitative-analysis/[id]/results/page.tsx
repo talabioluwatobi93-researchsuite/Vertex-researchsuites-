@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { qualAuthHeaders } from '@/lib/qualAuth'
+import { loadQualExportInput, buildQualWordBlob, buildQualExcelBlob, saveBlob, qualFileName } from '@/lib/qualExport'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,6 +52,7 @@ export default function QualResultsPage() {
   const [results, setResults] = useState<any>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [saved, setSaved] = useState(false)
+  const [exportMsg, setExportMsg] = useState('')
   const [saving, setSaving] = useState(false)
   const [holdSecondsLeft, setHoldSecondsLeft] = useState(0)
 
@@ -88,7 +90,28 @@ export default function QualResultsPage() {
     }, 1000)
   }
 
+  async function exportWord(resultsData: any) {
+    const input = await loadQualExportInput(supabase, String(id), resultsData)
+    saveBlob(await buildQualWordBlob(input), qualFileName(input, 'Chapter4-Report', 'docx'))
+  }
+  
+  async function exportExcel(resultsData: any) {
+    const input = await loadQualExportInput(supabase, String(id), resultsData)
+    saveBlob(buildQualExcelBlob(input), qualFileName(input, 'Evidence-File', 'xlsx'))
+  }
+  
+  async function onExportClick(kind: string) {
+    setExportMsg('')
+    try {
+      if (kind === 'word') await exportWord(results)
+      else await exportExcel(results)
+    } catch (e: any) {
+      setExportMsg('Could not create the file. Please try again.')
+    }
+  }
+  
   async function revealQualResults(resultsData: any) {
+    try { await exportWord(resultsData) } catch (e: any) { /* the buttons below still work */ }
     const { data: userData } = await supabase.auth.getUser()
     if (userData?.user?.id) {
       await supabase.from('bunker_items').insert({
@@ -245,6 +268,12 @@ export default function QualResultsPage() {
         </div>
       )}
 
+      <div style={{ marginBottom: '16px' }}>
+        <button onClick={() => onExportClick('word')} style={{ backgroundColor: '#F9F9F9', color: '#333333', border: '1px solid #D4AF37', borderRadius: '10px', padding: '10px 18px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginRight: '10px', marginBottom: '8px' }}>Download Word report</button>
+        <button onClick={() => onExportClick('excel')} style={{ backgroundColor: '#F9F9F9', color: '#333333', border: '1px solid #D4AF37', borderRadius: '10px', padding: '10px 18px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginRight: '10px', marginBottom: '8px' }}>Download Excel evidence file</button>
+        {exportMsg && <p style={{ color: '#C0392B', fontSize: '13px', margin: '4px 0 0' }}>{exportMsg}</p>}
+      </div>
+      
       {results.codebookTable && (
         <div style={tableWrap}>
           <p style={tableTitle}>Table 4.1 Codebook of Themes</p>
