@@ -93,7 +93,7 @@ export default function QualAnalysisTypePage() {
       return
     }
 
-    router.push(`/qualitative-analysis/${sessionId}/results`)
+    router.push(`/qualitative-analysis/${sessionId}/agreement`)
   }
 
   if (loading) {
