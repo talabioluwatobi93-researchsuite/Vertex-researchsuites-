@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { callQualCoderAChain } from '@/lib/openrouter';
 import { requireSessionOwner } from '@/lib/qualAuth';
+import { buildReferenceBlock, stripReferences } from '@/lib/qualReferences';
 import {
   Assignment, ThemeDef, ThemeProse, buildCodebookTable, mentionCounts,
   assembleNarrative, agreementStatement, cleanProse, fallbackClaim,
@@ -79,13 +80,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const sessionId = body.sessionId;
     const action = body.action;
-    if (!sessionId || (action !== 'step' && action !== 'assemble')) {
+    if (!sessionId || (action !== 'step' && action !== 'assemble' && action !== 'references')) {
       return NextResponse.json({ error: 'Missing sessionId or action' }, { status: 400 });
     }
 
     const own = await requireSessionOwner(
       req, supabase, sessionId,
-      'themes, quote_assignments, analysis_type, research_framework, agreement, report_parts'
+      'themes, quote_assignments, analysis_type, research_framework, agreement, report_parts, results'
     );
     if (!own.ok) return NextResponse.json({ error: own.error }, { status: own.status });
     const session = own.session;
@@ -151,6 +152,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ step: n, stepCount: steps.length, done: n === steps.length - 1, usedFallback });
     }
 
+    if (action === 'references') {
+      const base: any = session.results
+      if (!base || typeof base.narrative !== 'string') {
+        return NextResponse.json({ error: 'Report not ready.' }, { status: 409 })
+      }
+      const style = /6/.test(String(fw.apaVersion || '')) ? 'APA6' : 'APA7'
+      const block = await buildReferenceBlock({ topic: String(fw.topic || ''), style, narrative: base.narrative })
+      const results2 = {
+        ...base,
+        narrative: stripReferences(base.narrative) + '\n' + block.lines.join('\n'),
+        references: { fromYear: block.fromYear, shortfall: block.shortfall, flags: block.flags, computedAt: new Date().toISOString() },
+      }
+      await supabase.from('qualitative_analysis_sessions').update({ results: results2 }).eq('id', sessionId)
+      return NextResponse.json({ results: results2 })
+    }
+    
     // action === 'assemble': code builds counts, quotes and tables; AI prose only fills gaps in wording
     const prose: Record<string, ThemeProse> = {};
     themes.forEach((t) => {
