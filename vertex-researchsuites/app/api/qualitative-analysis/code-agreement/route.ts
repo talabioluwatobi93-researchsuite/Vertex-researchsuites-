@@ -13,6 +13,7 @@ const supabase = createClient(
 )
 
 const BATCH_CHARS = 14000
+const MIN_UNITS_FOR_KAPPA = 30 // below this, kappa is unstable
 const MIN_COVERAGE = 0.9 // a coder must label at least 90% of a batch's paragraphs
 
 type Settled = { ok: true; value: { content: string; providerUsed: string } } | { ok: false; reason: any }
@@ -103,6 +104,22 @@ export async function POST(req: NextRequest) {
       })
       const { a, b } = pairLabels(units, prev.labelsA || {}, prev.labelsB || {})
       const k = cohenKappa(a, b)
+      const byIndex = new Map(blocks.map((bl) => [bl.index, bl]))
+      const disagreementCount = a.filter((x, i) => x !== b[i]).length
+      const disagreements = units
+        .map((u, i) => ({ u, ca: a[i], cb: b[i] }))
+        .filter((x) => x.ca !== x.cb)
+        .slice(0, 300)
+        .map((x) => {
+          const bl = byIndex.get(x.u)
+          return {
+            blockIndex: x.u,
+            participantId: bl ? bl.participantId : '',
+            excerpt: bl ? bl.text.slice(0, 160) : '',
+            coderA: x.ca,
+            coderB: x.cb,
+          }
+        })
       const result = {
         ...k,
         message: units.length === 0
@@ -112,6 +129,9 @@ export async function POST(req: NextRequest) {
         totalUnits: blocks.length,
         failedBatches: failed,
         percentAgreement: Math.round(k.observed * 1000) / 10,
+        smallSample: units.length > 0 && units.length < MIN_UNITS_FOR_KAPPA,
+        disagreementCount,
+        disagreements,
         themeCount: themeNames.length,
         providerA: prev.providerA || null,
         providerB: prev.providerB || null,

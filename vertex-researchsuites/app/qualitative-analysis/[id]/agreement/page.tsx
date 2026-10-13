@@ -17,6 +17,9 @@ type AgreementResult = {
   unitsCompared: number
   totalUnits: number
   failedBatches: number[]
+  smallSample?: boolean
+  disagreementCount?: number
+  disagreements?: { blockIndex: number; participantId: string; excerpt: string; coderA: string; coderB: string }[]
 }
 
 const API = '/api/qualitative-analysis/code-agreement'
@@ -32,6 +35,7 @@ export default function AgreementPage() {
   const [result, setResult] = useState<AgreementResult | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  const [showDiff, setShowDiff] = useState(false)
 
   useEffect(() => {
     start()
@@ -165,6 +169,31 @@ export default function AgreementPage() {
           <p style={{ color: '#B9770E', fontSize: '13px' }}>
             Part {result.failedBatches.join(', ')} of your transcript could not be checked and was left out of this figure.
           </p>
+        )}
+        {result.smallSample && (
+          <p style={{ color: '#B9770E', fontSize: '13px' }}>
+            Only {result.unitsCompared} paragraphs were compared. With so few, κ is unstable and should be read with caution.
+          </p>
+        )}
+        {(result.disagreementCount || 0) > 0 && (
+          <div style={{ margin: '12px 0' }}>
+            <button style={{ ...btn, padding: 0, backgroundColor: 'transparent', color: '#333333', fontSize: '13px', textDecoration: 'underline' }} onClick={() => setShowDiff(!showDiff)}>
+              {showDiff ? 'Hide' : 'Show'} where the coders disagreed ({result.disagreementCount})
+            </button>
+            {showDiff && (
+              <div style={{ marginTop: '8px' }}>
+                {(result.disagreements || []).slice(0, 20).map((d) => (
+                  <div key={d.blockIndex} style={{ borderTop: '1px solid #EEEEEE', padding: '8px 0' }}>
+                    <p style={{ color: '#555555', fontSize: '12px', margin: 0 }}>Paragraph {d.blockIndex} ({d.participantId}): {d.excerpt}</p>
+                    <p style={{ color: '#333333', fontSize: '12px', margin: '4px 0 0' }}>Coder A: {d.coderA} | Coder B: {d.coderB}</p>
+                  </div>
+                ))}
+                {(result.disagreementCount || 0) > 20 && (
+                  <p style={{ color: '#777777', fontSize: '12px' }}>Showing 20 of {result.disagreementCount}. The full list is saved with your analysis.</p>
+                )}
+              </div>
+            )}
+          </div>
         )}
         {!result.reliable && (
           <div style={{ backgroundColor: '#FEF5E7', borderRadius: '8px', padding: '12px 16px', margin: '12px 0' }}>
