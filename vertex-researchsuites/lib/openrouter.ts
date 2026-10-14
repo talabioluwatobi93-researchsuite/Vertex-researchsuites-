@@ -64,7 +64,7 @@ export async function callPilotStudyChain(prompt: string): Promise<OpenRouterRes
 }
 
 export const QUANT_INTERPRET_MODEL_ROUTES = {
-  primary: 'anthropic/claude-sonnet-4.6',
+  primary: 'anthropic/claude-sonnet-5',
   fallback: 'openai/gpt-4o-mini',
 };
 
