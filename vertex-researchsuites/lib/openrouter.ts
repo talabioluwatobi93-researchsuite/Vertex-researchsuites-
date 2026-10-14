@@ -294,20 +294,22 @@ export async function callQualCoderAChain(prompt: string, timeoutMs: number = 45
   }
 }
 
-// Coder B: Claude Opus 5.5. No model fallback on purpose: a substitute model
-// would break coder independence. One retry on the same model, then it throws.
+// Coder B: Qwen 72B first, Haiku 5.5 if that fails. Both are a different
+// model family from Coder A (Gemini, fallback DeepSeek), so the two coders
+// stay independent. The first model gets one attempt, then the fallback.
 export const QUAL_CODER_B_MODEL_ROUTES = {
-  primary: 'anthropic/claude-opus-5.5',
+  primary: 'qwen/qwen-2.5-72b-instruct',
+  fallback: 'anthropic/claude-haiku-5.5',
 }
 
 export async function callQualCoderBChain(prompt: string, timeoutMs: number = 45000): Promise<OpenRouterResult> {
   try {
     const content = await callOpenRouterStreaming(QUAL_CODER_B_MODEL_ROUTES.primary, prompt, timeoutMs)
-    return { content, providerUsed: 'opus55-openrouter' }
+    return { content, providerUsed: 'coderb-primary' }
   } catch (err: any) {
     if (String(err.message).startsWith('CONFIG_ERROR')) throw err
-    console.error('Qual Coder B failed, retrying once:', err)
-    const content = await callOpenRouterStreaming(QUAL_CODER_B_MODEL_ROUTES.primary, prompt, timeoutMs)
-    return { content, providerUsed: 'opus55-openrouter-retry' }
+    console.error('Qual Coder B primary failed, trying fallback:', err)
+    const content = await callOpenRouterStreaming(QUAL_CODER_B_MODEL_ROUTES.fallback, prompt, timeoutMs)
+    return { content, providerUsed: 'coderb-fallback' }
   }
 }
