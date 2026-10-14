@@ -86,16 +86,22 @@ export function buildCodebookTable(themes: ThemeDef[], counts: Record<string, nu
 export function agreementStatement(agreement: any): string {
   const r = agreement && agreement.result
   if (!r) return 'Inter-coder agreement was not calculated for this analysis.'
-  let s = 'Inter-coder agreement. Two independent automated coders (Coder A and Coder B) each assigned participant paragraphs to one of the confirmed themes, or to none. '
+let s = 'Inter-coder agreement. '
+  const failedN = (r.failedBatches && r.failedBatches.length) ? r.failedBatches.length : 0
   if (r.kappa === null || r.kappa === undefined) {
-    s += 'Cohen\u2019s kappa could not be calculated for this transcript.'
+    if (failedN > 0) {
+      s += 'Coder B did not return usable results for ' + failedN + (failedN === 1 ? ' part' : ' parts') + ' of the transcript, so Cohen\u2019s kappa could not be calculated and no agreement figure is given. The codes and themes in this report come from Coder A, and they have not been independently checked.'
+    } else {
+      s += 'Cohen\u2019s kappa could not be calculated for this transcript, so no agreement figure is given. The codes and themes in this report have not been independently checked.'
+    }
   } else {
+    s += 'Two independent automated coders (Coder A and Coder B) each assigned participant paragraphs to one of the confirmed themes, or to none. '
     s += 'Across ' + r.unitsCompared + ' paragraphs they gave the same label to ' + r.percentAgreement +
       '% (Cohen\u2019s \u03BA = ' + Number(r.kappa).toFixed(2) + ', ' + r.level + ' agreement; ' +
       (r.reliable ? 'at or above' : 'below') + ' the commonly used 0.61 threshold).'
-  }
-  if (r.failedBatches && r.failedBatches.length > 0) {
-    s += ' Part ' + r.failedBatches.join(', ') + ' of the transcript could not be checked and is excluded from this figure.'
+    if (failedN > 0) {
+      s += ' Coder B could not check ' + failedN + (failedN === 1 ? ' part' : ' parts') + ' of the transcript; those parts are excluded from this figure.'
+    }
   }
   if (agreement.decision === 'proceed') s += ' The researcher reviewed this result and chose to proceed.'
   return s
