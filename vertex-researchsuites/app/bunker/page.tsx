@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import DataCleaningBunkerItem from './DataCleaningBunkerItem'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -336,7 +337,17 @@ export default function Bunker() {
         ) : (
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE' }}>
             <p style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: '#333333', lineHeight: '1.6', margin: 0 }}>
-              {selected.content_reference}
+              {selected.item_type === 'quantitative_data_cleaning' ? (
+                  <DataCleaningBunkerItem
+                    fileId={selected.content_reference}
+                    getToken={async () => {
+                      const { data } = await supabase.auth.getSession()
+                      return data.session ? data.session.access_token : ''
+                    }}
+                  />
+                ) : (
+                  selected.content_reference
+                )}
             </p>
           </div>
         )}
