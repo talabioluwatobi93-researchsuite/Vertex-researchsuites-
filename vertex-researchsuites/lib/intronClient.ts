@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const INTRON_BASE_URL = "https://infer.voice.intron.io";
 // The sync endpoint documents 120 s (its error example says 60 s). The async limit is not documented.
-export const INTRON_PART_MAX_SECONDS = 120;
+export const INTRON_PART_MAX_SECONDS = 930;
 
 export type IntronState = "processing" | "done" | "failed" | "unknown";
 

@@ -255,7 +255,7 @@ export default function VoiceTranscription() {
         };
       }
       setIntronMsg("Transcribing... 0 of " + plan.length + " parts done. Please don't close this page.");
-      const run = await runIntronParts(plan, deps, { maxRunning: 3, pollMs: 12000 });
+      const run = await runIntronParts(plan, deps, sfPieces ? { maxRunning: 3, pollMs: 12000 } : { maxRunning: 3, pollMs: 12000, batchSize: 1, maxJobMs: 20 * 60 * 1000 });
       const okParts = run.parts.filter((p) => p.text !== null).length;
       if (okParts === 0) throw new Error("Transcription failed for every part of this audio. Please try again.");
 

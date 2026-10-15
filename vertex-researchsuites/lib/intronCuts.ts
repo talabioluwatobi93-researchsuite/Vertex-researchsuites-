@@ -2,9 +2,9 @@
 // Parts are cut at the quietest moment in a short window near every 100 seconds, with no overlap.
 import { parseDiarizedText, formatTime } from "./intronStitch";
 
-export const CUT_STEP_SECONDS = 100;
+export const CUT_STEP_SECONDS = 900;
 export const CUT_WINDOW_SECONDS = 18;
-export const CUT_MAX_PART_SECONDS = 120;
+export const CUT_MAX_PART_SECONDS = 930;
 const CUT_MIN_TAIL_SECONDS = 12;
 const CUT_FRAME_MS = 50;
 
@@ -107,7 +107,7 @@ export function joinIntronParts(partsIn: JoinPartInput[]): JoinResult {
   let labelled = false;
   let multi = 0;
   parts.forEach((p, pos) => {
-    const at = formatTime(p.startSeconds ?? p.index * 100);
+    const at = formatTime(p.startSeconds ?? p.index * CUT_STEP_SECONDS);
     if (p.text === null || p.text === undefined) {
       failedParts.push(p.index);
       lines.push("[Part " + (p.index + 1) + " could not be transcribed. The audio from about " + at + " is missing here.]");
