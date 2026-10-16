@@ -1,12 +1,16 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { backTarget } from '../lib/backMap'
 
 export default function BackButton() {
   const router = useRouter()
+  const pathname = usePathname()
+  const target = backTarget(pathname || '')
+  if (!target) return null
   return (
     <button
-      onClick={() => router.push('/dashboard')}
+      onClick={() => router.push(target)}
       style={{
         position: 'fixed',
         top: '16px',
