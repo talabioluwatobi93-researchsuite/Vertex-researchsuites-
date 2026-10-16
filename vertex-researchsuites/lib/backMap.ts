@@ -20,8 +20,8 @@ export function backTarget(pathname: string): string | null {
   const seg = p.split("/").filter(Boolean);
   const root = seg[0];
   if (root === "quantitative-analysis") {
-    if (seg[1] === "pricing") return "/quantitative-analysis";
-    return seg.length === 1 ? "/dashboard" : chain("/quantitative-analysis", QUANT, seg);
+    if (seg[1] === "pricing") return "/dashboard";
+    return seg.length === 1 ? "/quantitative-analysis/pricing" : chain("/quantitative-analysis", QUANT, seg);
   }
   if (root === "qualitative-analysis") {
     return seg.length === 1 ? "/dashboard" : chain("/qualitative-analysis", QUAL, seg);
