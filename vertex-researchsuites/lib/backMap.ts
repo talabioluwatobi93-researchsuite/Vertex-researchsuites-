@@ -32,5 +32,6 @@ export function backTarget(pathname: string): string | null {
     return chain("/pilot-study", PILOT, seg);
   }
   if (root === "writing-check" && seg[1] === "results") return "/writing-check";
+  if (root === "receipt") return "/purchases";
   return "/dashboard";
 }
