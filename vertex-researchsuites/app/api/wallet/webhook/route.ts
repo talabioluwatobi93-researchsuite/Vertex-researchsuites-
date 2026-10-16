@@ -1,3 +1,5 @@
+import { awardFirstDepositCommission } from "@/lib/referral";
+import { adminDb } from "@/lib/referralServer";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -47,7 +49,8 @@ export async function POST(req: NextRequest) {
             .update({ balance: Number(wallet.balance) + amountInNaira })
             .eq("id", userId);
 
-          await supabase.from("wallet_transactions").insert({
+          await awardFirstDepositCommission(adminDb(), userId, reference, amountInNaira);
+      await supabase.from("wallet_transactions").insert({
             user_id: userId,
             reference,
             amount: amountInNaira,

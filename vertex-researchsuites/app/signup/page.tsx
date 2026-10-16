@@ -10,7 +10,7 @@ export default function SignUp() {
   const [message, setMessage] = useState('')
 
   async function handleSignUp() {
-    const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name, account_type: type } } })
+    const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name, account_type: type, ref_code: new URLSearchParams(window.location.search).get('ref') || '' } } })
     if (error) { setMessage(error.message) } else { setMessage('Account created! Check your email.') }
   }
 

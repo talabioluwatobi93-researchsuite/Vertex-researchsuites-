@@ -1,3 +1,5 @@
+import { awardFirstDepositCommission } from "@/lib/referral";
+import { adminDb } from "@/lib/referralServer";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -57,7 +59,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to update balance" }, { status: 500 });
     }
 
-    await supabase.from("wallet_transactions").insert({
+    await awardFirstDepositCommission(adminDb(), userId, reference, amountInNaira);
+      await supabase.from("wallet_transactions").insert({
       user_id: userId,
       reference,
       amount: amountInNaira,
