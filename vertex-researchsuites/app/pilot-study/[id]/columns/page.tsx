@@ -152,7 +152,9 @@ export default function PilotStudyColumnsPage() {
     if (!userData?.user) { setErrorMsg('Please log in again.'); setSaving(false); return }
 
     const { data: priceRow } = await supabase.from('feature_pricing').select('price').eq('feature_name', 'pilot_study').single()
-    const price = priceRow?.price ?? 0
+    const { data: stRow } = await supabase.from('pilot_study_sessions').select('status').eq('id', sessionId).single()
+    const alreadyPaid = ['mapped', 'cleaning_complete', 'completed', 'active', 'expired'].includes(stRow?.status ?? '')
+    const price = alreadyPaid ? 0 : (priceRow?.price ?? 0)
     if (price > 0) {
       const { data: wallet } = await supabase.from('wallets').select('balance').eq('id', userData.user.id).single()
       const balance = wallet?.balance ?? 0
@@ -172,7 +174,7 @@ export default function PilotStudyColumnsPage() {
       questionnaires_shared: questionnairesShared || null,
       responses_received: responsesReceived || null,
         citation_style: citationStyle,
-        status: 'mapped',
+        status: alreadyPaid ? stRow?.status : 'mapped',
         updated_at: new Date().toISOString(),
       })
       .eq('id', sessionId)
