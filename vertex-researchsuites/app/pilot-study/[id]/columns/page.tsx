@@ -157,9 +157,10 @@ export default function PilotStudyColumnsPage() {
       const { data: wallet } = await supabase.from('wallets').select('balance').eq('id', userData.user.id).single()
       const balance = wallet?.balance ?? 0
       if (balance < price) { setErrorMsg('Your balance is not enough, kindly top up.'); setSaving(false); return }
-      const { error: deductError } = await supabase.from('wallets').update({ balance: balance - price }).eq('id', userData.user.id)
+      const chargeOut: any = Number(price) > 0 ? await supabase.rpc('charge_feature', { p_description: 'Pilot Study & Reliability Test', p_amount: price }) : { data: { ok: true }, error: null }
+    const deductError = (chargeOut.error || !chargeOut.data || chargeOut.data.error) ? true : null
       if (deductError) { setErrorMsg('Could not process payment. Please try again.'); setSaving(false); return }
-      await supabase.from('transactions').insert({ user_id: userData.user.id, type: 'debit', amount: price, status: 'success', description: 'Pilot Study & Reliability Test' })
+      
     }
 
     const { error } = await supabase

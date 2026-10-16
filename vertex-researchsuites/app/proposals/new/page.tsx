@@ -137,10 +137,8 @@ export default function NewProposal() {
         return;
       }
 
-      const { error: deductError } = await supabase
-        .from("wallets")
-        .update({ balance: balance - previewPrice })
-        .eq("id", userId);
+      const chargeOut: any = Number(previewPrice) > 0 ? await supabase.rpc('charge_feature', { p_description: 'Research Topics Preview', p_amount: previewPrice }) : { data: { ok: true }, error: null }
+    const deductError = (chargeOut.error || !chargeOut.data || chargeOut.data.error) ? true : null
 
       if (deductError) {
         setErrorMsg("Could not process payment. Please try again.");
@@ -212,10 +210,8 @@ export default function NewProposal() {
         return;
       }
 
-      const { error: deductError } = await supabase
-        .from("wallets")
-        .update({ balance: balance - fullPrice })
-        .eq("id", userId);
+      const chargeOut: any = Number(fullPrice) > 0 ? await supabase.rpc('charge_feature', { p_description: 'Full Proposal', p_amount: fullPrice }) : { data: { ok: true }, error: null }
+    const deductError = (chargeOut.error || !chargeOut.data || chargeOut.data.error) ? true : null
 
       if (deductError) {
         setErrorMsg("Could not process payment. Please try again.");

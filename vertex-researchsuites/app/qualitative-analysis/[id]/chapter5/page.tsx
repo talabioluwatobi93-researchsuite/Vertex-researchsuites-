@@ -102,7 +102,8 @@ export default function QualChapter5Page() {
 
     if (price > 0) {
       const { data: userData } = await supabase.auth.getUser()
-      const { error: deductError } = await supabase.from('wallets').update({ balance: balance - price }).eq('id', userData?.user?.id)
+      const chargeOut: any = Number(price) > 0 ? await supabase.rpc('charge_feature', { p_description: 'Qualitative Chapter 5', p_amount: price }) : { data: { ok: true }, error: null }
+    const deductError = (chargeOut.error || !chargeOut.data || chargeOut.data.error) ? true : null
       if (deductError) { setErrorMsg('Something went wrong deducting from your wallet.'); setProcessing(false); return }
     }
 

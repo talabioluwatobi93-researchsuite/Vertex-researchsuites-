@@ -101,16 +101,14 @@ export default function WritingCheckPage() {
         setLoading(false)
         return
       }
-      const { error: deductError } = await supabase
-        .from('wallets')
-        .update({ balance: balance - totalPrice })
-        .eq('id', userId)
+      const chargeOut: any = Number(totalPrice) > 0 ? await supabase.rpc('charge_feature', { p_description: 'Writing Check & Polish', p_amount: totalPrice }) : { data: { ok: true }, error: null }
+    const deductError = (chargeOut.error || !chargeOut.data || chargeOut.data.error) ? true : null
       if (deductError) {
         setErrorMsg('Could not process payment. Please try again.')
         setLoading(false)
         return
       }
-      await supabase.from('transactions').insert({ user_id: userId, type: 'debit', amount: totalPrice, status: 'success', description: 'Writing Check & Polish' });
+      
       await handleSubmit()
     } catch {
       setErrorMsg('Something went wrong. Please try again.')

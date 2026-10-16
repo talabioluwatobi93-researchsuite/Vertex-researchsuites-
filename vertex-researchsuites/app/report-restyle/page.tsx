@@ -113,13 +113,14 @@ export default function ReportRestylePage() {
         setBusy(false)
         return
       }
-      const { error: deductError } = await supabase.from('wallets').update({ balance: balance - pricePerUse }).eq('id', userId)
+      const chargeOut: any = Number(pricePerUse) > 0 ? await supabase.rpc('charge_feature', { p_description: 'Restyle Your Report', p_amount: pricePerUse }) : { data: { ok: true }, error: null }
+    const deductError = (chargeOut.error || !chargeOut.data || chargeOut.data.error) ? true : null
       if (deductError) {
         setError('Could not process payment. Please try again.')
         setBusy(false)
         return
       }
-      await supabase.from('transactions').insert({ user_id: userId, type: 'debit', amount: pricePerUse, status: 'success', description: 'Restyle Your Report' })
+      
     } catch {
       setError('Something went wrong. Please try again.')
       setBusy(false)
