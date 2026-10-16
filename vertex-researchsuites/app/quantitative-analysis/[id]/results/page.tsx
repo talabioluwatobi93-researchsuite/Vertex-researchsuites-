@@ -258,56 +258,6 @@ export default function ResultsPage() {
     URL.revokeObjectURL(url)
   }
 
-  async function handleReRun() {
-    setReRunLoading(true)
-    setErrorMsg('')
-    try {
-      const rootId = reRunInfo.parent_session_id || id
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-
-      const { data: siblings, error: siblingsErr } = await supabase
-        .from('quantitative_analysis_sessions')
-        .select('id, created_at')
-        .or(`id.eq.${rootId},parent_session_id.eq.${rootId}`)
-        .gte('created_at', sevenDaysAgo)
-
-      if (siblingsErr) {
-        setErrorMsg('Could not check re-run eligibility. Please try again.')
-        setReRunLoading(false)
-        return
-      }
-
-      const freeReRunsUsed = (siblings || []).length - 1
-
-      // Re-run limit temporarily disabled - unlimited reruns allowed during testing
-
-      const { data: newSession, error: createErr } = await supabase
-        .from('quantitative_analysis_sessions')
-        .insert({
-          user_id: reRunInfo.user_id,
-          status: 'uploaded',
-          column_headers: reRunInfo.column_headers,
-          raw_data: reRunInfo.raw_data,
-          research_framework: reRunInfo.research_framework,
-          file_fingerprint: reRunInfo.file_fingerprint,
-          parent_session_id: rootId
-        })
-        .select('id')
-        .single()
-
-      if (createErr || !newSession) {
-        setErrorMsg('Could not start a re-run. Please try again.')
-        setReRunLoading(false)
-        return
-      }
-
-      router.push(`/quantitative-analysis/${newSession.id}/response-rate`)
-    } catch (e: any) {
-      setErrorMsg(e.message || 'Something went wrong starting the re-run.')
-      setReRunLoading(false)
-    }
-  }
-
   async function handleProceed() {
     try {
       setStatus('Analyzing results...')
@@ -520,23 +470,6 @@ export default function ResultsPage() {
         N = {results.sampleSize} (excluded {results.excludedRows} row{results.excludedRows !== 1 ? 's' : ''} during cleaning)
       </p>
 
-        <button
-          onClick={handleReRun}
-          disabled={reRunLoading}
-          style={{
-            backgroundColor: '#ffffff',
-            color: '#333333',
-            border: '1px solid #D4AF37',
-            borderRadius: '10px',
-            padding: '10px 16px',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: reRunLoading ? 'not-allowed' : 'pointer',
-            marginBottom: '24px'
-          }}
-        >
-          {reRunLoading ? 'Starting re-run...' : 'Re-run Analysis'}
-        </button>
 
         <button
           onClick={handleDownload}
