@@ -2,7 +2,7 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { callPilotStudyChain } from '@/lib/openrouter'
+import { callPilotInterpret } from '@/lib/pilotInterpret'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -279,7 +279,7 @@ Return ONLY a raw JSON object, no markdown fences, no preamble, in exactly this 
     }
 
     try {
-      const { content: text } = await callPilotStudyChain(pilotStudyPrompt)
+      const { content: text } = await callPilotInterpret(pilotStudyPrompt)
       const clean = text.replace(/```json|```/g, '').trim()
       const parsed = JSON.parse(clean)
       interpretations = parsed
