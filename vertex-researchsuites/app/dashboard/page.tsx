@@ -333,7 +333,7 @@ export default function Dashboard() {
                 {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis/pricing'), flags['quantitative-analysis'] === false)}
                 {featureCard('🔢', 'Quantitative Data Cleaning', 'Turn word answers into numbers for analysis', () => router.push('/data-cleaning/pricing'), false, 0, flags['data-cleaning'] === false)}
           {featureCard('🎨', 'Restyle Your Report', 'Convert your tables and writing to any citation style', () => router.push('/report-restyle/pricing'), false, 0, flags['report-restyle'] === false)}
-                {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis'), flags['qualitative-analysis'] === false)}
+                {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis/pricing'), flags['qualitative-analysis'] === false)}
         {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true, bunkerUnreadCount, flags['bunker'] === false)}
         {featureCard('💰', 'Referral Earnings', 'Invite friends and earn rewards', () => router.push('/referrals'), false, 0, flags['referrals'] === false)}
         {featureCard('🎙️', 'Voice Transcription & Analysis', 'Upload interview audio, get transcript + notes', () => router.push('/voice-transcription'), false, 0, flags['voice-transcription'] === false)}

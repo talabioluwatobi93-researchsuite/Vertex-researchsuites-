@@ -86,6 +86,22 @@ export default function QualitativeUploadPage() {
 
       setSaving(true)
 
+      {
+        const { data: sessJ } = await supabase.auth.getSession()
+        const tokJ = sessJ && sessJ.session ? sessJ.session.access_token : ''
+        const jr = await fetch('/api/qualitative-analysis/job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tokJ },
+          body: JSON.stringify({ action: 'check' }),
+        })
+        const jb = await jr.json().catch(() => null)
+        if (!jr.ok || !jb || !jb.ok) {
+          setErrorMsg((jb && jb.error) || 'Please accept the package first.')
+          setSaving(false)
+          return
+        }
+      }
+
       const { data: userData } = await supabase.auth.getUser()
 
       const research_framework = {
@@ -112,6 +128,15 @@ export default function QualitativeUploadPage() {
         return
       }
 
+      try {
+        const { data: sessD } = await supabase.auth.getSession()
+        const tokD = sessD && sessD.session ? sessD.session.access_token : ''
+        await fetch('/api/qualitative-analysis/job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tokD },
+          body: JSON.stringify({ action: 'done' }),
+        })
+      } catch {}
       router.push(`/qualitative-analysis/${data.id}/review`)
     } catch (err: any) {
       setErrorMsg(err?.message || 'Something unexpected went wrong. Please try again.')
