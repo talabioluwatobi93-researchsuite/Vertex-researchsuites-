@@ -58,6 +58,16 @@ export default function Dashboard() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession()
+        if (!data.session) return
+        await fetch('/api/referrals/link', { method: 'POST', headers: { Authorization: 'Bearer ' + data.session.access_token } })
+      } catch {}
+    })()
+  }, [])
+
+  useEffect(() => {
     let channel: any = null
     const setupRealtimeBalance = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -325,6 +335,7 @@ export default function Dashboard() {
           {featureCard('🎨', 'Restyle Your Report', 'Convert your tables and writing to any citation style', () => router.push('/report-restyle/pricing'), false, 0, flags['report-restyle'] === false)}
                 {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis'), flags['qualitative-analysis'] === false)}
         {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true, bunkerUnreadCount, flags['bunker'] === false)}
+        {featureCard('💰', 'Referral Earnings', 'Invite friends and earn rewards', () => router.push('/referrals'), false, 0, flags['referrals'] === false)}
         {featureCard('🎙️', 'Voice Transcription & Analysis', 'Upload interview audio, get transcript + notes', () => router.push('/voice-transcription'), false, 0, flags['voice-transcription'] === false)}
       </div>
     <Billboard />

@@ -32,6 +32,7 @@ export default function SignUp() {
     }
     setBusy(true)
     const meta: Record<string, string> = { full_name: cleanName, account_type: type }
+    meta.ref_code = new URLSearchParams(window.location.search).get('ref') || ''
     if (institution.trim()) meta.institution = institution.trim()
     if (region.trim()) meta.state = region.trim()
     const { error } = await supabase.auth.signUp({ email: cleanEmail, password, options: { data: meta } })
