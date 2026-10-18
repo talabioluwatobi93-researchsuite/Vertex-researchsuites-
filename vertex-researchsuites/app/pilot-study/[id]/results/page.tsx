@@ -65,6 +65,16 @@ export default function PilotStudyResultsPage() {
       }, 1000)
     }
 
+  async function authFetch(url: string, init: RequestInit): Promise<Response> {
+    const h: Record<string, string> = { ...((init.headers as Record<string, string>) || {}) }
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess?.session?.access_token
+      if (token) h['Authorization'] = 'Bearer ' + token
+    } catch {}
+    return fetch(url, { ...init, headers: h })
+  }
+
   async function revealPilotStudy(cResults: ConstructResult[], comb: CombinedResult | null, demo: { tables: DemoTable[] } | null, interp: Interpretations, apa: CitationStyleValue) {
     const { data: userData, error: userError } = await supabase.auth.getUser()
     if (userError || !userData?.user?.id) {
@@ -95,7 +105,7 @@ export default function PilotStudyResultsPage() {
 
     const run = async () => {
       try {
-        const res = await fetch('/api/pilot-study/calculate', {
+        const res = await authFetch('/api/pilot-study/calculate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId }),

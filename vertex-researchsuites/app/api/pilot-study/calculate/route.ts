@@ -3,6 +3,9 @@ export const maxDuration = 60;
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { callPilotInterpret } from '@/lib/pilotInterpret'
+import { adminDb, requireUser } from '@/lib/serverDb'
+import { markJob } from '@/lib/jobGate'
+import { checkOpenJob } from '@/lib/jobOpen'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,6 +61,33 @@ function buildMatrix(rows: any[][], columnIndexes: number[], reverseIndexes: num
 }
 
 export async function POST(req: NextRequest) {
+  const db = adminDb()
+  if (!db) return NextResponse.json({ error: 'Service is not configured.' }, { status: 500 })
+  const user = await requireUser(req, db)
+  if (!user) return NextResponse.json({ error: 'Please log in to continue.' }, { status: 401 })
+  let sid = ''
+  try {
+    const b = await req.clone().json()
+    sid = String((b && b.sessionId) || '')
+  } catch {}
+  if (!sid) return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 })
+  const { data: s } = await db.from('pilot_study_sessions').select('user_id,status').eq('id', sid).maybeSingle()
+  if (!s || s.user_id !== user.id) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+  // Already-completed sessions were paid for: allow re-opening the results.
+  if (s.status === 'completed') return handleCalc(req)
+  const gate = await checkOpenJob(db, user.id, 'pilot_study')
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
+  const res = await handleCalc(req)
+  if (res.status >= 500) {
+    await markJob(db, user.id, gate.jobId, 'failed', 'http ' + res.status)
+  } else if (res.ok) {
+    await markJob(db, user.id, gate.jobId, 'delivered')
+    await markJob(db, user.id, gate.jobId, 'done')
+  }
+  return res
+}
+
+async function handleCalc(req: NextRequest): Promise<NextResponse> {
   try {
     const { sessionId } = await req.json()
     if (!sessionId) {

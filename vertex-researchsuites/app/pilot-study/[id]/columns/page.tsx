@@ -154,7 +154,7 @@ export default function PilotStudyColumnsPage() {
     const { data: priceRow } = await supabase.from('feature_pricing').select('price').eq('feature_name', 'pilot_study').single()
     const { data: stRow } = await supabase.from('pilot_study_sessions').select('status').eq('id', sessionId).single()
     const alreadyPaid = ['mapped', 'cleaning_complete', 'completed', 'active', 'expired'].includes(stRow?.status ?? '')
-    const price = alreadyPaid ? 0 : (priceRow?.price ?? 0)
+    const price = priceRow ? 0 : 0 // charged on the package page
     if (price > 0) {
       const { data: wallet } = await supabase.from('wallets').select('balance').eq('id', userData.user.id).single()
       const balance = wallet?.balance ?? 0
