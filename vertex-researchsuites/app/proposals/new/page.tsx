@@ -54,6 +54,20 @@ function problemLabel(category: string) {
   return "What problem or challenge are you trying to solve?";
 }
 
+async function jobFetch(url: string, init: RequestInit): Promise<Response> {
+  const h: Record<string, string> = { ...((init.headers as Record<string, string>) || {}) };
+  try {
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess?.session?.access_token;
+    if (token) h['Authorization'] = 'Bearer ' + token;
+  } catch {}
+  try {
+    const j = new URLSearchParams(window.location.search).get('job') || '';
+    if (j) h['X-Job-Id'] = j;
+  } catch {}
+  return fetch(url, { ...init, headers: h });
+}
+
 type Stage = "loading" | "fee-confirm" | "select-type" | "pure-form" | "applied-form" | "results";
 
 export default function NewProposal() {
@@ -114,7 +128,7 @@ export default function NewProposal() {
           .single();
         setFullPrice(fullData?.price ?? 0);
 
-        setStage(price === 0 ? "select-type" : "fee-confirm");
+        setStage("select-type");
       } catch {
         setPreviewPrice(0);
         setFullPrice(0);
@@ -170,12 +184,17 @@ export default function NewProposal() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/generate-topics", {
+      const res = await jobFetch("/api/generate-topics", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ institution, course, department, researchType, interest, sequence, problemStatement, userCategory }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg([401, 402, 403].includes(res.status) ? String(data.error || "Please accept the package first.") : "Could not generate topics. Please try again.");
+        setLoading(false);
+        return;
+      }
       setTopics(parseTopics(data.topics));
       setStage("results");
     } catch {
@@ -273,7 +292,7 @@ export default function NewProposal() {
           institution, course, department, interest, sequence,
           researchType, problemStatement, chosenTopic: list[i].raw, citationStyle,
         };
-        const res = await fetch("/api/generate-proposal", {
+        const res = await jobFetch("/api/generate-proposal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(base),
@@ -282,7 +301,7 @@ export default function NewProposal() {
         if (!res.ok || !data.proposal) throw new Error("proposal failed");
         let text: string = data.proposal;
         try {
-          const fres = await fetch("/api/generate-proposal", {
+          const fres = await jobFetch("/api/generate-proposal", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ...base, part: "feedback", draft: text }),

@@ -2,8 +2,23 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { callTopicsChain } from '@/lib/openrouter';
+import { adminDb, requireUser } from '@/lib/serverDb';
+import { checkJob, markJob } from '@/lib/jobGate';
 
 export async function POST(req: NextRequest) {
+  const db = adminDb();
+  if (!db) return NextResponse.json({ topics: 'Service is not configured.', error: 'Service is not configured.' }, { status: 500 });
+  const user = await requireUser(req, db);
+  if (!user) return NextResponse.json({ topics: 'Please log in to continue.', error: 'Please log in to continue.' }, { status: 401 });
+  const gate = await checkJob(req, db, user.id, 'research_topics');
+  if (!gate.ok) return NextResponse.json({ topics: gate.error, error: gate.error }, { status: gate.status });
+  const res = await handleTopics(req);
+  if (res.status >= 500) await markJob(db, user.id, gate.jobId, 'failed', 'http ' + res.status);
+  else if (res.ok) await markJob(db, user.id, gate.jobId, 'delivered');
+  return res;
+}
+
+async function handleTopics(req: NextRequest): Promise<NextResponse> {
   try {
     const { institution, course, department, interest, sequence, researchType, problemStatement, userCategory } = await req.json();
 

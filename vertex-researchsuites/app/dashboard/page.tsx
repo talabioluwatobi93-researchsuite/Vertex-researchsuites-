@@ -327,16 +327,16 @@ export default function Dashboard() {
       </div>
 
       <div style={{ padding: '0 20px 40px' }}>
-        {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/new'), flags['proposals'] === false)}
+        {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/pricing'), flags['proposals'] === false)}
         {featureCard('✍️', 'Writing Check & Polish', 'Check your writing for originality and clarity', () => router.push('/writing-check'), flags['writing-check'] === false)}
-            {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study'), flags['pilot-study'] === false)}
+            {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study/pricing'), flags['pilot-study'] === false)}
                 {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis/pricing'), flags['quantitative-analysis'] === false)}
-                {featureCard('🔢', 'Quantitative Data Cleaning', 'Turn word answers into numbers for analysis', () => router.push('/data-cleaning'), false, 0, flags['data-cleaning'] === false)}
+                {featureCard('🔢', 'Quantitative Data Cleaning', 'Turn word answers into numbers for analysis', () => router.push('/data-cleaning/pricing'), false, 0, flags['data-cleaning'] === false)}
           {featureCard('🎨', 'Restyle Your Report', 'Convert your tables and writing to any citation style', () => router.push('/report-restyle/pricing'), false, 0, flags['report-restyle'] === false)}
-                {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis'), flags['qualitative-analysis'] === false)}
+                {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis/pricing'), flags['qualitative-analysis'] === false)}
         {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true, bunkerUnreadCount, flags['bunker'] === false)}
         {featureCard('💰', 'Referral Earnings', 'Invite friends and earn rewards', () => router.push('/referrals'), false, 0, flags['referrals'] === false)}
-        {featureCard('🎙️', 'Voice Transcription & Analysis', 'Upload interview audio, get transcript + notes', () => router.push('/voice-transcription'), false, 0, flags['voice-transcription'] === false)}
+        {featureCard('🎙️', 'Voice Transcription & Analysis', 'Upload interview audio, get transcript + notes', () => router.push('/voice-transcription/pricing'), false, 0, flags['voice-transcription'] === false)}
       </div>
     <Billboard />
     </div>

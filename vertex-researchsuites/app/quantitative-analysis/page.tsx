@@ -111,7 +111,22 @@ export default function QuantitativeAnalysisUploadPage() {
       }
 
       const { data: qPriceRow } = await supabase.from('feature_pricing').select('price').eq('feature_name', 'quant_new_analysis').maybeSingle()
-      const qPrice = Number(qPriceRow?.price ?? 0)
+      const qPrice: number = qPriceRow ? 0 : 0 // charged on the package page
+      {
+        const { data: sessJ } = await supabase.auth.getSession()
+        const tokJ = sessJ && sessJ.session ? sessJ.session.access_token : ''
+        const jr = await fetch('/api/quantitative-analysis/job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tokJ },
+          body: JSON.stringify({ action: 'check' }),
+        })
+        const jb = await jr.json().catch(() => null)
+        if (!jr.ok || !jb || !jb.ok) {
+          setErrorMsg((jb && jb.error) || 'Please accept the package first.')
+          setLoading(false)
+          return
+        }
+      }
       if (qPrice > 0) {
         const qCharge: any = await supabase.rpc('charge_feature', { p_description: 'Quantitative Analysis', p_amount: qPrice })
         if (qCharge.error || !qCharge.data || qCharge.data.error) {
@@ -146,6 +161,15 @@ export default function QuantitativeAnalysisUploadPage() {
         return
       }
 
+      try {
+        const { data: sessD } = await supabase.auth.getSession()
+        const tokD = sessD && sessD.session ? sessD.session.access_token : ''
+        await fetch('/api/quantitative-analysis/job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tokD },
+          body: JSON.stringify({ action: 'done' }),
+        })
+      } catch {}
       router.push(`/quantitative-analysis/${session.id}/response-rate`)
     } catch (err) {
       setErrorMsg('This file could not be read. Please check the format and try again.')
