@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 import TopUpButton from '../../components/TopUpButton'
+import LogoutButton from '../../components/LogoutButton'
 import TransactionHistory from '../../components/TransactionHistory';
 import PurchaseHistory from '../../components/PurchaseHistory';
 import Billboard from '../../components/Billboard';
@@ -93,6 +94,9 @@ export default function Dashboard() {
         if (profile?.full_name) {
           setFirstName(profile.full_name.split(' ')[0])
         }
+
+        const metaName = String((user.user_metadata && user.user_metadata.full_name) || '').trim()
+        if (!profile?.full_name && metaName) setFirstName(metaName.split(' ')[0])
 
         const idPart = user.id.replace(/-/g, '').slice(0, 12).toUpperCase()
         const formatted = idPart.match(/.{1,4}/g)?.join(' ') || idPart
@@ -305,7 +309,7 @@ export default function Dashboard() {
                 {serialId || '•••• •••• ••••'}
               </p>
             </div>
-            <TopUpButton />
+            <><LogoutButton /><TopUpButton /></>
               <TransactionHistory />
     <PurchaseHistory />
           </div>
