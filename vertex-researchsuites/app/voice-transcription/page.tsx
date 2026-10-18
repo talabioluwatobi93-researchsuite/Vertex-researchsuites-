@@ -99,7 +99,8 @@ export default function VoiceTranscription() {
         setPaying(false);
         return;
       }
-      const { error: deductError } = await supabase.from("wallets").update({ balance: balance - price }).eq("id", userId);
+      const chargeOut: any = Number(price) > 0 ? await supabase.rpc('charge_feature', { p_description: 'Voice Transcription & Analysis', p_amount: price }) : { data: { ok: true }, error: null }
+    const deductError = (chargeOut.error || !chargeOut.data || chargeOut.data.error) ? true : null
       if (deductError) {
         setErrorMsg("Could not process payment. Please try again.");
         setPaying(false);

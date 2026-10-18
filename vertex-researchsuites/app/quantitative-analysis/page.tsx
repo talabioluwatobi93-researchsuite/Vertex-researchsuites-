@@ -110,6 +110,17 @@ export default function QuantitativeAnalysisUploadPage() {
         if (cErr === null) chapter3FilePath = cPath;
       }
 
+      const { data: qPriceRow } = await supabase.from('feature_pricing').select('price').eq('feature_name', 'quant_new_analysis').maybeSingle()
+      const qPrice = Number(qPriceRow?.price ?? 0)
+      if (qPrice > 0) {
+        const qCharge: any = await supabase.rpc('charge_feature', { p_description: 'Quantitative Analysis', p_amount: qPrice })
+        if (qCharge.error || !qCharge.data || qCharge.data.error) {
+          setErrorMsg(qCharge.data?.error === 'insufficient' ? 'Your balance is not enough. Kindly top up.' : 'Could not process payment. Please try again.')
+          setLoading(false)
+          return
+        }
+      }
+
       const { data: session, error } = await supabase
         .from('quantitative_analysis_sessions')
         .insert({

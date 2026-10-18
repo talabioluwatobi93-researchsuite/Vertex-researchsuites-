@@ -14,6 +14,7 @@ type Purchase = {
   amount: number;
   status: string;
   created_at: string;
+  receipt_seq: number | null;
 };
 
 const GOLD = "#D4AF37";
@@ -61,7 +62,7 @@ export default function PurchasesPage() {
 
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, status, created_at")
+        .select("id, description, amount, status, created_at, receipt_seq")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -132,6 +133,14 @@ export default function PurchasesPage() {
                 >
                   {p.status}
                 </div>
+              {String(p.status).toLowerCase() === "success" ? (
+              <Link
+                href={"/receipt/" + p.id}
+                style={{ display: "inline-block", marginTop: 6, padding: "3px 10px", fontSize: 12, borderRadius: 8, border: "1px solid " + BORDER, background: "#FFFFFF", color: DARK, textDecoration: "none" }}
+              >
+                Receipt
+              </Link>
+              ) : null}
               </div>
             </div>
           ))
