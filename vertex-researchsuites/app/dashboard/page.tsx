@@ -327,7 +327,7 @@ export default function Dashboard() {
       </div>
 
       <div style={{ padding: '0 20px 40px' }}>
-        {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/new'), flags['proposals'] === false)}
+        {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/pricing'), flags['proposals'] === false)}
         {featureCard('✍️', 'Writing Check & Polish', 'Check your writing for originality and clarity', () => router.push('/writing-check'), flags['writing-check'] === false)}
             {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study'), flags['pilot-study'] === false)}
                 {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis/pricing'), flags['quantitative-analysis'] === false)}

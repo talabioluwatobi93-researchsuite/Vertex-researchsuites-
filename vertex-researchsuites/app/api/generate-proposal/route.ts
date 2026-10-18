@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callProposalChain } from '@/lib/openrouter';
 import { CITATION_STYLES } from '@/lib/citationStyles';
+import { adminDb, requireUser } from '@/lib/serverDb';
+import { checkJob, markJob } from '@/lib/jobGate';
 import { searchVerifiedRefs, formatReference, VerifiedRef } from '@/lib/citationVerify';
 
 export const maxDuration = 60;
@@ -90,6 +92,19 @@ function buildReferenceItems(refs: VerifiedRef[], style: string): { text: string
 }
 
 export async function POST(req: NextRequest) {
+  const db = adminDb();
+  if (!db) return NextResponse.json({ proposal: 'Service is not configured.', error: 'Service is not configured.' }, { status: 500 });
+  const user = await requireUser(req, db);
+  if (!user) return NextResponse.json({ proposal: 'Please log in to continue.', error: 'Please log in to continue.' }, { status: 401 });
+  const gate = await checkJob(req, db, user.id, 'research_topics');
+  if (!gate.ok) return NextResponse.json({ proposal: gate.error, error: gate.error }, { status: gate.status });
+  const res = await handleProposal(req);
+  if (res.status >= 500) await markJob(db, user.id, gate.jobId, 'failed', 'http ' + res.status);
+  else if (res.ok) await markJob(db, user.id, gate.jobId, 'delivered');
+  return res;
+}
+
+async function handleProposal(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
     const { institution, course, department, interest, sequence, researchType, problemStatement, chosenTopic, part, draft } = body;
