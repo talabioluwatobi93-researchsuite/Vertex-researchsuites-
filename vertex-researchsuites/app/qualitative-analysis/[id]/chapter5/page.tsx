@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { qualAuthHeaders } from '@/lib/qualAuth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -112,7 +113,7 @@ export default function QualChapter5Page() {
 
     try {
       const res = await fetch('/api/qualitative-analysis/chapter5', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id })
+        method: 'POST', headers: await qualAuthHeaders(supabase), body: JSON.stringify({ sessionId: id })
       })
       const data = await res.json()
       if (!res.ok) { setErrorMsg(data.error || 'Chapter 5 generation failed.'); setProcessing(false); setStage('form'); return }

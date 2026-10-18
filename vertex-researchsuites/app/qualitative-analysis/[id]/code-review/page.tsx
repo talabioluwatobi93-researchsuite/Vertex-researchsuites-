@@ -2,13 +2,14 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { qualAuthHeaders } from '@/lib/qualAuth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 )
 
-type Assignment = { theme: string; quote: string; removed?: boolean }
+type Assignment = { theme: string; quote: string; removed?: boolean; blockIndex?: number; participantId?: string; speaker?: string | null }
 type Theme = { name: string; description: string }
 
 export default function CodeReviewPage() {
@@ -21,6 +22,7 @@ export default function CodeReviewPage() {
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [confirmed, setConfirmed] = useState(false)
+  const [progress, setProgress] = useState('')
 
   useEffect(() => {
     load()
@@ -51,18 +53,42 @@ export default function CodeReviewPage() {
     }
 
     try {
-      const res = await fetch('/api/qualitative-analysis/assign-quotes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: id })
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Could not assign quotes to themes. Please try again.')
-        setLoading(false)
-        return
+      const headers = await qualAuthHeaders(supabase)
+      const collected: Assignment[] = []
+      let batch = 1
+      let batchCount = 1
+      let failedParts = 0
+      while (batch <= batchCount) {
+        setProgress(batchCount > 1 ? 'Matching quotes to your themes... part ' + batch + ' of ' + batchCount : '')
+        let data: any = null
+        let ok = false
+        for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+          const res = await fetch('/api/qualitative-analysis/assign-quotes', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ sessionId: id, batch })
+          })
+          data = await res.json().catch(() => ({}))
+          ok = res.ok
+          if (!ok && (res.status === 401 || res.status === 404)) break
+        }
+        if (!ok) {
+          if (batch === 1) {
+            setErrorMsg(data?.error || 'Could not assign quotes to themes. Please try again.')
+            setLoading(false)
+            return
+          }
+          failedParts++
+        } else {
+          batchCount = data.batchCount || 1
+          collected.push(...(data.assignments || []))
+        }
+        batch++
       }
-      setAssignments(data.assignments)
+      if (failedParts > 0) {
+        setErrorMsg(failedParts + ' part(s) of your transcript could not be matched. Please review carefully, or reload this page to try again.')
+      }
+      setAssignments(collected)
     } catch (e) {
       setErrorMsg('Something went wrong. Please try again.')
     }
@@ -118,7 +144,7 @@ export default function CodeReviewPage() {
   if (loading) {
     return (
       <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '60px 20px', textAlign: 'center' }}>
-        <p style={{ color: '#777777', fontSize: '14px' }}>Matching quotes to your themes...</p>
+        <p style={{ color: '#777777', fontSize: '14px' }}>{progress || 'Matching quotes to your themes...'}</p>
       </div>
     )
   }

@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { qualAuthHeaders } from '@/lib/qualAuth'
+import { loadQualExportInput, buildQualWordBlob, buildQualExcelBlob, saveBlob, qualFileName } from '@/lib/qualExport'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,12 +24,35 @@ const table: React.CSSProperties = {
   width: '100%', borderCollapse: 'collapse', borderTop: '2px solid #333333', borderBottom: '2px solid #333333'
 }
 
+async function callGen(hdrs: Record<string, string>, body: any): Promise<{ ok: boolean; status: number; data: any }> {
+  const res = await fetch('/api/qualitative-analysis/generate', { method: 'POST', headers: hdrs, body: JSON.stringify(body) })
+  const data = await res.json().catch(() => ({}))
+  return { ok: res.ok, status: res.status, data }
+}
+
+function renderNarrative(text: string): any {
+  const base: React.CSSProperties = { fontSize: '13px', color: '#333333', lineHeight: '1.7', marginBottom: '12px' }
+  return String(text || '').split('\n').filter(Boolean).map((line: string, i: number) => {
+    if (line.startsWith('## ')) {
+      return <h3 key={i} style={{ fontSize: '14px', fontWeight: 700, color: '#333333', margin: '18px 0 8px' }}>{line.slice(3)}</h3>
+    }
+    if (line.startsWith('> ')) {
+      const attribution = line.startsWith('> \u2014')
+      return (
+        <p key={i} style={{ ...base, borderLeft: '3px solid #D4AF37', paddingLeft: '12px', margin: attribution ? '0 0 12px' : '0 0 2px', fontSize: attribution ? '12px' : '13px', color: attribution ? '#777777' : '#333333', fontStyle: attribution ? 'normal' : 'italic' }}>{line.slice(2)}</p>
+      )
+    }
+    return <p key={i} style={base}>{line}</p>
+  })
+}
+
 export default function QualResultsPage() {
   const { id } = useParams()
   const [status, setStatus] = useState('Writing your report...')
   const [results, setResults] = useState<any>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [saved, setSaved] = useState(false)
+  const [exportMsg, setExportMsg] = useState('')
   const [saving, setSaving] = useState(false)
   const [holdSecondsLeft, setHoldSecondsLeft] = useState(0)
 
@@ -65,7 +90,28 @@ export default function QualResultsPage() {
     }, 1000)
   }
 
+  async function exportWord(resultsData: any) {
+    const input = await loadQualExportInput(supabase, String(id), resultsData)
+    saveBlob(await buildQualWordBlob(input), qualFileName(input, 'Chapter4-Report', 'docx'))
+  }
+  
+  async function exportExcel(resultsData: any) {
+    const input = await loadQualExportInput(supabase, String(id), resultsData)
+    saveBlob(buildQualExcelBlob(input), qualFileName(input, 'Evidence-File', 'xlsx'))
+  }
+  
+  async function onExportClick(kind: string) {
+    setExportMsg('')
+    try {
+      if (kind === 'word') await exportWord(results)
+      else await exportExcel(results)
+    } catch (e: any) {
+      setExportMsg('Could not create the file. Please try again.')
+    }
+  }
+  
   async function revealQualResults(resultsData: any) {
+    try { await exportWord(resultsData) } catch (e: any) { /* the buttons below still work */ }
     const { data: userData } = await supabase.auth.getUser()
     if (userData?.user?.id) {
       await supabase.from('bunker_items').insert({
@@ -104,15 +150,31 @@ export default function QualResultsPage() {
     }
 
     try {
-      const res = await fetch('/api/qualitative-analysis/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: id })
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Report generation failed.')
+      const hdrs = await qualAuthHeaders(supabase)
+      let stepCount = 1
+      for (let n = 0; n < stepCount; n++) {
+        setStatus('Writing your report... part ' + (n + 1) + ' of ' + stepCount)
+        let r = await callGen(hdrs, { sessionId: id, action: 'step', n })
+        if (!r.ok && r.status !== 401 && r.status !== 403) r = await callGen(hdrs, { sessionId: id, action: 'step', n })
+        if (!r.ok) {
+          setErrorMsg(r.status === 403 ? 'Please complete the coder agreement check first.' : (r.data.error || 'Report generation failed.'))
+          return
+        }
+        stepCount = r.data.stepCount || stepCount
+      }
+      setStatus('Putting your report together...')
+      const asm = await callGen(hdrs, { sessionId: id, action: 'assemble' })
+      if (!asm.ok) {
+        setErrorMsg(asm.data.error || 'Report generation failed.')
         return
+      }
+      let data = asm.data
+      setStatus('Checking your references...')
+      try {
+        const rf = await callGen(hdrs, { sessionId: id, action: 'references' })
+        if (rf.ok && rf.data && rf.data.results) data = rf.data
+      } catch (e: any) {
+        /* the report still works without the reference list */
       }
       const readyAt = new Date().toISOString()
       await supabase
@@ -213,11 +275,41 @@ export default function QualResultsPage() {
         </div>
       )}
 
+      <div style={{ marginBottom: '16px' }}>
+        <button onClick={() => onExportClick('word')} style={{ backgroundColor: '#F9F9F9', color: '#333333', border: '1px solid #D4AF37', borderRadius: '10px', padding: '10px 18px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginRight: '10px', marginBottom: '8px' }}>Download Word report</button>
+        <button onClick={() => onExportClick('excel')} style={{ backgroundColor: '#F9F9F9', color: '#333333', border: '1px solid #D4AF37', borderRadius: '10px', padding: '10px 18px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginRight: '10px', marginBottom: '8px' }}>Download Excel evidence file</button>
+        {exportMsg && <p style={{ color: '#C0392B', fontSize: '13px', margin: '4px 0 0' }}>{exportMsg}</p>}
+      </div>
+      
+      {results.codebookTable && (
+        <div style={tableWrap}>
+          <p style={tableTitle}>Table 4.1 Codebook of Themes</p>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Theme</th>
+                <th style={thStyle}>Definition</th>
+                <th style={thStyle}>Mentions (N)</th>
+                <th style={thStyle}>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.codebookTable.map((r: any, i: number) => (
+                <tr key={i}>
+                  <td style={tdStyle}>{r.theme}</td>
+                  <td style={tdStyle}>{r.definition}</td>
+                  <td style={tdStyle}>{r.mentions}</td>
+                  <td style={tdStyle}>{Number(r.percent).toFixed(2)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginBottom: '24px' }}>
         <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Results Narrative</h2>
-        {results.narrative.split('\n').filter(Boolean).map((para: string, i: number) => (
-          <p key={i} style={{ fontSize: '13px', color: '#333333', lineHeight: '1.7', marginBottom: '12px' }}>{para}</p>
-        ))}
+        {renderNarrative(results.narrative)}
       </div>
 
       <p style={{ color: '#777777', fontSize: '13px', textAlign: 'center', margin: '0 0 16px 0' }}>

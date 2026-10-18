@@ -64,7 +64,7 @@ export async function callPilotStudyChain(prompt: string): Promise<OpenRouterRes
 }
 
 export const QUANT_INTERPRET_MODEL_ROUTES = {
-  primary: 'anthropic/claude-sonnet-4.6',
+  primary: 'anthropic/claude-sonnet-5',
   fallback: 'openai/gpt-4o-mini',
 };
 
@@ -272,5 +272,44 @@ export async function callProposalChain(prompt: string): Promise<OpenRouterResul
     console.error('Proposal primary failed, falling back:', err);
     const content = await callOpenRouterStreaming(PROPOSAL_MODEL_ROUTES.fallback, prompt);
     return { content, providerUsed: 'gpt4o-mini-fallback' };
+  }
+}
+
+// ---- Phase 9: dual-coder qualitative analysis (Rev2 Section 4) ----
+// Coder A: Gemini 3.1 Pro (Preview) -> falls back to DeepSeek V4 Pro 0813.
+export const QUAL_CODER_A_MODEL_ROUTES = {
+  primary: 'google/gemini-3.1-pro-preview',
+  fallback: 'deepseek/deepseek-v4-pro-0813',
+}
+
+export async function callQualCoderAChain(prompt: string, timeoutMs: number = 45000): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUAL_CODER_A_MODEL_ROUTES.primary, prompt, timeoutMs)
+    return { content, providerUsed: 'gemini31-openrouter' }
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err
+    console.error('Qual Coder A primary failed, falling back:', err)
+    const content = await callOpenRouterStreaming(QUAL_CODER_A_MODEL_ROUTES.fallback, prompt, timeoutMs)
+    return { content, providerUsed: 'deepseek0813-fallback' }
+  }
+}
+
+// Coder B: Qwen 72B first, Haiku 5.5 if that fails. Both are a different
+// model family from Coder A (Gemini, fallback DeepSeek), so the two coders
+// stay independent. The first model gets one attempt, then the fallback.
+export const QUAL_CODER_B_MODEL_ROUTES = {
+  primary: 'qwen/qwen-2.5-72b-instruct',
+  fallback: 'anthropic/claude-haiku-5.5',
+}
+
+export async function callQualCoderBChain(prompt: string, timeoutMs: number = 45000): Promise<OpenRouterResult> {
+  try {
+    const content = await callOpenRouterStreaming(QUAL_CODER_B_MODEL_ROUTES.primary, prompt, timeoutMs)
+    return { content, providerUsed: 'coderb-primary' }
+  } catch (err: any) {
+    if (String(err.message).startsWith('CONFIG_ERROR')) throw err
+    console.error('Qual Coder B primary failed, trying fallback:', err)
+    const content = await callOpenRouterStreaming(QUAL_CODER_B_MODEL_ROUTES.fallback, prompt, timeoutMs)
+    return { content, providerUsed: 'coderb-fallback' }
   }
 }
