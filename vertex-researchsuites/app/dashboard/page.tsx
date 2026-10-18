@@ -336,7 +336,7 @@ export default function Dashboard() {
                 {featureCard('📝', 'Qualitative Data Analysis', 'Turn interview transcripts into themed, quoted findings', () => router.push('/qualitative-analysis/pricing'), flags['qualitative-analysis'] === false)}
         {featureCard('📦', 'My Bunker', 'View your saved research topics', () => router.push('/bunker'), true, bunkerUnreadCount, flags['bunker'] === false)}
         {featureCard('💰', 'Referral Earnings', 'Invite friends and earn rewards', () => router.push('/referrals'), false, 0, flags['referrals'] === false)}
-        {featureCard('🎙️', 'Voice Transcription & Analysis', 'Upload interview audio, get transcript + notes', () => router.push('/voice-transcription'), false, 0, flags['voice-transcription'] === false)}
+        {featureCard('🎙️', 'Voice Transcription & Analysis', 'Upload interview audio, get transcript + notes', () => router.push('/voice-transcription/pricing'), false, 0, flags['voice-transcription'] === false)}
       </div>
     <Billboard />
     </div>
