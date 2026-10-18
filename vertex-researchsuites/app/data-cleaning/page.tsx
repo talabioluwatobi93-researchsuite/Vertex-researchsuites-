@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import type { CodedQuestion } from '@/lib/dataCleaning'
@@ -33,6 +33,52 @@ export default function DataCleaningPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<DoneInfo | null>(null)
+  const [jobId, setJobId] = useState('')
+  const [gateOk, setGateOk] = useState(false)
+  const [gateMsg, setGateMsg] = useState('')
+
+  useEffect(() => {
+    let active = true
+    async function checkPurchase() {
+      try {
+        const j = new URLSearchParams(window.location.search).get('job') || ''
+        const { data } = await supabase.auth.getSession()
+        const token = data.session ? data.session.access_token : ''
+        if (!token) {
+          if (active) setGateMsg('Please log in to continue.')
+          return
+        }
+        const h: Record<string, string> = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }
+        if (j) h['X-Job-Id'] = j
+        const res = await fetch('/api/data-cleaning/job', { method: 'POST', headers: h, body: JSON.stringify({ action: 'check' }) })
+        const body = await res.json().catch(() => null)
+        if (!active) return
+        if (res.ok && body && body.ok) {
+          setJobId(j)
+          setGateOk(true)
+        } else {
+          setGateMsg((body && body.error) || 'Please accept the package first.')
+        }
+      } catch {
+        if (active) setGateMsg('Could not check your purchase. Please try again.')
+      }
+    }
+    checkPurchase()
+    return () => { active = false }
+  }, [])
+
+  async function markDone() {
+    try {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session ? data.session.access_token : ''
+      if (!token || !jobId) return
+      await fetch('/api/data-cleaning/job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'X-Job-Id': jobId },
+        body: JSON.stringify({ action: 'done' }),
+      })
+    } catch {}
+  }
 
   async function handleFile(file: File) {
     setError('')
@@ -148,6 +194,7 @@ export default function DataCleaningPage() {
         codebookSheet: built.codebookSheet, saveStatus: 'saving', saveMessage: '',
       })
       setStep('done')
+      markDone()
       saveToBunker(built.blob, name)
     } catch (err: any) {
       setError(err.message || 'Could not build the file.')
@@ -156,6 +203,17 @@ export default function DataCleaningPage() {
   }
 
   const col = flow ? currentCol(flow) : null
+
+  if (!gateOk) {
+    return (
+      <div style={page}>
+        <div style={wrap}>
+          <p style={{ ...muted, margin: '40px 0 12px' }}>{gateMsg || 'Checking your purchase...'}</p>
+          {gateMsg ? <button onClick={() => router.push('/data-cleaning/pricing')} style={backLink}>Go to the package page</button> : null}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={page}>
@@ -182,7 +240,7 @@ export default function DataCleaningPage() {
             info={result}
             onDownloadAgain={() => downloadBlob(result.blob, result.name)}
             onBunker={() => router.push('/bunker')}
-            onAnother={handleRestart}
+            onAnother={() => router.push('/data-cleaning/pricing')}
           />
         )}
       </div>
