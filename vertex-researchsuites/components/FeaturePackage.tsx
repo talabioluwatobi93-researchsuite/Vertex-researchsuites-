@@ -16,6 +16,8 @@ const MUTED = "#777777";
 const BORDER = "#EEEEEE";
 
 type Props = {
+  chargeFeature?: string;
+  chargeDescription?: string;
   title: string;
   intro?: string;
   items: string[];
@@ -23,7 +25,8 @@ type Props = {
   nextHref: string;
 };
 
-export default function FeaturePackage({ title, intro, items, featureKey, nextHref }: Props) {
+export default function FeaturePackage({ title, intro, items, featureKey, nextHref, chargeFeature, chargeDescription }: Props) {
+  const [paying, setPaying] = useState(false);
   const router = useRouter();
   const [price, setPrice] = useState<number | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
@@ -59,6 +62,34 @@ export default function FeaturePackage({ title, intro, items, featureKey, nextHr
       active = false;
     };
   }, [featureKey, router]);
+
+  async function accept() {
+    if (!chargeFeature || !price || price <= 0) {
+      router.push(nextHref);
+      return;
+    }
+    if (paying) return;
+    setPaying(true);
+    setError("");
+    try {
+      const { data, error: rpcError } = await supabase.rpc("start_paid_job", {
+        p_feature: chargeFeature,
+        p_description: chargeDescription || title,
+      });
+      const d: any = data;
+      const msg = String((rpcError && rpcError.message) || (d && d.error) || "");
+      if (rpcError || !d || d.ok === false) {
+        setError(msg.indexOf("insufficient") !== -1 ? "Your balance is not enough. Please top up." : "Could not process payment. Please try again.");
+        setPaying(false);
+        return;
+      }
+      const jid = d.job_id;
+      router.push(jid ? nextHref + "?job=" + encodeURIComponent(String(jid)) : nextHref);
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setPaying(false);
+    }
+  }
 
   const ready = price !== null && balance !== null;
   const enough = ready && (price === 0 || (balance as number) >= (price as number));
@@ -98,8 +129,8 @@ export default function FeaturePackage({ title, intro, items, featureKey, nextHr
           ) : null}
 
           <button
-            onClick={() => router.push(nextHref)}
-            disabled={!ready || !enough}
+            onClick={accept}
+            disabled={!ready || !enough || paying}
             style={{
               width: "100%",
               marginTop: 16,
@@ -113,7 +144,7 @@ export default function FeaturePackage({ title, intro, items, featureKey, nextHr
               cursor: !ready || !enough ? "not-allowed" : "pointer",
             }}
           >
-            Accept and continue
+            {paying ? "Please wait..." : "Accept and continue"}
           </button>
         </div>
       </div>

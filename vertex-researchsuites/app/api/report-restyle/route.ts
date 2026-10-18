@@ -5,6 +5,7 @@ import { Packer } from "docx";
 import { CITATION_STYLES } from "@/lib/citationStyles";
 import type { CitationStyle } from "@/lib/quantBunkerDocx";
 import { parseReport, describeReport, buildRestyledDocument, rewriteBatch } from "@/lib/reportRestyle";
+import { adminDb, requireUser } from "@/lib/serverDb";
 
 const VALID_STYLES = new Set<string>(CITATION_STYLES.map((s) => s.value));
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -12,7 +13,7 @@ const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingm
 
 // NOTE: wallet charge and user authentication are added in the next step, once the
 // existing wallet logic has been read. Do not merge before that.
-export async function POST(req: NextRequest) {
+async function handle(req: NextRequest, ctx: Ctx) {
   try {
     const contentType = req.headers.get("content-type") || "";
 
@@ -27,7 +28,8 @@ export async function POST(req: NextRequest) {
       const st = String(body.style); // PHASE5B: APA 6/7 are converted in code, no AI
       if (st === "APA6" || st === "APA7") return NextResponse.json({ results: clean.map((it: any) => ({ id: it.id, text: it.text, ok: true })) });
       const results = await rewriteBatch(st, clean);
-      return NextResponse.json({ results });
+      await mark(ctx, "delivered");
+    return NextResponse.json({ results });
     }
 
     // ---- multipart: parse the uploaded report, or build the restyled report
@@ -69,6 +71,7 @@ export async function POST(req: NextRequest) {
       }
       const doc = buildRestyledDocument(parsed, style as CitationStyle, rewrites);
       const out = await Packer.toBuffer(doc);
+      await mark(ctx, "done");
       return new NextResponse(new Uint8Array(out), {
         status: 200,
         headers: {
@@ -81,6 +84,61 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unknown phase" }, { status: 400 });
   } catch (e: any) {
     console.error("report-restyle failed:", e);
+    await mark(ctx, "failed", String((e && e.message) || "error").slice(0, 200));
     return NextResponse.json({ error: e?.message || "Restyle failed" }, { status: 500 });
+  }
+}
+
+
+type Ctx = { db: any; userId: string; jobId: string | null };
+type Gate = { ok: true; jobId: string | null } | { ok: false; error: string; status: number };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function mark(ctx: Ctx, event: string, err?: string) {
+  if (!ctx.jobId) return;
+  try {
+    const { data, error } = await ctx.db.rpc("job_mark", {
+      p_job: ctx.jobId,
+      p_user: ctx.userId,
+      p_event: event,
+      p_error: err ?? null,
+    });
+    if (error || (data && (data.error || data.ok === false))) {
+      console.error("job_mark " + event + " problem:", error ? error.message : JSON.stringify(data).slice(0, 200));
+    }
+  } catch (e: any) {
+    console.error("job_mark " + event + " threw:", String((e && e.message) || e));
+  }
+}
+
+async function checkJob(req: Request, db: any, userId: string): Promise<Gate> {
+  const { data: p, error: pe } = await db.from("feature_pricing").select("price").eq("feature_name", "report_restyle").maybeSingle();
+  if (pe) return { ok: false, error: "Could not check pricing. Please try again.", status: 500 };
+  const price = Number((p && p.price) || 0);
+  if (!(price > 0)) return { ok: true, jobId: null };
+  const jobId = (req.headers.get("x-job-id") || "").trim();
+  if (!jobId) return { ok: false, error: "Please accept the package first.", status: 402 };
+  if (!UUID_RE.test(jobId)) return { ok: false, error: "This purchase was not found.", status: 403 };
+  const { data: j, error: je } = await db.from("feature_jobs").select("id,user_id,feature,status,deadline_at").eq("id", jobId).maybeSingle();
+  if (je) return { ok: false, error: "Could not check your purchase. Please try again.", status: 500 };
+  if (!j || j.user_id !== userId || j.feature !== "report_restyle") return { ok: false, error: "This purchase was not found.", status: 403 };
+  if (j.status !== "open") return { ok: false, error: "This purchase is already used. Please buy again.", status: 402 };
+  if (new Date(j.deadline_at).getTime() <= Date.now()) return { ok: false, error: "This purchase has expired. Please buy again.", status: 402 };
+  return { ok: true, jobId };
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const db = adminDb();
+    if (!db) return NextResponse.json({ error: "Service is not configured." }, { status: 500 });
+    const user = await requireUser(req, db);
+    if (!user) return NextResponse.json({ error: "Please log in to continue." }, { status: 401 });
+    const gate = await checkJob(req, db, user.id);
+    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+    return await handle(req, { db, userId: user.id, jobId: gate.jobId });
+  } catch (e: any) {
+    console.error("report-restyle wrapper failed:", e);
+    return NextResponse.json({ error: "Restyle failed" }, { status: 500 });
   }
 }

@@ -45,6 +45,7 @@ export default function ReportRestylePage() {
   const [pricePerUse, setPricePerUse] = useState(0)
   const [userId, setUserId] = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
+  const [jobId, setJobId] = useState('')
   const formattedPrice = pricePerUse.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   useEffect(() => {
@@ -61,11 +62,27 @@ export default function ReportRestylePage() {
     init()
   }, [])
 
+  useEffect(() => {
+    let j = ''
+    try { j = new URLSearchParams(window.location.search).get('job') || '' } catch {}
+    if (j) setJobId(j)
+    else if (pricePerUse > 0) window.location.href = '/report-restyle/pricing'
+  }, [pricePerUse])
+
+  async function authHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
+    const { data: sess } = await supabase.auth.getSession()
+    const h: Record<string, string> = { ...(extra || {}) }
+    const token = sess.session?.access_token
+    if (token) h['Authorization'] = 'Bearer ' + token
+    if (jobId) h['X-Job-Id'] = jobId
+    return h
+  }
+
   async function callRewrite(items: Item[]): Promise<Result[]> {
     try {
       const res = await fetch('/api/report-restyle', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ phase: 'rewrite', style, items }),
       })
       const data = await safeJson(res)
@@ -76,61 +93,12 @@ export default function ReportRestylePage() {
     }
   }
 
-  async function refund(): Promise<boolean> {
-    try {
-      const { data: w } = await supabase.from('wallets').select('balance').eq('id', userId).single()
-      const b = w?.balance ?? 0
-      const { error: e } = await supabase.from('wallets').update({ balance: b + pricePerUse }).eq('id', userId)
-      if (e) return false
-      await supabase.from('transactions').insert({ user_id: userId, type: 'credit', amount: pricePerUse, status: 'success', description: 'Refund: Restyle Your Report' })
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  function handleButtonClick() {
+  async function handleButtonClick() {
     if (!file) { setError('Please choose your .docx report first.'); return }
     if (!style) { setError('Please choose a citation style.'); return }
-    setError('')
-    if (pricePerUse === 0) {
-      runRestyle()
-    } else {
-      setShowConfirm(true)
-    }
-  }
-
-  async function handleAccept() {
-    setShowConfirm(false)
-    setError('')
     if (!userId) { setError('Please log in to continue.'); return }
-    setBusy(true)
-    try {
-      const { data: wallet } = await supabase.from('wallets').select('balance').eq('id', userId).single()
-      const balance = wallet?.balance ?? 0
-      if (balance < pricePerUse) {
-        setError('Your balance is not enough, kindly top up.')
-        setBusy(false)
-        return
-      }
-      const chargeOut: any = Number(pricePerUse) > 0 ? await supabase.rpc('charge_feature', { p_description: 'Restyle Your Report', p_amount: pricePerUse }) : { data: { ok: true }, error: null }
-    const deductError = (chargeOut.error || !chargeOut.data || chargeOut.data.error) ? true : null
-      if (deductError) {
-        setError('Could not process payment. Please try again.')
-        setBusy(false)
-        return
-      }
-      
-    } catch {
-      setError('Something went wrong. Please try again.')
-      setBusy(false)
-      return
-    }
-    const ok = await runRestyle()
-    if (!ok) {
-      const refunded = await refund()
-      setError((prev) => prev + (refunded ? ' You have not been charged: the amount was returned to your wallet.' : ' Please contact support to have your payment returned.'))
-    }
+    setError('')
+    await runRestyle()
   }
 
   async function runRestyle(): Promise<boolean> {
@@ -147,7 +115,7 @@ export default function ReportRestylePage() {
       fd.append('phase', 'parse')
       fd.append('style', style)
       fd.append('file', file)
-      const pr = await fetch('/api/report-restyle', { method: 'POST', body: fd })
+      const pr = await fetch('/api/report-restyle', { method: 'POST', headers: await authHeaders(), body: fd })
       const info = await safeJson(pr)
       if (!pr.ok) throw new Error(info.error || 'Could not read the report. The file may be too large (maximum 4 MB).')
 
@@ -189,7 +157,7 @@ export default function ReportRestylePage() {
       fd2.append('style', style)
       fd2.append('file', file)
       fd2.append('rewrites', JSON.stringify(rewrites))
-      const br = await fetch('/api/report-restyle', { method: 'POST', body: fd2 })
+      const br = await fetch('/api/report-restyle', { method: 'POST', headers: await authHeaders(), body: fd2 })
       if (!br.ok) {
         const j = await safeJson(br)
         throw new Error(j.error || 'Could not build the document.')
@@ -262,7 +230,7 @@ export default function ReportRestylePage() {
           background: busy ? '#999' : '#111', color: '#fff', cursor: busy ? 'default' : 'pointer',
         }}
       >
-        {busy ? 'Working...' : pricePerUse > 0 ? 'Restyle and Download (₦' + formattedPrice + ')' : 'Restyle and Download'}
+        {busy ? 'Working...' : false ? 'Restyle and Download (₦' + formattedPrice + ')' : 'Restyle and Download'}
       </button>
 
       {status && <p style={{ marginTop: 16, color: '#333' }}>{status}</p>}
@@ -280,7 +248,7 @@ export default function ReportRestylePage() {
             </p>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => setShowConfirm(false)} style={{ flex: 1, backgroundColor: '#EEEEEE', color: '#333333', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Reject</button>
-              <button onClick={handleAccept} style={{ flex: 1, backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Accept</button>
+              <button onClick={() => setShowConfirm(false)} style={{ flex: 1, backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Accept</button>
             </div>
           </div>
         </div>
