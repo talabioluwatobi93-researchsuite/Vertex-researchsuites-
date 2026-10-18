@@ -2,6 +2,19 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { stitchParts, type PartInput } from "@/lib/voiceStitch";
+import { LANGUAGE_GROUPS, LANGUAGE_NOTE, languageCodesFor, optionText } from "@/lib/voiceLanguages";
+import { INTRON_LANGUAGE_GROUPS, INTRON_LANGUAGE_NOTE } from "@/lib/intronLanguages";
+import { nominalPlan, joinIntronParts } from "@/lib/intronCuts";
+import { speakerNumbers, partNumbers, mergeSpeakers, swapSpeakersInPart } from "@/lib/speakerTools";
+import { downloadWordFile } from "@/lib/wordExport";
+import { limitSpeakers } from "@/lib/speakerLimit";
+import SpeakerCards from "./SpeakerCards";
+import { applyNames } from "@/lib/speakerNames";
+import { runIntronParts, type RunnerDeps } from "@/lib/intronRunner";
+import { runDiarize, toPieceIn, toRunnerParts } from "@/lib/diarizeRun";
+import { finishSpeakerFirst, reportText } from "@/lib/diarizeFinish";
+import type { Piece } from "@/lib/diarizePlan";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,8 +27,8 @@ const MUTED = "#555555";
 const BG = "#F9F9F9";
 const BORDER = "#EEEEEE";
 
-const CHUNK_LENGTH_SECONDS = 300; // 5 minutes
-const CHUNK_OVERLAP_SECONDS = 15;
+const CHUNK_LENGTH_SECONDS = 600; // 10 minutes (raise toward 28 after timing a real run)
+const CHUNK_OVERLAP_SECONDS = 120; // P11-8: longer overlap so quiet speakers are heard in it
 
 type Stage = "loading" | "fee-confirm" | "upload" | "transcribing" | "review-transcript" | "notes";
 
@@ -64,7 +77,9 @@ export default function VoiceTranscription() {
   const [processingMsg, setProcessingMsg] = useState("");
 
   const [transcript, setTranscript] = useState("");
+  const [transcriptNotice, setTranscriptNotice] = useState<string>("");
   const [notes, setNotes] = useState("");
+  const [speakerNames, setSpeakerNames] = useState<Record<number, string>>({});
   const [generatingNotes, setGeneratingNotes] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -87,6 +102,209 @@ export default function VoiceTranscription() {
     };
     init();
   }, []);
+
+  // ---- African languages (Intron). First version: one clip of up to 2 minutes. ----
+  const INTRON_MAX_AUDIO_SECONDS = 3600;
+  const INTRON_MAX_FILE_BYTES = 50 * 1024 * 1024;
+  const INTRON_ALLOWED_EXT = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm", "aac", "aif", "aiff", "amr", "3gp", "3ga", "wma"];
+  const [intronFile, setIntronFile] = useState<File | null>(null);
+  const [intronLanguage, setIntronLanguage] = useState<string>("yo");
+  const [intronBusy, setIntronBusy] = useState(false);
+  const [intronMsg, setIntronMsg] = useState("");
+  const [intronError, setIntronError] = useState("");
+  const [intronText, setIntronText] = useState("");
+  const [, setIntronRaw] = useState("");
+  const [intronSessionId, setIntronSessionId] = useState("");
+  const [intronNotice, setIntronNotice] = useState("");
+
+  const [intronDiarize] = useState(true);
+  const [speakerFirst, setSpeakerFirst] = useState(false);
+  const handleIntronTranscribe = async () => {
+    if (!intronFile) return;
+    setIntronBusy(true);
+    setIntronError("");
+    setIntronText("");
+    setIntronRaw("");
+    setIntronNotice("");
+    try {
+      if (intronFile.size > INTRON_MAX_FILE_BYTES) {
+        throw new Error("This file is larger than 50 MB. Please choose a smaller file, or cut the recording into shorter files.");
+      }
+      const getToken = async (): Promise<string> => {
+        const { data: authData } = await supabase.auth.getSession();
+        const t = authData.session?.access_token;
+        if (!t) throw new Error("Please sign in again.");
+        return t;
+      };
+      await getToken();
+
+      const safeName = intronFile.name.replace(/[^A-Za-z0-9._-]+/g, "_");
+      const path = `${userId}/${Date.now()}-${safeName}`;
+      setIntronMsg("Uploading your audio...");
+      const { error: upErr } = await supabase.storage.from("interview-audio").upload(path, intronFile);
+      if (upErr) throw new Error("Could not upload audio. Please try again.");
+
+      const { data: session, error: sessErr } = await supabase
+        .from("voice_transcription_sessions")
+        .insert({ user_id: userId, audio_path: path, status: "uploaded", fee_charged: price })
+        .select()
+        .single();
+      if (sessErr || !session) throw new Error("Could not create transcription session. Please try again.");
+      setIntronSessionId(session.id);
+
+      const probeRes = await fetch("/api/voice-transcription/probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioPath: path }),
+      });
+      const probeData = await probeRes.json();
+      if (!probeRes.ok || typeof probeData.durationSeconds !== "number" || !(probeData.durationSeconds > 0)) {
+        throw new Error("We could not read the length of this audio file. Please try another file (mp3, m4a or wav).");
+      }
+      if (probeData.durationSeconds > INTRON_MAX_AUDIO_SECONDS) {
+        throw new Error("This recording is longer than 1 hour. Please cut it into shorter files. Cut at a pause and repeat about 15 seconds at the start of the next file.");
+      }
+
+      let plan: { index: number; startSeconds: number; durationSeconds: number }[] = nominalPlan(probeData.durationSeconds);
+      const post = async (url: string, payload: any) => {
+        const token = await getToken();
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify(payload),
+        });
+        let data: any = null;
+        try { data = await res.json(); } catch { data = null; }
+        return { res, data };
+      };
+      let sfPieces: Piece[] | null = null;
+      let sfLine = "";
+      if (speakerFirst || new URLSearchParams(window.location.search).get("speakerfirst") === "1") {
+        setIntronMsg("Detecting speakers... 0 parts done. Please don't close this page.");
+        const dres = await runDiarize(probeData.durationSeconds, {
+          now: () => Date.now(),
+          sleep: (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
+          onProgress: (t) => setIntronMsg(t + " Please don't close this page."),
+          startChunk: async (c) => {
+            try {
+              const { res, data } = await post("/api/voice-transcription/diarize-start", {
+                sessionId: session.id, audioPath: path, totalSeconds: probeData.durationSeconds,
+                startSeconds: c.startSeconds, durationSeconds: c.durationSeconds,
+              });
+              if (res.status === 429) return { busy: true };
+              if (!res.ok || !data || typeof data.predictionId !== "string") return { error: (data && data.error) || "Could not start." };
+              return { job: { predictionId: data.predictionId, token: data.token, chunkPath: data.chunkPath } };
+            } catch { return { error: "Network problem." }; }
+          },
+          checkChunk: async (j) => {
+            try {
+              const { res, data } = await post("/api/voice-transcription/diarize-status", {
+                sessionId: session.id, predictionId: j.predictionId, token: j.token, chunkPath: j.chunkPath,
+              });
+              if (res.status === 429) return { busy: true };
+              if (!res.ok || !data) return { error: (data && data.error) || "Could not check." };
+              return { state: data.state, segments: data.segments };
+            } catch { return { error: "Network problem." }; }
+          },
+        });
+        if (dres.ok) { sfPieces = dres.pieces; plan = toRunnerParts(dres.pieces); sfLine = reportText(dres.report); }
+        else { sfLine = "Speaker-first detection did not work (" + dres.error + "), so the standard method was used."; }
+      }
+      const deps: RunnerDeps = {
+        now: () => Date.now(),
+        sleep: (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
+        startBatch: async (parts) => {
+          try {
+            const { res, data } = await post("/api/voice-transcription/intron-start", {
+              sessionId: session.id, audioPath: path, language: intronLanguage, diarize: intronDiarize, totalSeconds: probeData.durationSeconds, parts,
+            });
+            if (res.status === 429) return { busy: true };
+            if (!res.ok || !data || !Array.isArray(data.jobs)) return { error: (data && data.error) || "Could not start." };
+            return { jobs: data.jobs };
+          } catch {
+            return { error: "Network problem." };
+          }
+        },
+        pollBatch: async (jobs) => {
+          try {
+            const { res, data } = await post("/api/voice-transcription/intron-status", { jobs });
+            if (res.status === 429) return { busy: true };
+            if (!res.ok || !data || !Array.isArray(data.items)) return { error: (data && data.error) || "Could not check." };
+            return { items: data.items };
+          } catch {
+            return { error: "Network problem." };
+          }
+        },
+        onProgress: (p) => setIntronMsg("Transcribing... " + p.done + " of " + p.total + " parts done. Please don't close this page."),
+      };
+      if (sfPieces) {
+        const pcs: Piece[] = sfPieces;
+        deps.startBatch = async (parts) => {
+          try {
+            const pieces = parts
+              .map((x) => pcs.find((q) => q.startSeconds === x.startSeconds))
+              .filter((q): q is Piece => !!q)
+              .map(toPieceIn);
+            const { res, data } = await post("/api/voice-transcription/intron-pieces", {
+              sessionId: session.id, audioPath: path, language: intronLanguage, totalSeconds: probeData.durationSeconds, pieces,
+            });
+            if (res.status === 429) return { busy: true };
+            if (!res.ok || !data || !Array.isArray(data.jobs)) return { error: (data && data.error) || "Could not start." };
+            return { jobs: data.jobs };
+          } catch { return { error: "Network problem." }; }
+        };
+      }
+      setIntronMsg("Transcribing... 0 of " + plan.length + " parts done. Please don't close this page.");
+      const run = await runIntronParts(plan, deps, sfPieces ? { maxRunning: 3, pollMs: 12000 } : { maxRunning: 3, pollMs: 12000, batchSize: 1, maxJobMs: 20 * 60 * 1000 });
+      const okParts = run.parts.filter((p) => p.text !== null).length;
+      if (okParts === 0) throw new Error("Transcription failed for every part of this audio. Please try again.");
+
+      const stitched = sfPieces ? finishSpeakerFirst(sfPieces, run.parts) : joinIntronParts(run.parts.map((p) => ({ index: p.index, text: p.text, startSeconds: p.startSeconds })));
+      const notices = [...stitched.notices];
+      if (sfLine) notices.push(sfLine);
+      if (run.timedOut) notices.push("Transcription took too long, so the last parts are missing.");
+      setIntronText(stitched.text);
+      setIntronNotice(notices.join(" "));
+      setIntronRaw(
+        JSON.stringify(
+          {
+            parts: plan.length,
+            partsTranscribed: okParts, diarize: intronDiarize,
+            audioSecondsSent: Math.round(probeData.durationSeconds),
+            uploads: run.uploads,
+            statusChecks: run.polls,
+            speakers: stitched.speakerCount,
+            failedParts: stitched.failedParts,
+            emptyTurns: stitched.emptyTurns,
+          },
+          null,
+          2
+        )
+      );
+      setIntronMsg(stitched.text ? "Done." : "Done, but no text came back.");
+      if (stitched.text) {
+        await supabase
+          .from("voice_transcription_sessions")
+          .update({ raw_transcript: stitched.text, status: "transcribed", updated_at: new Date().toISOString() })
+          .eq("id", session.id);
+      }
+    } catch (err: any) {
+      setIntronError(err.message || "Something went wrong. Please try again.");
+      setIntronMsg("");
+    } finally {
+      setIntronBusy(false);
+    }
+  };
+
+  const handleUseIntronTranscript = () => {
+    setTranscript(intronText);
+    setSpeakerNames({});
+    setTranscriptNotice(
+      intronNotice || "This transcript came from the African-language engine. Speaker labels, if any, depend on what the engine returned."
+    );
+    setSessionId(intronSessionId);
+    setStage("review-transcript");
+  };
 
   const handleAcceptFee = async () => {
     setPaying(true);
@@ -113,22 +331,14 @@ export default function VoiceTranscription() {
     setPaying(false);
   };
 
-  const runOneShotTranscription = async (currentSessionId: string, audioPath: string, lang: string) => {
-    const res = await fetch("/api/voice-transcription/transcribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: currentSessionId, audioPath, language: lang, languageHint }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Transcription failed. Please try again.");
-    return data.transcript as string;
-  };
 
   const runChunkedTranscription = async (audioPath: string, durationSeconds: number, lang: string) => {
     let accumulated = "";
+    const partsForStitch: PartInput[] = [];
+    let textOnlyParts = 0;
     let start = 0;
     const step = CHUNK_LENGTH_SECONDS - CHUNK_OVERLAP_SECONDS;
-    const totalChunks = Math.max(1, Math.ceil(durationSeconds / step));
+    const totalChunks = Math.max(1, Math.ceil((durationSeconds - CHUNK_OVERLAP_SECONDS) / step));
     let chunkIndex = 0;
 
     while (start < durationSeconds) {
@@ -137,18 +347,37 @@ export default function VoiceTranscription() {
 
       const chunkDuration = Math.min(CHUNK_LENGTH_SECONDS, durationSeconds - start);
 
-      const res = await fetch("/api/voice-transcription/chunk-transcribe", {
+      const res = await fetch("/api/voice-transcription/gemini-part", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audioPath, startSeconds: start, durationSeconds: chunkDuration, language: lang, languageHint }),
+        body: JSON.stringify({ audioPath, startSeconds: start, durationSeconds: chunkDuration, language: lang, languageCodes: languageCodesFor(lang), languageHint }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Transcription failed on part ${chunkIndex}. Please try again.`);
 
+      partsForStitch.push({ offset: start, words: Array.isArray(data.words) ? data.words : [] });
+      const partHasWords = Array.isArray(data.words) && data.words.length > 0;
+      const partHasText = typeof data.text === "string" && data.text.trim().length > 0;
+      if (!partHasWords && partHasText) textOnlyParts += 1;
       accumulated = mergeTranscriptChunks(accumulated, data.text || "");
+      if (start + chunkDuration >= durationSeconds) break; // P11-8: last part reached the end
       start += step;
     }
 
+    const stitched = stitchParts(partsForStitch);
+    if (stitched.words.length > 0 && textOnlyParts === 0) {
+      setTranscriptNotice(
+        partsForStitch.length > 1
+          ? "This recording was transcribed in parts and speaker labels were matched across them. Please check who is speaking near the start of each part."
+          : ""
+      );
+      return stitched.text;
+    }
+    setTranscriptNotice(
+      stitched.words.length > 0
+        ? "Some parts of this recording came back without speaker labels or timestamps, so the transcript below is plain text without them."
+        : "Speaker labels and timestamps were not available for this recording, so the transcript below is plain text without them."
+    );
     return accumulated;
   };
 
@@ -182,10 +411,10 @@ export default function VoiceTranscription() {
       const probeData = await probeRes.json();
 
       let finalTranscript = "";
-      if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > CHUNK_LENGTH_SECONDS) {
+      if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > 0) {
         finalTranscript = await runChunkedTranscription(uploadData.path, probeData.durationSeconds, language);
       } else {
-        finalTranscript = await runOneShotTranscription(uploadData.sessionId, uploadData.path, language);
+        throw new Error("We could not read the length of this audio file. Please try another file (mp3, m4a or wav).");
       }
 
       await supabase
@@ -194,6 +423,7 @@ export default function VoiceTranscription() {
         .eq("id", uploadData.sessionId);
 
       setTranscript(finalTranscript);
+    setSpeakerNames({});
       setStage("review-transcript");
     } catch (err: any) {
       setErrorMsg(err?.message || "Something went wrong. Please try again.");
@@ -241,10 +471,10 @@ export default function VoiceTranscription() {
 
       let finalTranscript = "";
 
-      if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > CHUNK_LENGTH_SECONDS) {
+      if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > 0) {
         finalTranscript = await runChunkedTranscription(path, probeData.durationSeconds, language);
       } else {
-        finalTranscript = await runOneShotTranscription(session.id, path, language);
+        throw new Error("We could not read the length of this audio file. Please try another file (mp3, m4a or wav).");
       }
 
       await supabase
@@ -253,6 +483,7 @@ export default function VoiceTranscription() {
         .eq("id", session.id);
 
       setTranscript(finalTranscript);
+    setSpeakerNames({});
       setStage("review-transcript");
     } catch (err: any) {
       setErrorMsg(err?.message || "Something went wrong. Please try again.");
@@ -261,17 +492,26 @@ export default function VoiceTranscription() {
     }
   };
 
+  const [savedTranscript, setSavedTranscript] = useState("");
   const handleGenerateNotes = async () => {
+    if (transcript.trim() && transcript !== savedTranscript) {
+      downloadWordFile("transcript-" + downloadStamp() + ".docx", applyNames(transcript, speakerNames), "transcript");
+      setSavedTranscript(transcript);
+    }
     setGeneratingNotes(true);
     setErrorMsg("");
     try {
       const res = await fetch("/api/voice-transcription/interpret", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript }),
+        body: JSON.stringify({ transcript: applyNames(transcript, speakerNames) }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.notes === undefined || data.notes === null) {
+        throw new Error((data && data.error) || "The notes service returned an error (status " + res.status + ").");
+      }
       setNotes(data.notes);
+      downloadWordFile("interpretive-notes-" + downloadStamp() + ".docx", data.notes, "notes");
 
       await supabase
         .from("voice_transcription_sessions")
@@ -279,8 +519,8 @@ export default function VoiceTranscription() {
         .eq("id", sessionId);
 
       setStage("notes");
-    } catch {
-      setErrorMsg("Something went wrong generating notes. Please try again.");
+    } catch (err: any) {
+      setErrorMsg(err && err.message ? "Something went wrong generating notes: " + err.message : "Something went wrong generating notes. Please try again.");
     }
     setGeneratingNotes(false);
   };
@@ -341,6 +581,82 @@ export default function VoiceTranscription() {
       )}
 
       {stage === "upload" && (
+        <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}`, marginBottom: "16px" }}>
+          <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "6px" }}>African languages</p>
+          <p style={{ color: MUTED, fontSize: 13, marginBottom: "14px" }}>
+            For Yoruba, Igbo, Hausa, Pidgin and other African languages, including speech mixed with English. Up to 1 hour and 50 MB per file. Long recordings are processed in parts and joined automatically.
+          </p>
+          <label style={{ display: "block", width: "100%", padding: "14px", marginBottom: "16px", backgroundColor: "#F5F5F5", border: "2px dashed #CCCCCC", borderRadius: "10px", textAlign: "center", fontSize: "14px", color: "#333333", fontWeight: 600, cursor: "pointer" }}>
+            {intronFile ? intronFile.name : "Tap here to choose an audio file"}
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={(e) => {
+                const selected = e.target.files?.[0] || null;
+                if (selected) {
+                  const ext = selected.name.split(".").pop()?.toLowerCase() || "";
+                  if (INTRON_ALLOWED_EXT.indexOf(ext) === -1) {
+                    setIntronError("That file type (." + ext + ") isn't supported. Please choose an mp3, m4a, wav, or similar audio file.");
+                    setIntronFile(null);
+                    return;
+                  }
+                }
+                setIntronError("");
+                setIntronFile(selected);
+              }}
+              style={{ display: "none" }}
+            />
+          </label>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#333333", marginBottom: "6px" }}>Language spoken</label>
+          <select
+            value={intronLanguage}
+            onChange={(e) => setIntronLanguage(e.target.value)}
+            style={{ width: "100%", padding: "10px 12px", fontSize: "14px", borderRadius: "10px", border: "1px solid #CCCCCC", color: "#333333", marginBottom: "12px" }}
+          >
+            {INTRON_LANGUAGE_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.options.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <p style={{ color: "#888888", fontSize: 12, marginTop: "-8px", marginBottom: "12px" }}>{INTRON_LANGUAGE_NOTE}</p>
+          {intronError && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{intronError}</p>}
+          {intronMsg && <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>{intronMsg}</p>}
+        {intronNotice && <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>{intronNotice}</p>}
+          <label style={{ display: "flex", alignItems: "flex-start", fontSize: 13, color: DARK, marginBottom: "4px" }}>
+            <input type="checkbox" checked={speakerFirst} onChange={(e) => setSpeakerFirst(e.target.checked)} disabled={intronBusy} style={{ marginRight: "8px", marginTop: "3px" }} />
+            Detect speakers more accurately (beta)
+          </label>
+          <p style={{ color: MUTED, fontSize: 12, marginTop: 0, marginBottom: "12px" }}>Uses a separate speaker-detection service (Replicate). Use it for non-sensitive recordings while it is in beta. If it fails, the normal method runs instead.</p>
+          <button
+            onClick={handleIntronTranscribe}
+            disabled={!intronFile || intronBusy}
+            style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
+          >
+            {intronBusy ? "Working..." : "Upload & Transcribe (African languages)"}
+          </button>
+          {intronText && (
+            <div style={{ marginTop: "16px" }}>
+              <p style={{ color: DARK, fontSize: 14, fontWeight: 700, marginBottom: "6px" }}>Transcript</p>
+              <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "inherit", fontSize: "13px", color: DARK, lineHeight: "1.6", margin: "0 0 12px 0", maxHeight: "420px", overflowY: "auto" }}>{intronText}</pre>
+              <button
+                onClick={handleUseIntronTranscript}
+                style={{ width: "100%", backgroundColor: DARK, color: "#ffffff", border: "none", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Use this transcript
+              </button>
+            </div>
+          )}
+          </div>
+      )}
+
+      {stage === "upload" && (
+        <p style={{ color: DARK, fontSize: 14, fontWeight: 700, margin: "4px 0 10px 0" }}>Other languages (global)</p>
+      )}
+
+      {stage === "upload" && (
         <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}` }}>
           <p style={{ color: MUTED, fontSize: 14, marginBottom: "16px" }}>Upload your interview recording. We'll transcribe it and generate detailed interpretive notes.</p>
           <label style={{ display: "block", width: "100%", padding: "14px", marginBottom: "16px", backgroundColor: "#F5F5F5", border: "2px dashed #CCCCCC", borderRadius: "10px", textAlign: "center", fontSize: "14px", color: "#333333", fontWeight: 600, cursor: "pointer" }}>
@@ -348,7 +664,7 @@ export default function VoiceTranscription() {
             <input type="file" accept="audio/*" onChange={(e) => {
               const selected = e.target.files?.[0] || null
               if (selected) {
-                const allowedExt = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm"]
+                const allowedExt = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm", "aac", "aif", "aiff", "amr", "3gp", "3ga", "wma"]
                 const ext = selected.name.split(".").pop()?.toLowerCase() || ""
                 if (allowedExt.indexOf(ext) === -1) {
                   setErrorMsg("That file type (." + ext + ") isn't supported. Please choose an mp3, m4a, wav, or similar audio file.")
@@ -363,43 +679,15 @@ export default function VoiceTranscription() {
             <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#333333", marginBottom: "6px" }}>Audio language</label>
             <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ width: "100%", padding: "10px 12px", fontSize: "14px", borderRadius: "10px", border: "1px solid #CCCCCC", color: "#333333", marginBottom: "12px" }}>
                 <option value="auto">Auto-detect</option>
-                <optgroup label="Tier 1: Excellent (WER 2.7%-10%)">
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="it">Italian</option>
-                  <option value="pt">Portuguese</option>
-                  <option value="ja">Japanese</option>
-                </optgroup>
-                <optgroup label="Tier 2: Strong (WER 10%-20%)">
-                  <option value="zh">Mandarin</option>
-                  <option value="ko">Korean</option>
-                  <option value="tr">Turkish</option>
-                  <option value="ar">Arabic</option>
-                  <option value="uk">Ukrainian</option>
-                  <option value="vi">Vietnamese</option>
-                  <option value="el">Greek</option>
-                </optgroup>
-                <optgroup label="Tier 3: Moderate (WER 20%-40%)">
-                  <option value="hi">Hindi</option>
-                  <option value="ms">Malay</option>
-                  <option value="tl">Tagalog</option>
-                  <option value="ur">Urdu</option>
-                  <option value="sw">Swahili</option>
-                  <option value="bn">Bengali</option>
-                  <option value="fa">Persian</option>
-                </optgroup>
-                <optgroup label="Tier 4: Low Resource (WER 40%+, correction recommended)">
-                  <option value="yo">Yoruba</option>
-                  <option value="ig">Igbo</option>
-                  <option value="ha">Hausa</option>
-                  <option value="am">Amharic</option>
-                  <option value="zu">Zulu</option>
-                  <option value="cy">Welsh</option>
-                  <option value="ne">Nepali</option>
-                </optgroup>
+                {LANGUAGE_GROUPS.map((g) => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.options.map((o) => (
+                      <option key={o.value} value={o.value}>{optionText(o)}</option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
+              <p style={{ color: "#888888", fontSize: 12, marginTop: "-8px", marginBottom: "12px" }}>{LANGUAGE_NOTE}</p>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#333333", marginBottom: "6px" }}>Language hint (optional)</label>
               <input
                 type="text"
@@ -429,7 +717,12 @@ export default function VoiceTranscription() {
         <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}` }}>
           <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "8px" }}>Review Your Transcript</p>
           <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>Check for any misheard names or terms before generating your interpretive notes.</p>
+          {transcriptNotice && (
+            <p style={{ color: "#8A6D00", fontSize: 12, marginBottom: "12px" }}>Note: {transcriptNotice}</p>
+          )}
+          <SpeakerToolsPanel text={transcript} onChange={setTranscript} names={speakerNames} setNames={setSpeakerNames} />
           <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} style={{ width: "100%", minHeight: "260px", padding: "12px 14px", borderRadius: "10px", border: "1px solid #DDDDDD", fontSize: "14px", color: DARK, lineHeight: 1.6, boxSizing: "border-box" as const, marginBottom: "16px" }} />
+          <button type="button" onClick={() => downloadWordFile("transcript-" + downloadStamp() + ".docx", applyNames(transcript, speakerNames), "transcript")} disabled={!transcript.trim()} style={{ width: "100%", backgroundColor: "#FFFFFF", color: DARK, border: "1px solid " + BORDER, borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", marginBottom: "12px" }}>Download transcript (Word)</button>
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           <button onClick={handleGenerateNotes} disabled={generatingNotes || !transcript.trim()} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
             {generatingNotes ? "Generating interpretive notes..." : "Generate Interpretive Notes"}
@@ -437,6 +730,12 @@ export default function VoiceTranscription() {
         </div>
       )}
 
+      {stage === "notes" && notes && (
+        <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+          <button type="button" onClick={() => downloadWordFile("interpretive-notes-" + downloadStamp() + ".docx", notes, "notes")} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "none", backgroundColor: GOLD, color: DARK, fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Download notes (Word)</button>
+          <button type="button" onClick={() => downloadWordFile("transcript-" + downloadStamp() + ".docx", applyNames(transcript, speakerNames), "transcript")} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid " + BORDER, backgroundColor: "#FFFFFF", color: DARK, fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Download transcript (Word)</button>
+        </div>
+      )}
       {stage === "notes" && (
         <div>
           <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}`, marginBottom: "16px" }}>
@@ -467,4 +766,136 @@ export default function VoiceTranscription() {
       )}
     </div>
   );
+}
+
+function SpeakerToolsPanel({ text, onChange, names, setNames }: { text: string; onChange: (t: string) => void; names: Record<number, string>; setNames: (n: Record<number, string>) => void }) {
+  const [mergeFrom, setMergeFrom] = useState("");
+  const [mergeTo, setMergeTo] = useState("");
+  const [swapPart, setSwapPart] = useState("");
+  const [swapA, setSwapA] = useState("");
+  const [swapB, setSwapB] = useState("");
+  const [prevText, setPrevText] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [mainCount, setMainCount] = useState("");
+  const nums: number[] = Array.from(speakerNumbers(text) as unknown as Iterable<number>);
+  if (nums.length < 2 && prevText === null) return null;
+  const parts: number[] = Array.from(partNumbers(text) as unknown as Iterable<number>);
+  const partList: number[] = parts.length > 0 ? parts : [1];
+  const manyParts = partList.length > 1;
+  // How many lines each speaker has, and their first words.
+  const lineRe = /^((?:\[\d{1,3}:\d{2}(?::\d{2})?\] ?)?)Speaker (\d+): ?(.*)$/;
+  const info = new Map<number, { lines: number; sample: string }>();
+  for (const line of String(text || "").split("\n")) {
+    const m = lineRe.exec(line);
+    if (!m) continue;
+    const n = Number(m[2]);
+    const entry = info.get(n) || { lines: 0, sample: "" };
+    entry.lines += 1;
+    const words = m[3].trim();
+    if (!entry.sample && words && words.indexOf("[no text returned]") < 0) {
+      const w = words.split(/\s+/);
+      entry.sample = w.slice(0, 7).join(" ") + (w.length > 7 ? " ..." : "");
+    }
+    info.set(n, entry);
+  }
+  const linesOf = (n: number): number => {
+    const e = info.get(n);
+    return e ? e.lines : 0;
+  };
+  const sampleOf = (n: number): string => {
+    const e = info.get(n);
+    return e ? e.sample : "";
+  };
+  const fewestFirst = [...nums].sort((x, y) => linesOf(x) - linesOf(y) || y - x);
+  const defFrom = fewestFirst.length > 0 ? fewestFirst[0] : 0;
+  const defTo = fewestFirst.length > 0 ? fewestFirst[fewestFirst.length - 1] : 0;
+  const pick = (v: string, list: number[], fallback: number): number => {
+    const n = Number(v);
+    return v !== "" && list.includes(n) ? n : fallback;
+  };
+  const from = pick(mergeFrom, nums, defFrom);
+  const to = pick(mergeTo, nums, defTo);
+  const a = pick(swapA, nums, nums.length > 0 ? nums[0] : 0);
+  const b = pick(swapB, nums, nums.length > 1 ? nums[1] : a);
+  const part = pick(swapPart, partList, partList[0]);
+  const limitN = mainCount === "" ? 0 : Number(mainCount);
+  const limitHelp =
+    limitN === 0
+      ? "Choose a number if you know it. Extra labels will then join the line before them."
+      : nums.length <= limitN
+        ? "There are already " + nums.length + " speaker labels, so nothing to limit."
+        : "The " + limitN + " speaker" + (limitN === 1 ? "" : "s") + " with the most words stay. Lines from other labels join the line before them." + (manyParts ? " This works best when the recording has one part." : "");
+  const apply = (out: unknown, message: string) => {
+    if (typeof out === "string" && out !== text) {
+      setPrevText(text);
+      setNames({});
+      onChange(out);
+      setNote(message + (Object.keys(names).length ? " Speaker names were cleared; add them again." : ""));
+    } else {
+      setNote("Nothing changed.");
+    }
+  };
+  const selStyle = { padding: "6px 8px", borderRadius: "8px", border: "1px solid " + BORDER, fontSize: "13px", color: DARK, backgroundColor: "#FFFFFF", margin: "0 6px" };
+  const btnStyle = (off: boolean) => ({ padding: "7px 12px", borderRadius: "8px", border: "none", fontSize: "13px", fontWeight: 700, cursor: off ? "not-allowed" : "pointer", opacity: off ? 0.5 : 1, backgroundColor: GOLD, color: DARK, marginLeft: "8px" });
+  const rowStyle = { display: "flex", flexWrap: "wrap" as const, alignItems: "center", marginBottom: "8px", fontSize: "13px", color: DARK };
+  const smallStyle = { color: MUTED, fontSize: "12px", margin: "0 0 12px 0" };
+  const pickList = (value: number, list: number[], set: (v: string) => void, label: string) => (
+    <select value={String(value)} onChange={(e) => set(e.target.value)} aria-label={label} style={selStyle}>
+      {list.map((n) => (
+        <option key={n} value={String(n)}>{n}</option>
+      ))}
+    </select>
+  );
+  return (
+    <div style={{ backgroundColor: "#FAFAFA", border: "1px solid " + BORDER, borderRadius: "10px", padding: "12px 14px", marginBottom: "12px" }}>
+      <p style={{ color: DARK, fontSize: "14px", fontWeight: 700, margin: "0 0 4px 0" }}>Who is speaking?</p>
+      <p style={{ color: MUTED, fontSize: "12px", margin: "0 0 10px 0" }}>
+        {nums.length + " speaker labels found." + (manyParts ? " Speaker numbers can restart in each part, so check them." : "") + " If one person has two labels, combine them."}
+      </p>
+      <SpeakerCards text={text} apply={apply} names={names} setNames={setNames} dark={DARK} muted={MUTED} gold={GOLD} border={BORDER} />
+      {nums.length > 1 && (
+        <div style={{ marginTop: "12px" }}>
+          <div style={rowStyle}>
+            <span>How many main speakers are in this recording?</span>
+            <select value={mainCount} onChange={(e) => setMainCount(e.target.value)} aria-label="Main speakers" style={selStyle}>
+              <option value="">Not sure</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+            <button type="button" disabled={limitN === 0 || nums.length <= limitN} onClick={() => apply(limitSpeakers(text, limitN), "Done. Showing " + limitN + " main speaker" + (limitN === 1 ? "" : "s") + ".")} style={btnStyle(limitN === 0 || nums.length <= limitN)}>Limit</button>
+          </div>
+          <p style={smallStyle}>{limitHelp}</p>
+        </div>
+      )}
+      
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center" }}>
+        {prevText !== null && (
+          <button type="button" onClick={() => { onChange(prevText); setPrevText(null); setNote("Undone."); }} style={{ ...btnStyle(false), marginLeft: "0" }}>Undo last change</button>
+        )}
+        {note && <span style={{ color: MUTED, fontSize: "12px", marginLeft: "10px" }}>{note}</span>}
+      </div>
+    </div>
+  );
+}
+
+function downloadStamp(): string {
+  const d = new Date();
+  const p = (n: number) => (n < 10 ? "0" : "") + n;
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+}
+
+// Saves text as a file on the user's device (UTF-8 with a marker so accents show correctly).
+function downloadTextFile(filename: string, text: string) {
+  try {
+    const blob = new Blob(["\uFEFF", text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch {}
 }

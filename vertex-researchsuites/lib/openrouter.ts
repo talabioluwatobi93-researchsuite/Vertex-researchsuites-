@@ -1,7 +1,8 @@
 type OpenRouterResult = { content: string; providerUsed: string };
 
-async function callOpenRouterStreaming(model: string, prompt: string): Promise<string> {
+async function callOpenRouterStreaming(model: string, prompt: string, timeoutMs?: number): Promise<string> {
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -172,18 +173,18 @@ export const VOICE_INTERPRET_MODEL_ROUTES = {
 
 export async function callVoiceInterpretChain(prompt: string): Promise<OpenRouterResult> {
   try {
-    const content = await callOpenRouterStreaming(VOICE_INTERPRET_MODEL_ROUTES.primary, prompt);
+    const content = await callOpenRouterStreaming(VOICE_INTERPRET_MODEL_ROUTES.primary, prompt, 120000);
     return { content, providerUsed: 'deepseek-openrouter' };
   } catch (err: any) {
     if (String(err.message).startsWith('CONFIG_ERROR')) throw err;
     console.error('Voice Interpret primary failed, falling back to Kimi:', err);
     try {
-      const content = await callOpenRouterStreaming(VOICE_INTERPRET_MODEL_ROUTES.fallbackA, prompt);
+      const content = await callOpenRouterStreaming(VOICE_INTERPRET_MODEL_ROUTES.fallbackA, prompt, 75000);
       return { content, providerUsed: 'kimi-fallback' };
     } catch (err2: any) {
       if (String(err2.message).startsWith('CONFIG_ERROR')) throw err2;
       console.error('Voice Interpret Kimi fallback failed, falling back to Sonnet:', err2);
-      const content = await callOpenRouterStreaming(VOICE_INTERPRET_MODEL_ROUTES.fallbackB, prompt);
+      const content = await callOpenRouterStreaming(VOICE_INTERPRET_MODEL_ROUTES.fallbackB, prompt, 75000);
       return { content, providerUsed: 'sonnet5-fallback' };
     }
   }
