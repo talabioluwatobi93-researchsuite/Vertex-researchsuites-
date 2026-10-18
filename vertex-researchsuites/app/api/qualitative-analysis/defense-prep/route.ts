@@ -1,3 +1,4 @@
+import { requireSessionAccess } from '@/lib/sessionAuth'
 export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -9,6 +10,8 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 export async function POST(req: NextRequest) {
   try {
     const { sessionId } = await req.json()
+    const own1 = await requireSessionAccess(req, sessionId, 'qualitative_analysis_sessions')
+    if (!own1.ok) return NextResponse.json({ error: own1.error }, { status: own1.status })
     if (!sessionId) return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 })
 
     const { data: session, error } = await supabase.from('qualitative_analysis_sessions').select('*').eq('id', sessionId).single()

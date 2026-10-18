@@ -1,3 +1,4 @@
+import { requireSessionAccess } from '@/lib/sessionAuth'
 // CHUNK 1 — data-gathering layer
 import { checkCorrelation, checkRegression, checkLogistic, checkConfigPresent,
          checkChiSquare, TEST_NAMES, TestName } from '../lib/eligibility';
@@ -148,6 +149,8 @@ function pickAppRecommendation(structural: Record<string, { eligible: boolean; r
 export async function POST(req: Request) {
   try {
     const { sessionId } = await req.json();
+    const own1 = await requireSessionAccess(req, sessionId, 'quantitative_analysis_sessions')
+    if (!own1.ok) return Response.json({ error: own1.error }, { status: own1.status })
     if (!sessionId) {
       return Response.json({ error: 'Missing sessionId' }, { status: 400 });
     }

@@ -1,3 +1,4 @@
+import { requireLogin } from '@/lib/sessionAuth'
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 
@@ -5,6 +6,8 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
+    const login1 = await requireLogin(req)
+    if (!login1.ok) return NextResponse.json({ error: login1.error }, { status: login1.status })
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 

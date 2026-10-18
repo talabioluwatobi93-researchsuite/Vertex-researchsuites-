@@ -1,3 +1,4 @@
+import { requireSessionAccess } from '@/lib/sessionAuth'
 export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -16,6 +17,8 @@ function stripFences(text: string): string {
 export async function POST(req: NextRequest) {
   try {
     const { sessionId } = await req.json()
+    const own1 = await requireSessionAccess(req, sessionId, 'quantitative_analysis_sessions')
+    if (!own1.ok) return NextResponse.json({ error: own1.error }, { status: own1.status })
     if (!sessionId) {
       return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 })
     }

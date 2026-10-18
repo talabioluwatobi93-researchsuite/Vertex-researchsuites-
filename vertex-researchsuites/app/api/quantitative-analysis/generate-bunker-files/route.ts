@@ -1,3 +1,4 @@
+import { requireSessionAccess } from '@/lib/sessionAuth'
 export const maxDuration = 60;
 
 import { NextResponse } from "next/server";
@@ -163,6 +164,8 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle):
 export async function POST(req: Request) {
   try {
     const { sessionId } = await req.json();
+    const own1 = await requireSessionAccess(req, sessionId, 'quantitative_analysis_sessions')
+    if (!own1.ok) return NextResponse.json({ error: own1.error }, { status: own1.status })
     const startedAt = Date.now();
     if (!sessionId) {
       return NextResponse.json({ error: "Missing sessionId" }, { status: 400 });

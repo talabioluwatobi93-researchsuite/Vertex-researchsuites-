@@ -1,3 +1,4 @@
+import { requireSessionAccess } from '@/lib/sessionAuth'
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -9,6 +10,8 @@ const supabaseAdmin = createClient(
 export async function POST(req: Request) {
   try {
     const { sessionId, fileType } = await req.json();
+    const own1 = await requireSessionAccess(req, sessionId, 'quantitative_analysis_sessions')
+    if (!own1.ok) return NextResponse.json({ error: own1.error }, { status: own1.status })
     if (!sessionId || !fileType) {
       return NextResponse.json({ error: "Missing sessionId or fileType" }, { status: 400 });
     }
