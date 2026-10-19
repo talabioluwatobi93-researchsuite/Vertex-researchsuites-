@@ -1,3 +1,4 @@
+import { requireLogin } from '@/lib/sessionAuth'
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import ffmpegPath from "ffmpeg-static";
@@ -52,7 +53,10 @@ function runFfmpegDecodedDuration(filePath: string): Promise<number> {
 export async function POST(req: NextRequest) {
   let tmpPath = "";
   try {
+    const login1 = await requireLogin(req)
+    if (!login1.ok) return NextResponse.json({ error: login1.error }, { status: login1.status })
     const { audioPath } = await req.json();
+    if (typeof audioPath !== 'string' || !audioPath.startsWith(login1.userId + '/')) return NextResponse.json({ error: 'Invalid audio file.' }, { status: 400 })
     const { data: fileData, error } = await supabaseAdmin.storage.from("interview-audio").download(audioPath);
     if (error || !fileData) {
       console.error("probe download failed:", error?.message || "no data");

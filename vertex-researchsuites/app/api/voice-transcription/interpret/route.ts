@@ -1,3 +1,4 @@
+import { requireLogin } from '@/lib/sessionAuth'
 export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
@@ -5,6 +6,8 @@ import { callVoiceInterpretChain } from "@/lib/openrouter"
 
 export async function POST(req: NextRequest) {
   try {
+    const login1 = await requireLogin(req)
+    if (!login1.ok) return NextResponse.json({ error: login1.error }, { status: login1.status })
     const { transcript } = await req.json();
 
     const prompt = `You are an experienced qualitative research analyst. Below is a raw interview transcript. Produce detailed interpretive notes for academic qualitative analysis. Identify:

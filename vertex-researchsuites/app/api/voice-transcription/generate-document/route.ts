@@ -1,3 +1,4 @@
+import { requireLogin } from '@/lib/sessionAuth'
 export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -54,6 +55,8 @@ ${transcript}`;
 
 export async function POST(req: NextRequest) {
   try {
+    const login1 = await requireLogin(req)
+    if (!login1.ok) return NextResponse.json({ error: login1.error }, { status: login1.status })
     const { transcript, languageHint } = await req.json();
 
     if (!transcript || typeof transcript !== 'string' || !transcript.trim()) {

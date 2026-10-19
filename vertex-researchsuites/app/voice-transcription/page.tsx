@@ -629,7 +629,7 @@ export default function VoiceTranscription() {
             <input type="checkbox" checked={speakerFirst} onChange={(e) => setSpeakerFirst(e.target.checked)} disabled={intronBusy} style={{ marginRight: "8px", marginTop: "3px" }} />
             Detect speakers more accurately (beta)
           </label>
-          <p style={{ color: MUTED, fontSize: 12, marginTop: 0, marginBottom: "12px" }}>Uses a separate speaker-detection service (Replicate). Use it for non-sensitive recordings while it is in beta. If it fails, the normal method runs instead.</p>
+          <p style={{ color: MUTED, fontSize: 12, marginTop: 0, marginBottom: "12px" }}>Uses a separate speaker-detection service. Use it for non-sensitive recordings while it is in beta. If it fails, the normal method runs instead.</p>
           <button
             onClick={handleIntronTranscribe}
             disabled={!intronFile || intronBusy}

@@ -1,3 +1,4 @@
+import { requireLogin } from '@/lib/sessionAuth'
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import ffmpegPath from "ffmpeg-static";
@@ -35,7 +36,10 @@ export async function POST(req: NextRequest) {
   let inputTmp = "";
   let outputTmp = "";
   try {
+    const login1 = await requireLogin(req)
+    if (!login1.ok) return NextResponse.json({ error: login1.error }, { status: login1.status })
     const { audioPath, startSeconds, durationSeconds, languageCodes } = await req.json();
+    if (typeof audioPath !== 'string' || !audioPath.startsWith(login1.userId + '/')) return NextResponse.json({ error: 'Invalid audio file.' }, { status: 400 })
 
     const key = process.env.GEMINI_API_KEY;
     if (!key) {
