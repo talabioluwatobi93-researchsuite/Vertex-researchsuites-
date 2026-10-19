@@ -23,14 +23,16 @@ type Props = {
   items: string[];
   featureKey: string;
   nextHref: string;
+  rates?: { label: string; key: string }[];
 };
 
-export default function FeaturePackage({ title, intro, items, featureKey, nextHref, chargeFeature, chargeDescription }: Props) {
+export default function FeaturePackage({ title, intro, items, featureKey, nextHref, chargeFeature, chargeDescription, rates }: Props) {
   const [paying, setPaying] = useState(false);
   const router = useRouter();
   const [price, setPrice] = useState<number | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [rateRows, setRateRows] = useState<{ label: string; price: number }[] | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -49,6 +51,13 @@ export default function FeaturePackage({ title, intro, items, featureKey, nextHr
           .eq("feature_name", featureKey)
           .maybeSingle();
         if (pe) throw pe;
+        if (rates && rates.length) {
+          const { data: rr, error: re } = await supabase.from("feature_pricing").select("feature_name, price").in("feature_name", rates.map((r) => r.key));
+          if (re) throw re;
+          const rows = rates.map((r) => { const f: any = (rr || []).find((x: any) => x.feature_name === r.key); return f ? { label: r.label, price: Number(f.price) } : null; });
+          if (rows.some((x) => !x)) throw new Error("rates");
+          if (active) setRateRows(rows as { label: string; price: number }[]);
+        }
         const { data: w } = await supabase.from("wallets").select("balance").eq("id", user.id).maybeSingle();
         if (!active) return;
         setPrice(Number(p?.price ?? 0));
@@ -91,7 +100,7 @@ export default function FeaturePackage({ title, intro, items, featureKey, nextHr
     }
   }
 
-  const ready = price !== null && balance !== null;
+  const ready = price !== null && balance !== null && (!rates || rateRows !== null);
   const enough = ready && (price === 0 || (balance as number) >= (price as number));
 
   return (
@@ -111,7 +120,7 @@ export default function FeaturePackage({ title, intro, items, featureKey, nextHr
           <div style={{ borderTop: "1px solid " + BORDER, marginTop: 16, paddingTop: 14 }}>
             <div style={{ color: MUTED, fontSize: 13 }}>Price</div>
             <div style={{ color: DARK, fontSize: 26, fontWeight: 700 }}>
-              {!ready ? "Loading..." : price === 0 ? "Free" : <>{"\u20A6"}{(price as number).toLocaleString()}</>}
+              {!ready ? "Loading..." : rateRows ? <>{rateRows.map((r, i) => <div key={i} style={{ fontSize: 16 }}>{r.label}: {"\u20A6"}{r.price.toLocaleString()} per minute</div>)}</> : price === 0 ? "Free" : <>{"\u20A6"}{(price as number).toLocaleString()}</>}
             </div>
             {ready && (price as number) > 0 ? (
               <div style={{ color: MUTED, fontSize: 13, marginTop: 4 }}>

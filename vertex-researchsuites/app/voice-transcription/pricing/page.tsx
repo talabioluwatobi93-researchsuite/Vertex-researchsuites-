@@ -13,7 +13,7 @@ export default function VoicePricingPage() {
         "Supporting 80+ languages, with proper annotation, spellings and diarization",
         "Charged per minute of audio, rounded up to the next minute. You see the exact amount and confirm before anything is charged.",
       ]}
-      featureKey="voice_transcription"
+      featureKey="voice_transcription" rates={[{ label: "African languages", key: "voice_african_per_min" }, { label: "Global languages", key: "voice_global_per_min" }]}
       nextHref="/voice-transcription"
     />
   );
