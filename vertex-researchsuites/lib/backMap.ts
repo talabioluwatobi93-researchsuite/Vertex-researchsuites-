@@ -24,10 +24,10 @@ export function backTarget(pathname: string): string | null {
     return seg.length === 1 ? "/quantitative-analysis/pricing" : chain("/quantitative-analysis", QUANT, seg);
   }
   if (root === "qualitative-analysis") {
-    return seg.length === 1 ? "/dashboard" : chain("/qualitative-analysis", QUAL, seg);
+    return seg.length === 1 || seg[1] === "pricing" ? "/dashboard" : chain("/qualitative-analysis", QUAL, seg);
   }
   if (root === "pilot-study") {
-    if (seg.length === 1) return "/dashboard";
+    if (seg.length === 1 || seg[1] === "pricing") return "/dashboard";
     if (seg[2] === "upsell") return "/pilot-study/" + seg[1] + "/results";
     return chain("/pilot-study", PILOT, seg);
   }
