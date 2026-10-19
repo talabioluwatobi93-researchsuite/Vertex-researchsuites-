@@ -22,6 +22,20 @@ type BannerMessage = {
 export default function Dashboard() {
   const router = useRouter()
   const [firstName, setFirstName] = useState('')
+
+  useEffect(() => {
+    const keep = () => window.history.pushState(window.history.state, '', window.location.href)
+    keep()
+    const onPop = () => {
+      if (window.confirm('Do you want to log out?')) {
+        supabase.auth.signOut().finally(() => router.replace('/login'))
+      } else {
+        keep()
+      }
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
   const [greeting, setGreeting] = useState('')
   const [messages, setMessages] = useState<BannerMessage[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
