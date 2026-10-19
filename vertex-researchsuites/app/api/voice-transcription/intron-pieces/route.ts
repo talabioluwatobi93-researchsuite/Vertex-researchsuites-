@@ -1,3 +1,4 @@
+import { checkVoiceJob } from '@/lib/voiceGate'
 // Starts Intron transcription for pieces that were cut at speaker changes (P12-3).
 // One speaker per piece, Intron's own speaker labels off. A boundary marked "soft" (a cut inside one
 // speaker's long turn) is moved to the quietest moment within +-3 s. Both neighbours compute the same
@@ -104,6 +105,8 @@ export async function POST(req: NextRequest) {
     if (!session || session.user_id !== user.id || session.audio_path !== audioPath) {
       return NextResponse.json({ error: "This audio does not belong to your account." }, { status: 403 });
     }
+    const gate1 = await checkVoiceJob(admin, user.id, sessionId, 'voice_african')
+    if (!gate1.ok) return NextResponse.json({ error: gate1.error }, { status: gate1.status })
     const { data: fileData, error: downloadError } = await admin.storage.from("interview-audio").download(audioPath);
     if (downloadError || !fileData) return NextResponse.json({ error: "Could not download audio file." }, { status: 500 });
     const stamp = Date.now() + "-" + Math.floor(Math.random() * 1e6);

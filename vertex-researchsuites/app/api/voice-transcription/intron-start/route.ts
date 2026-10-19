@@ -1,3 +1,4 @@
+import { checkVoiceJob } from '@/lib/voiceGate'
 import { NextRequest, NextResponse } from "next/server";
 import { startWithDiarizeFallback } from "@/lib/intronStartSafe";
 import ffmpegPath from "ffmpeg-static";
@@ -117,6 +118,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "This audio does not belong to your account." }, { status: 403 });
     }
 
+    const gate1 = await checkVoiceJob(admin, user.id, sessionId, 'voice_african')
+    if (!gate1.ok) return NextResponse.json({ error: gate1.error }, { status: gate1.status })
     const { data: fileData, error: downloadError } = await admin.storage.from("interview-audio").download(audioPath);
     if (downloadError || !fileData) {
       return NextResponse.json({ error: "Could not download audio file." }, { status: 500 });

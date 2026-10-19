@@ -1,3 +1,5 @@
+import { adminDb } from '@/lib/serverDb'
+import { markJob } from '@/lib/jobGate'
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/intronAuth";
 import { getIntronStatus, verifyFileToken } from "@/lib/intronClient";
@@ -51,6 +53,15 @@ export async function POST(req: NextRequest) {
     );
     if (busyCount === items.length) {
       return NextResponse.json({ error: "The service is busy. Please try again in a moment." }, { status: 429 });
+    }
+    if (items.some((x) => !!x.transcript)) {
+      try {
+        const db1 = adminDb()
+        if (db1) {
+          const { data: j1 } = await db1.from('feature_jobs').select('id').eq('user_id', user.id).eq('feature', 'voice_african').eq('status', 'open').order('created_at', { ascending: false }).limit(1).maybeSingle()
+          if (j1) await markJob(db1, user.id, j1.id, 'delivered')
+        }
+      } catch {}
     }
     return NextResponse.json({ items });
   } catch (err: any) {

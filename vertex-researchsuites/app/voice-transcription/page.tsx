@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { stitchParts, type PartInput } from "@/lib/voiceStitch";
@@ -119,6 +119,51 @@ export default function VoiceTranscription() {
 
   const [intronDiarize] = useState(true);
   const [speakerFirst, setSpeakerFirst] = useState(false);
+  const voiceSidRef = useRef("");
+  const voiceFinish = async (event: string, errText?: string) => {
+    const sid = voiceSidRef.current;
+    if (!sid) return;
+    voiceSidRef.current = "";
+    try {
+      const { data: a } = await supabase.auth.getSession();
+      await fetch("/api/voice-transcription/finish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + (a.session?.access_token || "") },
+        body: JSON.stringify({ sessionId: sid, event, error: errText || "" }),
+      });
+    } catch {}
+  };
+  const voiceCharge = async (sid: string, engine: string, fingerprint: string) => {
+    voiceSidRef.current = sid;
+    try {
+      const call = async (action: string) => {
+        const { data: a } = await supabase.auth.getSession();
+        const r = await fetch("/api/voice-transcription/charge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + (a.session?.access_token || "") },
+          body: JSON.stringify({ sessionId: sid, engine, action, fingerprint }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || "Could not process the charge. Please try again.");
+        return d;
+      };
+      const q = await call("quote");
+      if (q.free) return;
+      if (q.retry) {
+        await call("charge");
+        return;
+      }
+      const yes = window.confirm(
+        "This recording is " + q.minutes + " min. Rate: \u20A6" + q.rate + " per min. Total: \u20A6" + q.amount + ". Continue?"
+      );
+      if (!yes) throw new Error("Cancelled. You were not charged.");
+      await call("charge");
+    } catch (e) {
+      await voiceFinish("abandon");
+      throw e;
+    }
+  };
+
   const handleIntronTranscribe = async () => {
     if (!intronFile) return;
     setIntronBusy(true);
@@ -165,6 +210,7 @@ export default function VoiceTranscription() {
         throw new Error("This recording is longer than 1 hour. Please cut it into shorter files. Cut at a pause and repeat about 15 seconds at the start of the next file.");
       }
 
+      await voiceCharge(session.id, "voice_african", intronFile.name + "|" + intronFile.size);
       let plan: { index: number; startSeconds: number; durationSeconds: number }[] = nominalPlan(probeData.durationSeconds);
       const post = async (url: string, payload: any) => {
         const token = await getToken();
@@ -287,8 +333,10 @@ export default function VoiceTranscription() {
           .from("voice_transcription_sessions")
           .update({ raw_transcript: stitched.text, status: "transcribed", updated_at: new Date().toISOString() })
           .eq("id", session.id);
+        await voiceFinish("done");
       }
     } catch (err: any) {
+      voiceFinish("failed", err.message);
       setIntronError(err.message || "Something went wrong. Please try again.");
       setIntronMsg("");
     } finally {
@@ -472,6 +520,7 @@ export default function VoiceTranscription() {
       let finalTranscript = "";
 
       if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > 0) {
+        await voiceCharge(session.id, "voice_global", file.name + "|" + file.size);
         finalTranscript = await runChunkedTranscription(path, probeData.durationSeconds, language);
       } else {
         throw new Error("We could not read the length of this audio file. Please try another file (mp3, m4a or wav).");
@@ -481,11 +530,13 @@ export default function VoiceTranscription() {
         .from("voice_transcription_sessions")
         .update({ raw_transcript: finalTranscript, status: "transcribed", updated_at: new Date().toISOString() })
         .eq("id", session.id);
+      await voiceFinish("done");
 
       setTranscript(finalTranscript);
     setSpeakerNames({});
       setStage("review-transcript");
     } catch (err: any) {
+      voiceFinish("failed", err?.message);
       setErrorMsg(err?.message || "Something went wrong. Please try again.");
       setStage("upload");
       setUploading(false);

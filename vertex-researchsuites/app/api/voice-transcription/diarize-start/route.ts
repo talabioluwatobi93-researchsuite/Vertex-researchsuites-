@@ -1,3 +1,4 @@
+import { checkVoiceJob } from '@/lib/voiceGate'
 // Starts speaker detection for ONE chunk (at most 15 min) of an uploaded recording.
 // Flow: check user + session -> cut the chunk -> store it briefly -> signed link -> start the Replicate job.
 import { NextRequest, NextResponse } from "next/server";
@@ -76,6 +77,8 @@ export async function POST(req: NextRequest) {
     if (!session || session.user_id !== user.id || session.audio_path !== audioPath) {
       return NextResponse.json({ error: "This audio does not belong to your account." }, { status: 403 });
     }
+    const gate1 = await checkVoiceJob(admin, user.id, sessionId, 'voice_african')
+    if (!gate1.ok) return NextResponse.json({ error: gate1.error }, { status: gate1.status })
     const { data: fileData, error: downloadError } = await admin.storage.from(BUCKET).download(audioPath);
     if (downloadError || !fileData) return NextResponse.json({ error: "Could not download audio file." }, { status: 500 });
 

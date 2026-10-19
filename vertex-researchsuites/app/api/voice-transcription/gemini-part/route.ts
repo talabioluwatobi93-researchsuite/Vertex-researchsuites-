@@ -1,3 +1,5 @@
+import { checkVoiceJobByPath } from '@/lib/voiceGate'
+import { markJob } from '@/lib/jobGate'
 import { requireLogin } from '@/lib/sessionAuth'
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -64,6 +66,8 @@ export async function POST(req: NextRequest) {
       ? languageCodes.filter((c: unknown) => typeof c === "string" && /^[A-Za-z0-9-]{2,16}$/.test(c as string)).slice(0, 5)
       : [];
 
+    const gate1 = await checkVoiceJobByPath(supabaseAdmin, login1.userId, audioPath, 'voice_global')
+    if (!gate1.ok) return NextResponse.json({ error: gate1.error }, { status: gate1.status })
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage.from("interview-audio").download(audioPath);
     if (downloadError || !fileData) {
       return NextResponse.json({ error: "Could not download audio file." }, { status: 500 });
@@ -81,6 +85,7 @@ export async function POST(req: NextRequest) {
     const partBlob = new Blob([partBuffer]);
 
     const result = await transcribePart(key, partBlob, "audio/mp3", { languageCodes: codes, apiRevision: process.env.GEMINI_API_REVISION || undefined });
+    if (result && result.text) await markJob(supabaseAdmin, login1.userId, gate1.jobId, 'delivered')
     return NextResponse.json({ words: result.words, text: result.text });
   } catch (err: any) {
     console.error("gemini-part error:", err?.code || "", err?.message || "unknown", "| ffmpeg path:", String(ffmpegPath));
