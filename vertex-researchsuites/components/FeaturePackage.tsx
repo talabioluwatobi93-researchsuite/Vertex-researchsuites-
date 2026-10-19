@@ -93,7 +93,7 @@ export default function FeaturePackage({ title, intro, items, featureKey, nextHr
         return;
       }
       const jid = d.job_id;
-      router.push(jid ? nextHref + "?job=" + encodeURIComponent(String(jid)) : nextHref);
+      router.replace(jid ? nextHref + "?job=" + encodeURIComponent(String(jid)) : nextHref);
     } catch {
       setError("Something went wrong. Please try again.");
       setPaying(false);

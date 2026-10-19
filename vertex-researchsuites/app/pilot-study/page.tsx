@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import * as XLSX from 'xlsx'
@@ -11,6 +11,12 @@ const supabase = createClient(
 )
 
 export default function PilotStudyUploadPage() {
+  useEffect(() => {
+    try {
+      if (!new URLSearchParams(window.location.search).get('job')) router.replace('/pilot-study/pricing')
+    } catch {}
+  }, [])
+
   const router = useRouter()
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
