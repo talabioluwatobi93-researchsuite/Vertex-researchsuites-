@@ -154,7 +154,7 @@ export default function VoiceTranscription() {
         return;
       }
       const yes = window.confirm(
-        "This recording is " + q.minutes + " min. Rate: \u20A6" + q.rate + " per min. Total: \u20A6" + q.amount + ". Continue?"
+        "Audio length: " + q.minutes + " min. Rate: \u20A6" + q.rate + " per minute. Total: \u20A6" + q.amount + ". Press OK to accept and start transcription, or Cancel to reject. Nothing is charged if you cancel."
       );
       if (!yes) throw new Error("Cancelled. You were not charged.");
       await call("charge");
