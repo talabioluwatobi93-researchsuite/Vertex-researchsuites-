@@ -7,7 +7,7 @@ import TopUpButton from '../../components/TopUpButton'
 import LogoutButton from '../../components/LogoutButton'
 import TransactionHistory from '../../components/TransactionHistory';
 import PurchaseHistory from '../../components/PurchaseHistory';
-import Billboard from '../../components/Billboard';
+import BannerSlider from '../../components/BannerSlider';
 import { checkFeatureAccess } from '@/lib/checkFeatureAccess'
 
 const supabase = createClient(
@@ -352,7 +352,7 @@ export default function Dashboard() {
         {featureCard('💰', 'Referral Earnings', 'Invite friends and earn rewards', () => router.push('/referrals'), false, 0, flags['referrals'] === false)}
         {featureCard('🎙️', 'Voice Transcription & Analysis', 'Upload interview audio, get transcript + notes', () => router.push('/voice-transcription/pricing'), false, 0, flags['voice-transcription'] === false)}
       </div>
-    <Billboard />
+    <BannerSlider placement="bottom" name={firstName} />
     </div>
     </div>
   )
