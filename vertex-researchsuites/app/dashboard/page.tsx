@@ -301,7 +301,8 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div style={{ padding: '0 20px 30px' }}>
+      <div style={{ padding: '0 20px' }}><BannerSlider placement="top" name={firstName} /></div>
+        <div style={{ padding: '0 20px 30px' }}>
         <div style={{
           borderRadius: '20px',
           padding: '24px',
