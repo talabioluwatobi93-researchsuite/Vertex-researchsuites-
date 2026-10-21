@@ -223,7 +223,7 @@ export default function PilotStudyResultsPage() {
           </div>
         )}
         <p style={{ fontSize: '11px', color: '#999999', fontStyle: 'italic', padding: '10px 16px' }}>
-              {`Note. u03b1 values above .70 are considered acceptable for pilot testing.`}
+              {`Note. α values above .70 are considered acceptable for pilot testing.`}
         </p>
       </div>
 
