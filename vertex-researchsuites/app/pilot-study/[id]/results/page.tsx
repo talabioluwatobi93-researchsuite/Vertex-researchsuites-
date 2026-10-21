@@ -16,6 +16,23 @@ type DemoRow = { label: string; frequency: number; percent: number; validPercent
 type DemoTable = { name: string; nValid: number; nMissing: number; rows: DemoRow[] }
 type Interpretations = { pilot_study_report?: { insufficient_data: string | null; response_rate_summary: string | null; reliability_overview: string; construct_evaluations: { construct_name: string; alpha_score: string; status: string; action_required: string }[]; validity_discussion: string; defense_prep_questions: { question: string; answer: string }[] } }
 
+function normalizeInterp(raw: any): Interpretations {
+  if (!raw || typeof raw !== 'object') return {}
+  if (raw.pilot_study_report && typeof raw.pilot_study_report === 'object') return raw as Interpretations
+  const rel = typeof raw.reliability === 'string' ? raw.reliability.trim() : ''
+  if (!rel) return {}
+  return {
+    pilot_study_report: {
+      insufficient_data: null,
+      response_rate_summary: null,
+      reliability_overview: rel,
+      construct_evaluations: [],
+      validity_discussion: '',
+      defense_prep_questions: [],
+    },
+  }
+}
+
 function reliabilityLabel(alpha: number): { label: string; color: string } {
   if (alpha >= 0.9) return { label: 'Excellent', color: '#2E7D32' }
   if (alpha >= 0.8) return { label: 'Good', color: '#558B2F' }
@@ -118,13 +135,14 @@ export default function PilotStudyResultsPage() {
           return
         }
 
+        const interpData = normalizeInterp(data.interpretations ?? data.interpretation)
         setConstructResults(data.results.constructs || [])
         setCombined(data.results.combined || null)
         setDemographics(data.results.demographics || null)
-        setInterpretations(data.interpretations || {})
+        setInterpretations(interpData)
         setCitationStyle(data.results.citationStyle || 'APA7')
         setLoading(false)
-        beginHold(data.results_ready_at, data.results.constructs || [], data.results.combined || null, data.results.demographics || null, data.interpretations || { reliability: '' }, data.results.citationStyle || 'APA7')
+        beginHold(data.results_ready_at, data.results.constructs || [], data.results.combined || null, data.results.demographics || null, interpData, data.results.citationStyle || 'APA7')
       } catch (err) {
         setErrorMsg('Something went wrong calculating your results. Please try again.')
         setLoading(false)
