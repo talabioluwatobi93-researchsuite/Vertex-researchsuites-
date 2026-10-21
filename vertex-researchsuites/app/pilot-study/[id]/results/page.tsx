@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { pilotResultsToDocxBlob } from '@/lib/pilotDocx'
 import { useParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { CITATION_STYLES, CitationStyleValue } from '@/lib/citationStyles'
@@ -58,6 +59,35 @@ export default function PilotStudyResultsPage() {
   const [holding, setHolding] = useState(false)
   const [holdSecondsLeft, setHoldSecondsLeft] = useState(0)
   const [revealed, setRevealed] = useState(false)
+
+  const downloadedRef = useRef(false)
+  async function downloadWord() {
+    try {
+      const blob = await pilotResultsToDocxBlob({
+        constructs: constructResults,
+        combined,
+        demographics,
+        interp: interpretations,
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'Pilot_Study_Results.docx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 4000)
+    } catch (e) {
+      console.error('Word download failed:', e)
+    }
+  }
+
+  useEffect(() => {
+    if (!revealed || downloadedRef.current || constructResults.length === 0) return
+    downloadedRef.current = true
+    downloadWord()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealed, constructResults])
 
   useEffect(() => {
     function beginHold(readyAt: string | null, cResults: ConstructResult[], comb: CombinedResult, demo: { tables: DemoTable[] } | null, interp: Interpretations, apa: CitationStyleValue) {
@@ -201,6 +231,15 @@ export default function PilotStudyResultsPage() {
         Pilot Study Results
       </h1>
       <p style={{ color: '#999999', fontSize: '11px', marginBottom: '20px' }}>Formatted in {citationLabel}</p>
+
+      {revealed && (
+        <button
+          onClick={downloadWord}
+          style={{ backgroundColor: '#D4AF37', color: '#ffffff', border: 'none', borderRadius: '10px', padding: '10px 16px', fontSize: '13px', fontWeight: 700, marginBottom: '16px' }}
+        >
+          Download Word
+        </button>
+      )}
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #EEEEEE', overflow: 'hidden', marginBottom: '10px' }}>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 700, fontStyle: 'italic', padding: '14px 16px 0' }}>{table1Label}</p>
