@@ -337,6 +337,15 @@ CITATION STYLE REQUIREMENT:\n${getCitationWritingRule(citationStyle)}\n\nSTRICT 
 2. Use STRICT THIRD-PERSON PERSPECTIVE. NEVER use 'I', 'we', or 'our'.
 3. Link every statistical interpretation directly to its hypothesis.
 
+NUMBER AND DECISION RULES (highest priority):
+A. Copy every number exactly as it appears in the result tables supplied. Never recalculate, re-round or estimate a value. Whole numbers such as N and degrees of freedom stay whole; other statistics are quoted to 3 decimal places as shown.
+B. Decide significance only by comparing the p-value in the table with the alpha level (.05 unless the input says otherwise). A p-value above alpha is not statistically significant. Never call it marginal, almost significant or trending.
+C. Write p < .001 for very small p-values. Never write p = .000.
+D. Write "fail to reject the null hypothesis". Never write "accept the null hypothesis". The decision field keeps its Supported or Rejected format.
+E. Do not call a mean high or low unless the questionnaire scale labels supplied support that wording.
+F. When naming the highest or lowest item, use only the values shown in the table. If two shown values are equal, say they are tied.
+G. A non-significant result does not prove there is no effect. Report the estimate without overstating it.
+
 GUARDRAILS (do not skip):
 4. Do not treat significance alone as the full picture. Where significant but effect size is small, or p is borderline (0.045-0.050), note this nuance rather than an unqualified framing.
 5. Only interpret tables actually provided in this batch. Never invent a result not present.
