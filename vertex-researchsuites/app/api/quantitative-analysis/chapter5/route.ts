@@ -10,6 +10,8 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
+import { searchVerifiedRefs, formatReference } from '@/lib/citationVerify'
+
 export async function POST(req: NextRequest) {
   try {
     const { sessionId } = await req.json()
@@ -37,7 +39,20 @@ export async function POST(req: NextRequest) {
     const inputs = session.chapter5_inputs
     const apaVersion = framework.apaVersion || '7th edition'
 
-    const prompt = `You are a research methodology expert writing Chapter 5 (Summary, Conclusion, and Recommendations) of a student's academic thesis/dissertation, following the standard Mass Communication department format. Use strict APA ${apaVersion} style, formal academic tone, no first person, no AI-sounding phrases.
+    let verifiedRefs: any[] = []
+  let refShortfall: number | null = null
+  try {
+    const rs = await searchVerifiedRefs(String(framework.topic || ''), 6)
+    verifiedRefs = rs.refs || []
+    refShortfall = rs.shortfall
+  } catch (e) {
+    console.error('Chapter 5 reference search failed:', e)
+  }
+  const refStyle = /6/.test(String(framework.apaVersion || '')) ? 'APA6' : 'APA7'
+  const verifiedBlock = verifiedRefs.length
+    ? 'VERIFIED SOURCES (the only sources you may cite):\n' + verifiedRefs.map((r: any) => '- ' + formatReference(r, refStyle)).join('\n') + '\nCite these in the text as (Author, Year) only where a statement genuinely relates to them. Never cite any other source. If none fits, do not cite.\n\n'
+    : 'No verified sources are available. Do not cite any source.\n\n'
+  const prompt = `You are a research methodology expert writing Chapter 5 (Summary, Conclusion, and Recommendations) of a student's academic thesis/dissertation, following the standard Mass Communication department format. Use strict APA ${apaVersion} style, formal academic tone, no first person, no AI-sounding phrases.
 
 RESEARCH TOPIC: ${framework.topic || 'N/A'}
 RESEARCH QUESTIONS: ${JSON.stringify(framework.researchQuestions || [])}
@@ -71,12 +86,24 @@ Present the Limitations provided above in polished academic prose, expanding onl
 5.5.1 Recommendations based on findings \u2014 practical recommendations that follow directly from what was found in Chapter 4.
 5.5.2 Recommendations for further studies \u2014 suggest reasonable directions for future research based on gaps or limitations of this study.
 
-Rules: Do not invent any numbers not present in the Chapter 4 results above. Do not use decorative language. Output plain text only, with each of the five section headings written exactly as shown above on their own line, followed by the section's prose paragraphs. No markdown formatting, no bullet points.`
+${verifiedBlock}Rules: Do not invent any numbers not present in the Chapter 4 results above. Do not use decorative language. Output plain text only, with each of the five section headings written exactly as shown above on their own line, followed by the section's prose paragraphs. No markdown formatting, no bullet points.`
 
     let chapter5_content: string
     try {
       const result = await callQuantChapter5Chain(prompt)
-      chapter5_content = result.content
+      chapter5_content = result.content;
+      {
+        const body = chapter5_content
+        const used = verifiedRefs.filter((r: any) => {
+          const fam = r.authors && r.authors[0] ? r.authors[0].family : ''
+          return fam && body.includes(fam) && body.includes(String(r.year))
+        })
+        let refsText = '\n\nReferences\n'
+        if (used.length) refsText += used.map((r: any) => formatReference(r, refStyle)).join('\n')
+        else refsText += 'No verified sources were cited in this chapter. Add your own sources before submitting.'
+        if (refShortfall && refShortfall > 0) refsText += '\n\nNote: only ' + (6 - refShortfall) + ' of 6 recent verified sources were found for this topic. Please add more recent sources manually.'
+        chapter5_content = body + refsText
+      }
     } catch (err: any) {
       return NextResponse.json({ error: err.message || 'Chapter 5 generation failed' }, { status: 500 })
     }
