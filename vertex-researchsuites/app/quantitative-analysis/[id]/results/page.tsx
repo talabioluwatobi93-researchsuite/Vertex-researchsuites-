@@ -1004,14 +1004,14 @@ export default function ResultsPage() {
                 <tr>
                   <td style={tdStyle}>{results.ttest.group1Label}</td>
                   <td style={tdStyle}>{results.ttest.group1.n}</td>
-                  <td style={tdStyle}>{results.ttest.group1.mean.toFixed(2)}</td>
+                  <td style={tdStyle}>{f3(results.ttest.group1.mean)}</td>
                   <td style={tdStyle}>{results.ttest.group1.sd.toFixed(3)}</td>
                   <td style={tdStyle}>{results.ttest.group1.sem.toFixed(3)}</td>
                 </tr>
                 <tr>
                   <td style={tdStyle}>{results.ttest.group2Label}</td>
                   <td style={tdStyle}>{results.ttest.group2.n}</td>
-                  <td style={tdStyle}>{results.ttest.group2.mean.toFixed(2)}</td>
+                  <td style={tdStyle}>{f3(results.ttest.group2.mean)}</td>
                   <td style={tdStyle}>{results.ttest.group2.sd.toFixed(3)}</td>
                   <td style={tdStyle}>{results.ttest.group2.sem.toFixed(3)}</td>
                 </tr>
@@ -1056,7 +1056,7 @@ export default function ResultsPage() {
                   <td style={tdStyle}></td>
                   <td style={tdStyle}></td>
                   <td style={tdStyle}>{results.ttest.unequalVariances.t.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.ttest.unequalVariances.df.toFixed(3)}</td>
+                  <td style={tdStyle}>{f3(results.ttest.unequalVariances.df)}</td>
                   <td style={tdStyle}>{formatSpssValue(results.ttest.unequalVariances.p, 3)}</td>
                   <td style={tdStyle}>{results.ttest.unequalVariances.meanDiff.toFixed(3)}</td>
                   <td style={tdStyle}>{results.ttest.unequalVariances.seDiff.toFixed(3)}</td>
@@ -1093,14 +1093,14 @@ export default function ResultsPage() {
                 <tr>
                   <td style={tdStyle}>{mr.group1Label}</td>
                   <td style={tdStyle}>{mr.group1.n}</td>
-                  <td style={tdStyle}>{mr.group1.mean.toFixed(2)}</td>
+                  <td style={tdStyle}>{f3(mr.group1.mean)}</td>
                   <td style={tdStyle}>{mr.group1.sd.toFixed(3)}</td>
                   <td style={tdStyle}>{mr.group1.sem.toFixed(3)}</td>
                 </tr>
                 <tr>
                   <td style={tdStyle}>{mr.group2Label}</td>
                   <td style={tdStyle}>{mr.group2.n}</td>
-                  <td style={tdStyle}>{mr.group2.mean.toFixed(2)}</td>
+                  <td style={tdStyle}>{f3(mr.group2.mean)}</td>
                   <td style={tdStyle}>{mr.group2.sd.toFixed(3)}</td>
                   <td style={tdStyle}>{mr.group2.sem.toFixed(3)}</td>
                 </tr>
@@ -1145,7 +1145,7 @@ export default function ResultsPage() {
                   <td style={tdStyle}></td>
                   <td style={tdStyle}></td>
                   <td style={tdStyle}>{mr.unequalVariances.t.toFixed(3)}</td>
-                  <td style={tdStyle}>{mr.unequalVariances.df.toFixed(3)}</td>
+                  <td style={tdStyle}>{f3(mr.unequalVariances.df)}</td>
                   <td style={tdStyle}>{formatSpssValue(mr.unequalVariances.p, 3)}</td>
                   <td style={tdStyle}>{mr.unequalVariances.meanDiff.toFixed(3)}</td>
                   <td style={tdStyle}>{mr.unequalVariances.seDiff.toFixed(3)}</td>
@@ -1183,19 +1183,19 @@ export default function ResultsPage() {
                   <tr key={i}>
                     <td style={tdStyle}>{g.label}</td>
                     <td style={tdStyle}>{g.n}</td>
-                    <td style={tdStyle}>{g.mean.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.sd.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.sem.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.ciLower.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.ciUpper.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.min.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.max.toFixed(2)}</td>
+                    <td style={tdStyle}>{f3(g.mean)}</td>
+                    <td style={tdStyle}>{f3(g.sd)}</td>
+                    <td style={tdStyle}>{f3(g.sem)}</td>
+                    <td style={tdStyle}>{f3(g.ciLower)}</td>
+                    <td style={tdStyle}>{f3(g.ciUpper)}</td>
+                    <td style={tdStyle}>{f3(g.min)}</td>
+                    <td style={tdStyle}>{f3(g.max)}</td>
                   </tr>
                 ))}
                 <tr>
                   <td style={tdStyle}>Total</td>
                   <td style={tdStyle}>{results.anova.n}</td>
-                  <td style={tdStyle}>{results.anova.grandMean.toFixed(2)}</td>
+                  <td style={tdStyle}>{f3(results.anova.grandMean)}</td>
                   <td style={tdStyle}>—</td>
                   <td style={tdStyle}>—</td>
                   <td style={tdStyle}>—</td>
@@ -1306,19 +1306,19 @@ export default function ResultsPage() {
                   <tr key={i}>
                     <td style={tdStyle}>{g.label}</td>
                     <td style={tdStyle}>{g.n}</td>
-                    <td style={tdStyle}>{g.mean.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.sd.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.sem.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.ciLower.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.ciUpper.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.min.toFixed(2)}</td>
-                    <td style={tdStyle}>{g.max.toFixed(2)}</td>
+                    <td style={tdStyle}>{f3(g.mean)}</td>
+                    <td style={tdStyle}>{f3(g.sd)}</td>
+                    <td style={tdStyle}>{f3(g.sem)}</td>
+                    <td style={tdStyle}>{f3(g.ciLower)}</td>
+                    <td style={tdStyle}>{f3(g.ciUpper)}</td>
+                    <td style={tdStyle}>{f3(g.min)}</td>
+                    <td style={tdStyle}>{f3(g.max)}</td>
                   </tr>
                 ))}
                 <tr>
                   <td style={tdStyle}>Total</td>
                   <td style={tdStyle}>{mr.n}</td>
-                  <td style={tdStyle}>{mr.grandMean.toFixed(2)}</td>
+                  <td style={tdStyle}>{f3(mr.grandMean)}</td>
                   <td style={tdStyle}>—</td>
                   <td style={tdStyle}>—</td>
                   <td style={tdStyle}>—</td>
@@ -1423,7 +1423,7 @@ export default function ResultsPage() {
                   <tr key={i}>
                     <td style={tdStyle}>{row.label}</td>
                     {row.observed.map((o: number, j: number) => (
-                      <td key={j} style={tdStyle}>{o} <span style={{ color: '#777777' }}>({row.expected[j].toFixed(1)})</span></td>
+                      <td key={j} style={tdStyle}>{o} <span style={{ color: '#777777' }}>({f3(row.expected[j])})</span></td>
                     ))}
                     <td style={tdStyle}>{row.rowTotal}</td>
                   </tr>
@@ -1478,8 +1478,8 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>
-              Note. {results.chisquare.cellsUnderFive} cells ({results.chisquare.pctCellsUnderFive.toFixed(1)}%) have expected count less than 5.
-              The minimum expected count is {results.chisquare.minExpected.toFixed(2)}. Cramér's V = {results.chisquare.cramersV.toFixed(3)}.
+              Note. {results.chisquare.cellsUnderFive} cells ({f3(results.chisquare.pctCellsUnderFive)}%) have expected count less than 5.
+              The minimum expected count is {f3(results.chisquare.minExpected)}. Cramér's V = {results.chisquare.cramersV.toFixed(3)}.
             </p>
             {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['chi-square tests'], starts: ['chi-square tests'] })}
           </div>
@@ -1503,14 +1503,14 @@ export default function ResultsPage() {
               <tr>
                 <td style={tdStyle}>Measurement 1</td>
                 <td style={tdStyle}>{results.pairedTtest.n}</td>
-                <td style={tdStyle}>{results.pairedTtest.before.mean.toFixed(2)}</td>
-                <td style={tdStyle}>{results.pairedTtest.before.sd.toFixed(2)}</td>
+                <td style={tdStyle}>{f3(results.pairedTtest.before.mean)}</td>
+                <td style={tdStyle}>{f3(results.pairedTtest.before.sd)}</td>
               </tr>
               <tr>
                 <td style={tdStyle}>Measurement 2</td>
                 <td style={tdStyle}>{results.pairedTtest.n}</td>
-                <td style={tdStyle}>{results.pairedTtest.after.mean.toFixed(2)}</td>
-                <td style={tdStyle}>{results.pairedTtest.after.sd.toFixed(2)}</td>
+                <td style={tdStyle}>{f3(results.pairedTtest.after.mean)}</td>
+                <td style={tdStyle}>{f3(results.pairedTtest.after.sd)}</td>
               </tr>
             </tbody>
           </table>
@@ -1717,11 +1717,11 @@ export default function ResultsPage() {
               <tr>
                 <td style={tdStyle}>{results.wilcoxon.n}</td>
                 <td style={tdStyle}>{results.wilcoxon.nExcludedZero}</td>
-                <td style={tdStyle}>{results.wilcoxon.wPlus.toFixed(1)}</td>
-                <td style={tdStyle}>{results.wilcoxon.wMinus.toFixed(1)}</td>
-                <td style={tdStyle}>{results.wilcoxon.w.toFixed(1)}</td>
-                <td style={tdStyle}>{results.wilcoxon.meanW.toFixed(2)}</td>
-                <td style={tdStyle}>{results.wilcoxon.sigmaW.toFixed(2)}</td>
+                <td style={tdStyle}>{f3(results.wilcoxon.wPlus)}</td>
+                <td style={tdStyle}>{f3(results.wilcoxon.wMinus)}</td>
+                <td style={tdStyle}>{f3(results.wilcoxon.w)}</td>
+                <td style={tdStyle}>{f3(results.wilcoxon.meanW)}</td>
+                <td style={tdStyle}>{f3(results.wilcoxon.sigmaW)}</td>
                 <td style={tdStyle}>{results.wilcoxon.z.toFixed(3)}</td>
                 <td style={tdStyle}>{formatSpssValue(results.wilcoxon.p, 3)}</td>
               </tr>
@@ -1752,14 +1752,14 @@ export default function ResultsPage() {
               <tr>
                 <td style={tdStyle}>{results.mannWhitney.group1Label}</td>
                 <td style={tdStyle}>{results.mannWhitney.group1.n}</td>
-                <td style={tdStyle}>{results.mannWhitney.group1.median.toFixed(2)}</td>
-                <td style={tdStyle}>{results.mannWhitney.group1.rankSum.toFixed(1)}</td>
+                <td style={tdStyle}>{f3(results.mannWhitney.group1.median)}</td>
+                <td style={tdStyle}>{f3(results.mannWhitney.group1.rankSum)}</td>
               </tr>
               <tr>
                 <td style={tdStyle}>{results.mannWhitney.group2Label}</td>
                 <td style={tdStyle}>{results.mannWhitney.group2.n}</td>
-                <td style={tdStyle}>{results.mannWhitney.group2.median.toFixed(2)}</td>
-                <td style={tdStyle}>{results.mannWhitney.group2.rankSum.toFixed(1)}</td>
+                <td style={tdStyle}>{f3(results.mannWhitney.group2.median)}</td>
+                <td style={tdStyle}>{f3(results.mannWhitney.group2.rankSum)}</td>
               </tr>
             </tbody>
           </table>
@@ -1784,7 +1784,7 @@ export default function ResultsPage() {
             </thead>
             <tbody>
               <tr>
-                <td style={tdStyle}>{results.mannWhitney.u.toFixed(1)}</td>
+                <td style={tdStyle}>{f3(results.mannWhitney.u)}</td>
                 <td style={tdStyle}>{results.mannWhitney.z.toFixed(3)}</td>
                 <td style={tdStyle}>{formatSpssValue(results.mannWhitney.p, 3)}</td>
               </tr>
@@ -1819,14 +1819,14 @@ export default function ResultsPage() {
               <tr>
                 <td style={tdStyle}>{mr.group1Label}</td>
                 <td style={tdStyle}>{mr.group1.n}</td>
-                <td style={tdStyle}>{mr.group1.median.toFixed(2)}</td>
-                <td style={tdStyle}>{mr.group1.rankSum.toFixed(1)}</td>
+                <td style={tdStyle}>{f3(mr.group1.median)}</td>
+                <td style={tdStyle}>{f3(mr.group1.rankSum)}</td>
               </tr>
               <tr>
                 <td style={tdStyle}>{mr.group2Label}</td>
                 <td style={tdStyle}>{mr.group2.n}</td>
-                <td style={tdStyle}>{mr.group2.median.toFixed(2)}</td>
-                <td style={tdStyle}>{mr.group2.rankSum.toFixed(1)}</td>
+                <td style={tdStyle}>{f3(mr.group2.median)}</td>
+                <td style={tdStyle}>{f3(mr.group2.rankSum)}</td>
               </tr>
             </tbody>
           </table>
@@ -1850,7 +1850,7 @@ export default function ResultsPage() {
             </thead>
             <tbody>
               <tr>
-                <td style={tdStyle}>{mr.u.toFixed(1)}</td>
+                <td style={tdStyle}>{f3(mr.u)}</td>
                 <td style={tdStyle}>{mr.z.toFixed(3)}</td>
                 <td style={tdStyle}>{formatSpssValue(mr.p, 3)}</td>
               </tr>
@@ -1885,9 +1885,9 @@ export default function ResultsPage() {
                 <tr key={idx}>
                   <td style={tdStyle}>{results.kruskalWallis.groupLabels?.[idx] ?? `Group ${idx + 1}`}</td>
                   <td style={tdStyle}>{g.n}</td>
-                  <td style={tdStyle}>{g.median.toFixed(2)}</td>
-                  <td style={tdStyle}>{g.meanRank.toFixed(2)}</td>
-                  <td style={tdStyle}>{g.rankSum.toFixed(1)}</td>
+                  <td style={tdStyle}>{f3(g.median)}</td>
+                  <td style={tdStyle}>{f3(g.meanRank)}</td>
+                  <td style={tdStyle}>{f3(g.rankSum)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1952,9 +1952,9 @@ export default function ResultsPage() {
                 <tr key={idx}>
                   <td style={tdStyle}>{mr.groupLabels?.[idx] ?? `Group ${idx + 1}`}</td>
                   <td style={tdStyle}>{g.n}</td>
-                  <td style={tdStyle}>{g.median.toFixed(2)}</td>
-                  <td style={tdStyle}>{g.meanRank.toFixed(2)}</td>
-                  <td style={tdStyle}>{g.rankSum.toFixed(1)}</td>
+                  <td style={tdStyle}>{f3(g.median)}</td>
+                  <td style={tdStyle}>{f3(g.meanRank)}</td>
+                  <td style={tdStyle}>{f3(g.rankSum)}</td>
                 </tr>
               ))}
             </tbody>
@@ -2067,7 +2067,7 @@ export default function ResultsPage() {
       {results.moderation && results.moderation.deltaR2 && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #E5E5E5', marginBottom: '16px' }}>
           <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Moderation: interaction step and simple slopes ({results.moderation.predictorName} x {results.moderation.moderatorName})</p>
-          <p style={noteStyle}>Model fit: F ({results.moderation.anova.regression.df}, {results.moderation.anova.residual.df}) = {Number(results.moderation.F).toFixed(4)}, R2 = {Number(results.moderation.modelSummary.rSquared).toFixed(4)}, p = {formatSpssValue(results.moderation.p, 3)}, n = {results.moderation.n}.</p>
+          <p style={noteStyle}>Model fit: F ({results.moderation.anova.regression.df}, {results.moderation.anova.residual.df}) = {f3(results.moderation.F)}, R2 = {f3(results.moderation.modelSummary.rSquared)}, p = {formatSpssValue(results.moderation.p, 3)}, n = {results.moderation.n}.</p>
           <p style={noteStyle}>{results.moderation.coding === 'numeric' ? 'The predictor and the moderator were mean-centred before the interaction term was formed.' : 'The predictor was mean-centred. The moderator was dummy coded with ' + results.moderation.referenceGroup + ' as the reference group, so each interaction row tests whether that group\'s slope differs from the reference group\'s slope.'}</p>
           <table style={table}>
             <thead>
@@ -2081,7 +2081,7 @@ export default function ResultsPage() {
             </thead>
             <tbody>
               <tr>
-                <td style={tdStyle}>{Number(results.moderation.deltaR2.value).toFixed(4)}</td>
+                <td style={tdStyle}>{f3(results.moderation.deltaR2.value)}</td>
                 <td style={tdStyle}>{Number(results.moderation.deltaR2.F).toFixed(3)}</td>
                 <td style={tdStyle}>{results.moderation.deltaR2.df1}</td>
                 <td style={tdStyle}>{results.moderation.deltaR2.df2}</td>
@@ -2142,7 +2142,7 @@ export default function ResultsPage() {
         return (
           <div key={'modrun' + mr.run} style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #E5E5E5', marginBottom: '16px' }}>
             <p style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '12px' }}>Moderation, Run {mr.run}: {mr.predictorName} x {mr.moderatorName} on {mr.outcomeName}</p>
-            <p style={noteStyle}>Model fit: F ({mr.anova.regression.df}, {mr.anova.residual.df}) = {Number(mr.F).toFixed(4)}, R2 = {Number(mr.modelSummary.rSquared).toFixed(4)}, p = {formatSpssValue(mr.p, 3)}, n = {mr.n}.</p>
+            <p style={noteStyle}>Model fit: F ({mr.anova.regression.df}, {mr.anova.residual.df}) = {f3(mr.F)}, R2 = {f3(mr.modelSummary.rSquared)}, p = {formatSpssValue(mr.p, 3)}, n = {mr.n}.</p>
             <p style={noteStyle}>{mr.coding === 'numeric' ? 'The predictor and the moderator were mean-centred before the interaction term was formed.' : 'The predictor was mean-centred. The moderator was dummy coded with ' + mr.referenceGroup + ' as the reference group.'}</p>
             <table style={table}>
               <thead><tr><th style={thStyle}>R</th><th style={thStyle}>R2</th><th style={thStyle}>Adjusted R2</th><th style={thStyle}>Std. Error</th></tr></thead>
@@ -2184,7 +2184,7 @@ export default function ResultsPage() {
                 <table style={{ ...table, marginTop: '16px' }}>
                   <thead><tr><th style={thStyle}>Change in R2</th><th style={thStyle}>F change</th><th style={thStyle}>df1</th><th style={thStyle}>df2</th><th style={thStyle}>Sig.</th></tr></thead>
                   <tbody><tr>
-                    <td style={tdStyle}>{Number(mr.deltaR2.value).toFixed(4)}</td>
+                    <td style={tdStyle}>{f3(mr.deltaR2.value)}</td>
                     <td style={tdStyle}>{Number(mr.deltaR2.F).toFixed(3)}</td>
                     <td style={tdStyle}>{mr.deltaR2.df1}</td>
                     <td style={tdStyle}>{mr.deltaR2.df2}</td>
@@ -2290,7 +2290,7 @@ export default function ResultsPage() {
                 <td style={tdStyle}>{results.mediation.sobelSE.toFixed(3)}</td>
                 <td style={tdStyle}>{results.mediation.sobelZ.toFixed(3)}</td>
                 <td style={tdStyle}>{formatSpssValue(results.mediation.sobelP, 3)}</td>
-                <td style={tdStyle}>{results.mediation.proportionMediated !== null ? (results.mediation.proportionMediated * 100).toFixed(1) + '%' : '-'}</td>
+                <td style={tdStyle}>{results.mediation.proportionMediated !== null ? f3((results.mediation.proportionMediated * 100)) + '%' : '-'}</td>
               </tr>
             </tbody>
           </table>
@@ -2344,4 +2344,12 @@ export default function ResultsPage() {
       </div>
     </div>
   )
+}
+
+
+// Analysis display: whole numbers stay whole; other values show 3 decimals.
+function f3(n: any): string {
+  const x = Number(n)
+  if (n === null || n === undefined || !Number.isFinite(x)) return '-'
+  return Number.isInteger(x) ? String(x) : x.toFixed(3)
 }
