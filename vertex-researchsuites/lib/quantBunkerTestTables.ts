@@ -1,5 +1,13 @@
 import { Paragraph, Table } from "docx";
-import { makeTable as baseMakeTable, tableTitle, spacer, fmt, fmtP, TableGroup, CitationStyle, makeTableStyled } from "./quantBunkerDocx";
+import { makeTable as baseMakeTable, tableTitle, spacer, fmt as fmtBase, fmtP, TableGroup, CitationStyle, makeTableStyled } from "./quantBunkerDocx";
+
+// Analysis tables: whole numbers stay whole; other statistics show 3 decimals.
+function fmt(n: number | null | undefined, decimals?: number): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return fmtBase(n, 3)
+  if (decimals === 0) return fmtBase(n, 0)
+  return Number.isInteger(n) ? String(n) : fmtBase(n, 3)
+}
+
 
 // ---- Independent samples t-test ----
 export function buildTTestTables(ttest: any, tableNumber: number, citationStyle?: CitationStyle): TableGroup[] {
