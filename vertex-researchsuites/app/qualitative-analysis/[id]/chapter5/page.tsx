@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { mergeAndDownload } from '@/lib/chapter5Docx'
 import { qualAuthHeaders } from '@/lib/qualAuth'
 
 const supabase = createClient(
@@ -62,6 +63,7 @@ export default function QualChapter5Page() {
       })
     }
     await supabase.from('qualitative_analysis_sessions').update({ chapter5_revealed: true }).eq('id', id)
+    mergeAndDownload(supabase, 'qualitative_analysis_sessions', String(id))
     setStage('done')
   }
 
@@ -165,6 +167,20 @@ export default function QualChapter5Page() {
           <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Finalizing your Chapter 5...</h1>
           <p style={{ color: '#777777', fontSize: '14px', marginBottom: '4px' }}>Please be patient, feel free to leave this page.</p>
           <p style={{ color: '#777777', fontSize: '13px' }}>Ready in {holdSecondsLeft}s</p>
+        </div>
+      )}
+      {stage === 'done' && (
+        <div style={{ textAlign: 'right', marginBottom: '12px' }}>
+          <button
+            onClick={async () => {
+              const r = await mergeAndDownload(supabase, 'qualitative_analysis_sessions', String(id))
+              if (r === 'not_ready') window.alert('Reveal both Chapter 5 and Defense Prep first, then tap again.')
+              if (r === 'error') window.alert('Could not build the file. Please try again.')
+            }}
+            style={{ backgroundColor: '#D4AF37', color: '#111111', border: 'none', borderRadius: '10px', padding: '10px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+          >
+            Merge and download
+          </button>
         </div>
       )}
       {stage === 'done' && (
