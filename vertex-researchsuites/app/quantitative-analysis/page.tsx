@@ -84,6 +84,13 @@ export default function QuantitativeAnalysisUploadPage() {
       const columnHeaders = rows[0]
       const dataRows = rows.slice(1)
 
+    const filledCount = [researchQuestions, hypotheses, objectives].filter((x) => x.trim().length > 0).length
+    if (filledCount < 2) {
+      setErrorMsg('Please fill in at least 2 of: Research Questions, Hypotheses, Objectives.')
+      setLoading(false)
+      return
+    }
+
       const researchFramework = {
         topic: topic.trim(),
         researchQuestions: researchQuestions.trim(),
@@ -332,12 +339,6 @@ export default function QuantitativeAnalysisUploadPage() {
         <label style={labelStyle}>Objectives</label>
         <textarea style={{ ...inputStyle, minHeight: '70px' }} value={objectives} onChange={(e) => setObjectives(e.target.value)} placeholder="One per line" />
 
-        <label style={labelStyle}>Citation Style</label>
-        <select style={inputStyle} value={apaVersion} onChange={(e) => setApaVersion(e.target.value)}>
-          {CITATION_STYLES.map((style) => (
-            <option key={style.value} value={style.value}>{style.label}</option>
-          ))}
-        </select>
       </div>
 
       {errorMsg && (
