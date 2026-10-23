@@ -54,7 +54,7 @@ export default function UploadStep({ fileName, sheet, error, onFile, onSheet, on
     <div>
       <div style={card}>
         <label style={label}>1. Upload your Excel file</label>
-        <p style={muted}>.xlsx or .xls. Your file is read on your device. Nothing is sent to an AI.</p>
+        <p style={muted}>.xlsx or .xls. Your file is read on your device.</p>
         <input
           type="file"
           accept=".xlsx,.xls"

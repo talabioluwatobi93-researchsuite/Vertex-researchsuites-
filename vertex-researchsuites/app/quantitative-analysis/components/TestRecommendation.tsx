@@ -61,7 +61,7 @@ export default function TestRecommendation({
           <div style={{ border: '1px solid #ccc', borderRadius: 6, padding: 12 }}>
             <strong style={{ fontSize: 13 }}>App's Recommendation: {result.appRecommendation.test}</strong>
             <p style={{ fontSize: 13, color: '#444', margin: '6px 0' }}>{result.appRecommendation.reason}</p>
-            <button onClick={() => onSelect(result.appRecommendation.test)}>Use this test</button>
+            <button onClick={() => onSelect(result.appRecommendation.test)} style={{ marginTop: 8, backgroundColor: '#D4AF37', color: '#111111', border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Use this test</button>
           </div>
 
           {result.userPlan && (
@@ -78,7 +78,7 @@ export default function TestRecommendation({
                 {plan.eligibilityNote}
               </p>
               {plan.eligible && (
-                <button onClick={() => onSelect(plan.suggestedTest)}>Use this test</button>
+                <button onClick={() => onSelect(plan.suggestedTest)} style={{ marginTop: 8, backgroundColor: '#D4AF37', color: '#111111', border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Use this test</button>
               )}
             </div>
           ))}

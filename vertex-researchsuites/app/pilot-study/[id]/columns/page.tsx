@@ -248,17 +248,7 @@ export default function PilotStudyColumnsPage() {
         </select>
       </div>
 
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
-            <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Reliability input (optional)</p>
-            <p style={{ color: '#777777', fontSize: '12px', marginBottom: '12px' }}>Add these if you want your response rate calculated in the report.</p>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
-              <input type="number" placeholder="Questionnaires shared" value={questionnairesShared} onChange={(e) => setQuestionnairesShared(e.target.value === '' ? '' : Number(e.target.value))} style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }} />
-              <input type="number" placeholder="Responses received" value={responsesReceived} onChange={(e) => setResponsesReceived(e.target.value === '' ? '' : Number(e.target.value))} style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }} />
-            </div>
-            {questionnairesShared && responsesReceived ? (
-              <p style={{ color: '#333333', fontSize: '12px', fontWeight: 600 }}>Response rate: {((Number(responsesReceived) / Number(questionnairesShared)) * 100).toFixed(1)}%</p>
-            ) : null}
-          </div>
+          
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Your constructs</p>
         <p style={{ color: '#777777', fontSize: '12px', marginBottom: '10px' }}>Add each construct you are measuring (e.g. "Perceived Credibility"). You will assign each column to the construct it belongs to further below.</p>
@@ -268,7 +258,7 @@ export default function PilotStudyColumnsPage() {
             placeholder="e.g. Exposure"
             value={newConstructName}
             onChange={(e) => setNewConstructName(e.target.value)}
-            style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }}
+            style={{ color: '#333333', backgroundColor: '#ffffff', flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }}
           />
           <select
             value={newConstructRole}
