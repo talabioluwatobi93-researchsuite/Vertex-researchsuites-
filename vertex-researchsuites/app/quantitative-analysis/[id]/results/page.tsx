@@ -372,6 +372,34 @@ export default function ResultsPage() {
     }
   }
 
+  async function downloadWordFiles(): Promise<boolean> {
+    try {
+      const g = await fetch('/api/quantitative-analysis/generate-bunker-files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: id }),
+      })
+      const gd = await g.json()
+      if (!gd.success) return false
+      const r = await fetch('/api/quantitative-analysis/get-bunker-file-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: id, fileType: 'report' }),
+      })
+      const d = await r.json()
+      if (!d.success) return false
+      const a = document.createElement('a')
+      a.href = d.url
+      a.download = 'report-full.docx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   async function revealNow(resultsForBunker: any) {
     const { data: userData } = await supabase.auth.getUser()
 
@@ -405,6 +433,7 @@ export default function ResultsPage() {
 
     setStatus('done')
     setRevealed(true)
+    if (!sessionCheck?.results_revealed) { void downloadWordFiles() }
   }
 
   if (errorMsg) {
@@ -2302,6 +2331,15 @@ export default function ResultsPage() {
         </div>
       )}
 ✓ Saved to your Bunker</p>
+        <button
+          onClick={async () => {
+            const ok = await downloadWordFiles()
+            if (!ok) window.alert('Could not prepare the Word file. Please try again.')
+          }}
+          style={{ backgroundColor: '#D4AF37', color: '#111111', border: 'none', borderRadius: '8px', padding: '10px 20px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginTop: '10px' }}
+        >
+          Download Word
+        </button>
       </div>
 
       
