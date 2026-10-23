@@ -286,7 +286,7 @@ export default function PilotStudyColumnsPage() {
       </div>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
-        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Assign each column</p>
+        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Assign each construct in columns under the question items</p>
         <p style={{ color: '#777777', fontSize: '12px', marginBottom: '10px' }}>Match every column below to the construct it belongs to. For example, if "Perceived Credibility" has 4 questions, assign all 4 of those columns to "Perceived Credibility".</p>
         {columnHeaders.map((header, idx) => {
           const assignedId = assignments[idx] || ''
