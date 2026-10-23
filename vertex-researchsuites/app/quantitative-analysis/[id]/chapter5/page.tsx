@@ -37,7 +37,7 @@ export default function Chapter5Page() {
       setStage('done')
       return
     }
-    const HOLD_MS = 60 * 1000
+    const HOLD_MS = 25 * 1000
     const target = new Date(readyAt).getTime() + HOLD_MS
     const now = Date.now()
 
@@ -77,6 +77,23 @@ export default function Chapter5Page() {
       .from('quantitative_analysis_sessions')
       .update({ chapter5_revealed: true })
       .eq('id', id)
+    const { data: dpRow } = await supabase
+      .from('quantitative_analysis_sessions')
+      .select('defense_prep_paid, defense_prep_content, defense_prep_revealed')
+      .eq('id', id)
+      .single()
+    if (dpRow?.defense_prep_paid && dpRow?.defense_prep_content && !dpRow?.defense_prep_revealed) {
+      if (userData?.user?.id) {
+        await supabase.from('bunker_items').insert({
+          user_id: userData.user.id,
+          item_name: 'Defense Prep (Likely Questions & Answers)',
+          item_type: 'quantitative_analysis_defense_prep',
+          content_reference: id,
+          is_read: false,
+        })
+      }
+      await supabase.from('quantitative_analysis_sessions').update({ defense_prep_revealed: true }).eq('id', id)
+    }
     mergeAndDownload(supabase, 'quantitative_analysis_sessions', String(id))
     setStage('done')
   }
@@ -188,7 +205,17 @@ export default function Chapter5Page() {
       }
       setChapter5Content(data.chapter5_content)
       setChapter5ReadyAt(data.chapter5_ready_at)
-      beginHold(data.chapter5_ready_at, false, data.chapter5_content)
+      let holdFrom = data.chapter5_ready_at
+      try {
+        const dres = await fetch('/api/quantitative-analysis/defense-prep', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: id }),
+        })
+        const ddata = await dres.json()
+        if (dres.ok && ddata.defense_prep_ready_at) holdFrom = ddata.defense_prep_ready_at
+      } catch {}
+      beginHold(holdFrom, false, data.chapter5_content)
     } catch (e: any) {
       setErrorMsg('Something went wrong generating Chapter 5.')
       setStage('form')
@@ -218,7 +245,7 @@ export default function Chapter5Page() {
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px' }}>
       {stage === 'offer' && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #EEEEEE', textAlign: 'center' }}>
-          <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Add Chapter 5?</h1>
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Get Chapter 5 and Defense Prep Questions?</h1>
           <p style={{ fontSize: '13px', color: '#777777', marginBottom: '4px' }}>
             Summary, Conclusion, Limitations & Recommendations &mdash; built directly from your Chapter 4 findings.
           </p>
@@ -234,7 +261,7 @@ export default function Chapter5Page() {
             onClick={handleProceedToForm}
             style={{ width: '100%', backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
           >
-            Yes, add Chapter 5
+            Yes, get both
           </button>
         </div>
       )}

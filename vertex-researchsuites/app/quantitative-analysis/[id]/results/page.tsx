@@ -2361,25 +2361,15 @@ export default function ResultsPage() {
           </div>
         )}
 
-<div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
-        <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Want a complete Chapter 5?</p>
-        <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
-          Summary, Conclusion, Limitations & Recommendations — built from these results. Optional, paid add-on.
-        </p>
-        <a href={`/quantitative-analysis/${id}/chapter5`} style={{ display: 'inline-block', backgroundColor: '#F9F9F9', color: '#333333', border: '1px solid #D4AF37', borderRadius: '10px', padding: '12px 20px', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}>
-          Add Chapter 5
-        </a>
-      </div>
-
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
-        <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Prepare for your defense</p>
-        <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>
-          Likely questions and answers based on your actual results — not generic textbook Q&A. Optional, paid add-on.
-        </p>
-        <a href={`/quantitative-analysis/${id}/defense-prep`} style={{ display: 'inline-block', backgroundColor: '#F9F9F9', color: '#333333', border: '1px solid #D4AF37', borderRadius: '10px', padding: '12px 20px', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}>
-          Prepare for Defense
-        </a>
-      </div>
+{interpretation && Object.keys(tableInterpretations || {}).length > 0 && (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
+          <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Get Chapter 5 and Defense Prep Questions</p>
+          <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>Chapter 5 with references, plus likely defense questions and answers, delivered together as one Word file.</p>
+          <a href={`/quantitative-analysis/${id}/chapter5`} style={{ display: 'inline-block', backgroundColor: '#D4AF37', color: '#333333', borderRadius: '10px', padding: '12px 20px', fontSize: '14px', fontWeight: 700, textDecoration: 'none' }}>
+            Get Chapter 5 and Defense Prep Questions
+          </a>
+        </div>
+      )}
     </div>
   )
 }
