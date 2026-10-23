@@ -4,6 +4,7 @@ export const maxDuration = 60
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { reconcileHypotheses } from '@/lib/quantInterpret'
+import { searchVerifiedRefs, formatReference } from '@/lib/citationVerify'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -125,6 +126,37 @@ export async function POST(req: NextRequest) {
       }
 
       const final = finalizeInterpretation(resultTables, tableInterpretations, await reconcileHypotheses(hypothesisTesting, resultTables, session.research_framework, tableInterpretations))
+
+      try {
+        const dtxt = String(final.discussion || '')
+        const nS = (dtxt.match(/\(Supported\):/g) || []).length
+        const nR = (dtxt.match(/\(Rejected\):/g) || []).length
+        const nI = (dtxt.match(/\(Insufficient[^)]*\):/g) || []).length
+        const nT = nS + nR + nI
+        if (nT > 0) {
+          final.discussion = String(final.discussion || '') + '\nSummary of Findings\nOf ' + nT + ' hypotheses tested: ' + nS + ' supported, ' + nR + ' rejected, ' + nI + ' with insufficient data.\n'
+        }
+      } catch (e) {
+        console.error('Summary of findings failed:', e)
+      }
+      try {
+        const fw: any = session.research_framework || {}
+        const topicTxt = String(fw.topic || '')
+        if (topicTxt) {
+          const sty = /6/.test(String(fw.apaVersion || '')) ? 'APA6' : 'APA7'
+          const rs = await searchVerifiedRefs(topicTxt, 6)
+          const rl: any[] = rs.refs || []
+          let lit = '\nRelated literature (verified sources, suggested reading)\n'
+          if (rl.length) {
+            lit += rl.length + ' verified source(s) found:\n' + rl.map((x: any) => '- ' + formatReference(x, sty)).join('\n') + '\n'
+          } else {
+            lit += 'No verified sources were found for this topic.\n'
+          }
+          final.discussion = String(final.discussion || '') + lit
+        }
+      } catch (e) {
+        console.error('Related literature failed:', e)
+      }
 
       await supabase
         .from('quantitative_analysis_sessions')

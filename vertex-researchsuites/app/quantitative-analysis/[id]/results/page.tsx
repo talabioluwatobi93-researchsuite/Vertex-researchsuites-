@@ -2355,7 +2355,7 @@ export default function ResultsPage() {
             {discussion && (
               <div style={{ marginTop: '24px' }}>
                 <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Discussion</h3>
-                <p style={{ fontSize: '14px', color: '#333333', lineHeight: 1.6 }}>{discussion}</p>
+                <p style={{ fontSize: '14px', color: '#333333', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{discussion}</p>
               </div>
             )}
           </div>
@@ -2363,10 +2363,10 @@ export default function ResultsPage() {
 
 {interpretation && Object.keys(tableInterpretations || {}).length > 0 && (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE', marginTop: '16px', textAlign: 'center' }}>
-          <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Get Chapter 5 and Defense Prep Questions</p>
+          <p style={{ fontSize: '13px', color: '#333333', fontWeight: 600, marginBottom: '4px' }}>Get Chapter 5</p>
           <p style={{ fontSize: '12px', color: '#777777', marginBottom: '14px' }}>Chapter 5 with references, plus likely defense questions and answers, delivered together as one Word file.</p>
           <a href={`/quantitative-analysis/${id}/chapter5`} style={{ display: 'inline-block', backgroundColor: '#D4AF37', color: '#333333', borderRadius: '10px', padding: '12px 20px', fontSize: '14px', fontWeight: 700, textDecoration: 'none' }}>
-            Get Chapter 5 and Defense Prep Questions
+            Get Chapter 5
           </a>
         </div>
       )}
