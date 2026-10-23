@@ -95,6 +95,11 @@ export default function ColumnsPage() {
   const addConstruct = () => {
     const name = newConstructName.trim()
     if (!name) return
+    if (!newConstructIsDemo && !constructs.some((c) => c.role === 'Demographic')) {
+      setErrorMsg('Add your Demographics section first: tick "This is a Demographic section", type its name, then tap Add. After that, add each construct one at a time.')
+      return
+    }
+    setErrorMsg('')
     const id = `c_${Date.now()}`
     setConstructs([
       ...constructs,
@@ -248,7 +253,7 @@ export default function ColumnsPage() {
             placeholder="e.g. Credibility"
             value={newConstructName}
             onChange={(e) => setNewConstructName(e.target.value)}
-            style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }}
+            style={{ color: '#333333', backgroundColor: '#ffffff', flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '13px' }}
           />
           <button onClick={addConstruct} style={{ backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
             Add

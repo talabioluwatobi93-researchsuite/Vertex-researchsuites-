@@ -158,6 +158,12 @@ export default function ReliabilityPage() {
       >
         {saving ? 'Saving...' : 'Continue'}
       </button>
+      <button
+        onClick={() => router.push(`/quantitative-analysis/${sessionId}/analysis`)}
+        style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid #D4AF37', background: '#ffffff', color: '#333333', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 10 }}
+      >
+        Skip this step
+      </button>
     </div>
   )
 }
