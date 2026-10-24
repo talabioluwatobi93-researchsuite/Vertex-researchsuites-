@@ -25,7 +25,7 @@ export default function QualDefensePrepPage() {
 
   function beginHold(readyAt: string | null, alreadyRevealed: boolean, content: QA[]) {
     if (!readyAt) { setStage('done'); return }
-    const HOLD_MS = 60 * 1000
+    const HOLD_MS = 25 * 1000
     const target = new Date(readyAt).getTime() + HOLD_MS
     const now = Date.now()
     if (now >= target) {

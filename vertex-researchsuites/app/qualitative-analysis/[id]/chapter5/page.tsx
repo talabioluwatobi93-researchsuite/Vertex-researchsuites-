@@ -23,6 +23,9 @@ export default function QualChapter5Page() {
   const [methodology, setMethodology] = useState('')
   const [limitations, setLimitations] = useState('')
   const [chapter5Content, setChapter5Content] = useState('')
+  const [prepBusy, setPrepBusy] = useState(false)
+  const [prepDone, setPrepDone] = useState(false)
+  const [prepMsg, setPrepMsg] = useState('')
   const [processing, setProcessing] = useState(false)
     const [chapter5ReadyAt, setChapter5ReadyAt] = useState<string | null>(null)
     const [holdSecondsLeft, setHoldSecondsLeft] = useState(0)
@@ -31,7 +34,7 @@ export default function QualChapter5Page() {
 
   function beginHold(readyAt: string | null, alreadyRevealed: boolean, content: string) {
     if (!readyAt) { setStage('done'); return }
-    const HOLD_MS = 60 * 1000
+    const HOLD_MS = 25 * 1000
     const target = new Date(readyAt).getTime() + HOLD_MS
     const now = Date.now()
     if (now >= target) {
@@ -65,6 +68,52 @@ export default function QualChapter5Page() {
     await supabase.from('qualitative_analysis_sessions').update({ chapter5_revealed: true }).eq('id', id)
     mergeAndDownload(supabase, 'qualitative_analysis_sessions', String(id))
     setStage('done')
+  }
+
+  async function handlePrepQuestions() {
+    setPrepBusy(true)
+    setPrepMsg('')
+    try {
+      const { data: cur } = await supabase
+        .from('qualitative_analysis_sessions')
+        .select('defense_prep_content, defense_prep_revealed')
+        .eq('id', id)
+        .single()
+      const have = Array.isArray(cur?.defense_prep_content) && cur.defense_prep_content.length > 0
+      if (!have) {
+        const res = await fetch('/api/qualitative-analysis/defense-prep', {
+          method: 'POST',
+          headers: await qualAuthHeaders(supabase),
+          body: JSON.stringify({ sessionId: id }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setPrepMsg(data.error || 'Could not prepare the questions. Please try again.')
+          setPrepBusy(false)
+          return
+        }
+      }
+      if (!cur?.defense_prep_revealed) {
+        const { data: ud } = await supabase.auth.getUser()
+        if (ud?.user?.id) {
+          await supabase.from('bunker_items').insert({
+            user_id: ud.user.id,
+            item_name: 'Defense Prep (Likely Questions & Answers)',
+            item_type: 'qualitative_analysis_defense_prep',
+            content_reference: id,
+            is_read: false,
+          })
+        }
+        await supabase.from('qualitative_analysis_sessions').update({ defense_prep_revealed: true }).eq('id', id)
+      }
+      setPrepDone(true)
+      const rr = await mergeAndDownload(supabase, 'qualitative_analysis_sessions', String(id))
+      if (rr === 'done') setPrepMsg('Your Word file with Chapter 5 and the 20 questions has downloaded.')
+      else setPrepMsg('Your questions are ready. Tap "Merge and download" above to get the file.')
+    } catch (e: any) {
+      setPrepMsg('This took too long or failed. Please tap the button again.')
+    }
+    setPrepBusy(false)
   }
 
   async function load() {
@@ -189,6 +238,18 @@ export default function QualChapter5Page() {
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #EEEEEE' }}>
             {chapter5Content.split('\n').filter(Boolean).map((para, i) => <p key={i} style={{ fontSize: '13px', color: '#333333', lineHeight: '1.7', marginBottom: '12px' }}>{para}</p>)}
           </div>
+        {prepMsg && (
+          <p style={{ color: prepDone ? '#2E7D32' : '#C0392B', fontSize: '13px', marginTop: '12px' }}>{prepMsg}</p>
+        )}
+        {!prepDone && (
+          <button
+            onClick={handlePrepQuestions}
+            disabled={prepBusy}
+            style={{ width: '100%', marginTop: '16px', backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '10px', padding: '14px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+          >
+            {prepBusy ? 'Preparing your 20 questions...' : 'Get prep questions'}
+          </button>
+        )}
         </div>
       )}
     </div>
