@@ -14,12 +14,14 @@ function deriveScaleLabels(constructs: any[]): Record<string, any> {
 
   for (const c of constructs) {
     if (c.role === "Demographic") continue
-    const labels = known[c.presetLabel]
+    const n = Number(c.scaleMax) - Number(c.scaleMin) + 1
+    const cl: string[] = c.presetLabel === "Custom" && Array.isArray((c as any).customLabels) ? (c as any).customLabels.slice(0, n).map((x: any) => String(x || "").trim()) : []
+    const labels = cl.length === n && n > 0 && cl.every((x: string) => x) ? cl : known[c.presetLabel]
     if (!labels) {
       scaleInfo[c.name] = "scale meaning not provided"
       continue
     }
-    const ordered = c.scaleReversed ? [...labels].reverse() : labels
+    const ordered = c.scaleReversed && labels !== cl ? [...labels].reverse() : labels
     const mapping: Record<string, string> = {}
     ordered.forEach((label, i) => {
       mapping[String(c.scaleMin + i)] = label

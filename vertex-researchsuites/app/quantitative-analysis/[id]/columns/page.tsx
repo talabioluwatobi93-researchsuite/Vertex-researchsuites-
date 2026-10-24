@@ -18,6 +18,7 @@ type Construct = {
   scaleMax: number
   scaleReversed: boolean
   presetLabel: string
+  customLabels?: string[]
 }
 
 type RangeSel = { from: number | ''; to: number | '' }
@@ -155,6 +156,18 @@ export default function ColumnsPage() {
   const updateCustomScale = (constructId: string, part: 'scaleMin' | 'scaleMax', value: string) => {
     const num = Number(value)
     setConstructs((prev) => prev.map((c) => (c.id === constructId ? { ...c, [part]: num } : c)))
+  }
+
+  const updateCustomLabel = (constructId: string, idx: number, value: string) => {
+    setConstructs((prev) =>
+      prev.map((c) => {
+        if (c.id !== constructId) return c
+        const n = Math.max(0, c.scaleMax - c.scaleMin + 1)
+        const arr = Array.from({ length: n }, (_, k) => (c.customLabels || [])[k] || '')
+        arr[idx] = value
+        return { ...c, customLabels: arr }
+      })
+    )
   }
 
   const toggleScaleReversed = (constructId: string) => {
@@ -328,7 +341,24 @@ export default function ColumnsPage() {
                         <input type="number" value={c.scaleMax} onChange={(e) => updateCustomScale(c.id, 'scaleMax', e.target.value)} style={{ width: '60px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE' }} />
                       </div>
                     )}
-                    <p style={{ color: '#777777', fontSize: '11px', marginBottom: '6px' }}>
+                    {c.presetLabel === 'Custom' && Number.isFinite(c.scaleMin) && Number.isFinite(c.scaleMax) && c.scaleMax >= c.scaleMin && c.scaleMax - c.scaleMin <= 14 && (
+                <div style={{ marginBottom: '8px' }}>
+                  <p style={{ color: '#777777', fontSize: '11px', marginBottom: '4px' }}>Write what each number means:</p>
+                  {Array.from({ length: c.scaleMax - c.scaleMin + 1 }, (_, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ color: '#333333', fontSize: '12px', width: '24px' }}>{c.scaleMin + i}</span>
+                      <input
+                        type="text"
+                        value={(c.customLabels || [])[i] || ''}
+                        onChange={(e) => updateCustomLabel(c.id, i, e.target.value)}
+                        placeholder={'Meaning of ' + (c.scaleMin + i)}
+                        style={{ flex: 1, padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p style={{ color: '#777777', fontSize: '11px', marginBottom: '6px' }}>
                       Numbers used: {c.scaleMin} to {c.scaleMax}
                     </p>
                     <details style={{ marginTop: '6px' }}>
