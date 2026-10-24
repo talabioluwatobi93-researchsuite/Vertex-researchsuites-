@@ -54,6 +54,15 @@ export default function AdminWithdrawalsPage() {
     setBusy("");
   }
 
+  async function reject(r: Row) {
+    const why = window.prompt("Reject " + naira(r.amount) + " for " + r.account_name + "? They will not be paid and the amount is released. Type a short reason:");
+    if (why === null) return;
+    setBusy(r.id); setError("");
+    try { await api("POST", { action: "rejected", id: r.id, note: why }); await load(); }
+    catch (e: any) { setError(e.message || "Could not update."); }
+    setBusy("");
+  }
+
   async function copy(v: string) {
     try { await navigator.clipboard.writeText(v); setCopied(v); setTimeout(() => setCopied(""), 1500); } catch {}
   }
@@ -94,6 +103,9 @@ export default function AdminWithdrawalsPage() {
             </div>
             <div style={{ color: "#777777", fontSize: 12, marginTop: 4 }}>{r.email} | Requested {when(r.created_at)}{r.paid_at ? " | Paid " + when(r.paid_at) : ""}</div>
             {r.note ? <div style={{ color: "#777777", fontSize: 12 }}>Note: {r.note}</div> : null}
+            {r.status === "pending" ? (
+              <button onClick={() => reject(r)} disabled={busy === r.id} style={{ marginTop: 10, marginRight: 8, padding: "9px 16px", borderRadius: 10, border: "1px solid #C0392B", background: "#FFFFFF", color: "#C0392B", fontWeight: 700, cursor: "pointer" }}>Reject</button>
+            ) : null}
             {r.status === "pending" ? (
               <button onClick={() => markPaid(r)} disabled={busy === r.id} style={{ marginTop: 10, padding: "9px 16px", borderRadius: 10, border: "none", background: busy === r.id ? "#CCCCCC" : "#D4AF37", color: "#FFFFFF", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>{busy === r.id ? "Please wait..." : "Mark as paid"}</button>
             ) : null}

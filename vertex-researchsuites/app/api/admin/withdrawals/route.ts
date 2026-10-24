@@ -41,10 +41,10 @@ export async function POST(req: Request) {
   let body: any = null;
   try { body = await req.json(); } catch { body = null; }
   const id = String((body && body.id) || "");
-  if (!id || !body || body.action !== "paid") {
+  if (!id || !body || (body.action !== "paid" && body.action !== "rejected")) {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
-  const upd: any = { status: "paid", paid_at: new Date().toISOString() };
+  const upd: any = (body.action === "rejected" ? { status: "rejected" } : { status: "paid", paid_at: new Date().toISOString() });
   const note = String(body.note || "").trim().slice(0, 200);
   if (note) upd.note = note;
   const { data, error } = await g.db
