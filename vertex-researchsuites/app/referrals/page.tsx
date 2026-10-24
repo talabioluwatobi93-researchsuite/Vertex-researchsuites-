@@ -41,7 +41,8 @@ export default function ReferralsPage() {
     const c = await call("/api/referrals/my-code");
     if (c.ok && c.data && c.data.code) setCode(c.data.code); else setErr("Could not load your referral code. Please refresh.");
     const s = await supabase.from("referral_settings").select("*").eq("id", 1).maybeSingle();
-    setSt(s.data);
+    const rr = await supabase.from("referral_rates").select("commission_percent").maybeSingle();
+    setSt(s.data && rr.data && Number(rr.data.commission_percent) > 0 ? { ...s.data, commission_percent: rr.data.commission_percent } : s.data);
     const r = await supabase.from("referrals").select("referred_user_id");
     setReferred((r.data || []).length);
     const cm = await supabase.from("referral_commissions").select("amount,created_at").order("created_at", { ascending: false });

@@ -43,14 +43,20 @@ export async function awardFirstDepositCommission(
       .eq("id", 1)
       .maybeSingle();
     if (!s) return "no_settings";
-    const amt = commissionFor(amount, s);
+    let rate = Number(s.commission_percent);
+    try {
+      const { data: rr } = await db.from("referral_rates").select("commission_percent").eq("user_id", link.referrer_user_id).maybeSingle();
+      const rp = Number(rr && rr.commission_percent);
+      if (Number.isFinite(rp) && rp > 0 && rp <= 100) rate = rp;
+    } catch (e) {}
+    const amt = commissionFor(amount, { ...s, commission_percent: rate });
     if (!(amt > 0)) return "below_minimum";
     const { error } = await db.from("referral_commissions").insert({
       referred_user_id: userId,
       referrer_user_id: link.referrer_user_id,
       deposit_reference: reference,
       deposit_amount: amount,
-      percent_used: Number(s.commission_percent),
+      percent_used: rate,
       amount: amt,
     });
     if (error) {
