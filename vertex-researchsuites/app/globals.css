@@ -24,3 +24,10 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* hide Vercel toolbar */
+vercel-live-feedback,
+#vercel-live-feedback,
+[data-vercel-toolbar],
+#__vercel_toolbar,
+[id^="vercel-toolbar"] { display: none !important; visibility: hidden !important; pointer-events: none !important; }
