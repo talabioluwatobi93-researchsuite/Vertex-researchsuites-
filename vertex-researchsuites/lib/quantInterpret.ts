@@ -1,3 +1,4 @@
+import { factsForTables } from './quantFacts'
 import { callQuantInterpretChain } from '@/lib/openrouter'
 
 function deriveScaleLabels(constructs: any[]): Record<string, any> {
@@ -324,7 +325,7 @@ export async function runStep3bBatch(
   const prompt3bBatch = `You are producing hypothesis decisions and contextual findings for an undergraduate research submission under NUC guidelines. This is one batch of a multi-batch run - it receives a SLICE of the full set of result tables. Only decide a hypothesis if its full evidence is contained in THIS batch's tables; otherwise leave it out (a later batch with the right table will cover it).
 
 INPUT DATA:
-- Result Tables (this batch only): ${JSON.stringify(tablesBatch)}
+- Result Tables (this batch only): ${JSON.stringify(tablesBatch)}\n- VERIFIED FACTS computed by code from these tables (fixed truth, never contradict them): ${JSON.stringify(factsForTables(tablesBatch))}
 - Research Questions: ${JSON.stringify(framework?.researchQuestions || [])}
 - Research Hypotheses: ${JSON.stringify(framework?.hypotheses || [])}
 - Questionnaire Scale Labels (per construct): ${JSON.stringify(scaleInfo)}
@@ -347,6 +348,11 @@ D. Write "fail to reject the null hypothesis". Never write "accept the null hypo
 E. Do not call a mean high or low unless the questionnaire scale labels supplied support that wording.
 F. When naming the highest or lowest item, use only the values shown in the table. If two shown values are equal, say they are tied.
 G. A non-significant result does not prove there is no effect. Report the estimate without overstating it.
+H. Lines under VERIFIED FACTS are computed by code. Use them for the largest, smallest, highest, lowest, ties and significance. Never contradict them, and never name a category, item or predictor they do not support.
+I. Describe skew, majority or direction only if the percentages in the table support it.
+J. Call a predictor significant or contributing only if its p-value is below the alpha level. A p-value above alpha is not significant.
+K. Do not comment on the limits of the scale, such as a maximum equal to the top of the scale.
+L. A model or ANOVA paragraph covers the model only (F, df, p, R-squared). Report predictor B values only with the coefficients table.
 
 GUARDRAILS (do not skip):
 4. Do not treat significance alone as the full picture. Where significant but effect size is small, or p is borderline (0.045-0.050), note this nuance rather than an unqualified framing.

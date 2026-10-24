@@ -1,3 +1,4 @@
+import { factsForTable } from '@/lib/quantFacts'
 import { requireSessionAccess } from '@/lib/sessionAuth'
 export const maxDuration = 60;
 
@@ -297,7 +298,7 @@ export async function POST(req: Request) {
             if ((g.source === "frequencyTables" || g.source === "itemDescriptives") && Array.isArray(d)) d = d[g.srcIndex];
             let str = "";
             try { str = JSON.stringify(d) || ""; } catch (e) { str = ""; }
-            return { id: idx, title: g.title, data: str.length > 7000 ? str.slice(0, 7000) : str };
+            return { id: idx, title: g.title, verified_facts: factsForTable(d), data: str.length > 7000 ? str.slice(0, 7000) : str };
           };
 
           const runBatch = async (ids: number[]) => {
@@ -317,7 +318,9 @@ export async function POST(req: Request) {
               "4. Frequency tables: state the largest and smallest categories with their counts and percentages.\n" +
               "5. Item descriptives: describe the mean pattern across items in terms of the scale meaning, and name the highest and lowest items.\n" +
               "6. Inferential tables: state the key statistic, its p-value, direction and strength, and what it means for the variables.\n" +
-              "7. Do not restate the table title.\n\n" +
+              "7. Do not restate the table title.\n" +
+          "8. A table may carry verified_facts computed by code. Treat them as fixed truth for largest, smallest, highest, lowest, ties and significance. Never contradict them, and never name a category, item or predictor they do not support.\n" +
+          "9. Call a predictor significant or contributing only if its p-value is below the alpha level. Do not comment on the limits of the scale. Describe skew or direction only if the listed percentages support it.\n\n" +
               'Respond ONLY with valid JSON, no preamble, no markdown fences: {"interpretations":[{"id":0,"interpretation":"string"}]}';
             const res: any = await Promise.race([
               callQuantInterpretChain(prompt),
