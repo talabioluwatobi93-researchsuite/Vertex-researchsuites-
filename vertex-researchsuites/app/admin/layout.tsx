@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/money", label: "Money" },
   { href: "/admin/ambassadors", label: "Ambassadors" },
+  { href: "/admin/referrals", label: "Referrals" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
