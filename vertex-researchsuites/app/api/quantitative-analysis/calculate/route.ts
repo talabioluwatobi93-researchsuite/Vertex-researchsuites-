@@ -120,7 +120,9 @@ export async function POST(req: NextRequest) {
     const ivConstructs = constructs.filter((c) => c.role === 'IV')
     const dvConstructs = constructs.filter((c) => c.role === 'DV')
     const demoConstructs = constructs.filter((c) => c.role === 'Demographic')
-    const scaleConstructsList = constructs.filter((c) => c.role === 'IV' || c.role === 'DV')
+    const pickScaleConstructs = constructs.filter((c: any) => c.role === 'IV' || c.role === 'DV')
+  const corrPickIds: string[] = Array.isArray(session.correlation_config?.corrVarIds) ? session.correlation_config.corrVarIds.map(String) : []
+  const scaleConstructsList = corrPickIds.length >= 2 ? pickScaleConstructs.filter((c: any) => corrPickIds.includes(String(c.id))) : pickScaleConstructs
     const allScaleConstructs = constructs.filter((c) => c.role !== 'Demographic')
 
     const constructScores: Record<string, number[]> = {}
@@ -239,18 +241,23 @@ export async function POST(req: NextRequest) {
       correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation }
     }
 
-    let regression: any = null
-    if (analysisTypes.includes('regression') && ivConstructs.length >= 1 && dvConstructs.length >= 1) {
-      const dv = dvConstructs[0]
-      const n = Math.min(dv ? constructScores[dv.id].length : 0, ...ivConstructs.map((c) => constructScores[c.id].length))
+    const regIvIds: string[] = Array.isArray(session.correlation_config?.regIvIds) ? session.correlation_config.regIvIds.map(String) : []
+  const regDvId: string = typeof session.correlation_config?.regDvId === 'string' ? session.correlation_config.regDvId : ''
+  const regPicked = regIvIds.length >= 1 && regDvId !== ''
+  const regIvs = regPicked ? pickScaleConstructs.filter((c: any) => regIvIds.includes(String(c.id)) && String(c.id) !== regDvId) : ivConstructs
+  const regDvs = regPicked ? pickScaleConstructs.filter((c: any) => String(c.id) === regDvId) : dvConstructs
+  let regression: any = null
+    if (analysisTypes.includes('regression') && regIvs.length >= 1 && regDvs.length >= 1) {
+      const dv = regDvs[0]
+      const n = Math.min(dv ? constructScores[dv.id].length : 0, ...regIvs.map((c) => constructScores[c.id].length))
 
-      if (n >= ivConstructs.length + 2) {
+      if (n >= regIvs.length + 2) {
         const y = constructScores[dv.id].slice(0, n)
         const X = Array.from({ length: n }, (_, i) => [
           1,
-          ...ivConstructs.map((c) => constructScores[c.id][i])
+          ...regIvs.map((c) => constructScores[c.id][i])
         ])
-        const ivNames = ivConstructs.map((c) => c.name)
+        const ivNames = regIvs.map((c) => c.name)
         const reg = olsRegression(y, X, ivNames)
 
         regression = {

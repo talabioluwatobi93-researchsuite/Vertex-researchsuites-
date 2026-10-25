@@ -104,6 +104,9 @@ export default function AnalysisTypePage() {
   const [anovaGroupId, setAnovaGroupId] = useState('')
   const [anovaOutcomeId, setAnovaOutcomeId] = useState('')
   const [chisquareRowId, setChisquareRowId] = useState('')
+  const [corrVarIds, setCorrVarIds] = useState<string[]>([])
+  const [regIvIds, setRegIvIds] = useState<string[]>([])
+  const [regDvId, setRegDvId] = useState('')
   const [chisquareColId, setChisquareColId] = useState('')
   const [includeSpearman, setIncludeSpearman] = useState(false)
   const [tailType, setTailType] = useState<'two' | 'one'>('two')
@@ -404,6 +407,14 @@ export default function AnalysisTypePage() {
       return
     }
 
+    if (selected.includes('correlation') && corrVarIds.length === 1) {
+      setErrorMsg('Please pick at least 2 variables for correlation, or untick them all to use every variable.')
+      return
+    }
+    if (selected.includes('regression') && (regDvId || regIvIds.length > 0) && (!regDvId || regIvIds.length < 1)) {
+      setErrorMsg('For regression, please choose one dependent variable and at least one independent variable, or leave both empty to use your earlier setup.')
+      return
+    }
     if (selected.includes('regression') && !modelConfirmed) {
       setErrorMsg('Please confirm your regression model before continuing.')
       return
@@ -523,9 +534,9 @@ export default function AnalysisTypePage() {
         chisquare_config: selected.includes('chisquare')
           ? { rowConstructId: chisquareRowId, colConstructId: chisquareColId }
           : null,
-        correlation_config: selected.includes('correlation')
-          ? { includeSpearman, tailType }
-          : null,
+        correlation_config: (selected.includes('correlation') || selected.includes('regression'))
+            ? { includeSpearman, tailType, corrVarIds: selected.includes('correlation') ? corrVarIds : [], regIvIds: selected.includes('regression') ? regIvIds : [], regDvId: selected.includes('regression') ? regDvId : '' }
+            : null,
         paired_config: selected.includes('paired')
           ? { group1ConstructId: pairedGroup1Id, group2ConstructId: pairedGroup2Id }
           : null,
@@ -621,6 +632,14 @@ export default function AnalysisTypePage() {
 
             {type === 'correlation' && isSelected && avail.available && (
               <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '10px 12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Choose the variables to correlate (at least 2). Leave all unticked to use every variable.</p>
+{[...ivConstructs, ...dvConstructs].map((c) => (
+<label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+<input type="checkbox" checked={corrVarIds.includes(c.id)} onChange={(e) => setCorrVarIds(e.target.checked ? [...corrVarIds, c.id] : corrVarIds.filter((x) => x !== c.id))} />
+<span style={{ color: '#555555', fontSize: '12px' }}>{c.name}</span>
+</label>
+))}
+
                 <p style={{ color: '#333333', fontSize: '12px', margin: 0 }}>
                   We'll correlate: {[...ivConstructs, ...dvConstructs].map((c) => c.name).join(', ')}
                 </p>
@@ -654,8 +673,21 @@ export default function AnalysisTypePage() {
 
             {type === 'regression' && isSelected && avail.available && (
               <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '10px 12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Dependent variable (what you want to predict). Leave empty to use your earlier setup.</p>
+<select value={regDvId} onChange={(e) => { setRegDvId(e.target.value); setRegIvIds(regIvIds.filter((x) => x !== e.target.value)) }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '8px' }}>
+<option value="">Use my earlier setup</option>
+{[...ivConstructs, ...dvConstructs].map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+</select>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Independent variable(s) (what predicts it)</p>
+{[...ivConstructs, ...dvConstructs].filter((c) => c.id !== regDvId).map((c) => (
+<label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+<input type="checkbox" checked={regIvIds.includes(c.id)} onChange={(e) => setRegIvIds(e.target.checked ? [...regIvIds, c.id] : regIvIds.filter((x) => x !== c.id))} />
+<span style={{ color: '#555555', fontSize: '12px' }}>{c.name}</span>
+</label>
+))}
+
                 <p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '8px' }}>
-                  We'll test whether {ivConstructs.map((c) => c.name).join(' and ')} predict{ivConstructs.length === 1 ? 's' : ''} {dvConstructs[0]?.name}.
+                  We'll test whether {(regIvIds.length >= 1 && regDvId ? [...ivConstructs, ...dvConstructs].filter((c) => regIvIds.includes(c.id)) : ivConstructs).map((c) => c.name).join(' and ')} predict{(regIvIds.length >= 1 && regDvId ? regIvIds.length : ivConstructs.length) === 1 ? 's' : ''} {regDvId ? [...ivConstructs, ...dvConstructs].find((c) => c.id === regDvId)?.name : dvConstructs[0]?.name}.
                 </p>
                 <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                   <input type="checkbox" checked={modelConfirmed} onChange={(e) => setModelConfirmed(e.target.checked)} style={{ marginTop: '2px' }} />
