@@ -104,7 +104,9 @@ export default function AnalysisTypePage() {
   const [anovaGroupId, setAnovaGroupId] = useState('')
   const [anovaOutcomeId, setAnovaOutcomeId] = useState('')
   const [chisquareRowId, setChisquareRowId] = useState('')
-  const [corrVarIds, setCorrVarIds] = useState<string[]>([])
+  const [corrIvIds, setCorrIvIds] = useState<string[]>([])
+  const [corrDvIds, setCorrDvIds] = useState<string[]>([])
+  const corrVarIds: string[] = Array.from(new Set([...corrIvIds, ...corrDvIds]))
   const [regIvIds, setRegIvIds] = useState<string[]>([])
   const [regDvId, setRegDvId] = useState('')
   const [chisquareColId, setChisquareColId] = useState('')
@@ -632,13 +634,27 @@ export default function AnalysisTypePage() {
 
             {type === 'correlation' && isSelected && avail.available && (
               <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '10px 12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
-<p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Choose the variables to correlate (at least 2). Leave all unticked to use every variable.</p>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Choose the variables for correlation. Tick under Independent, Dependent, or both (at least 2 in total). Leave all unticked to use every variable.</p>
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+<div>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px' }}>Independent variables</p>
 {[...ivConstructs, ...dvConstructs].map((c) => (
 <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-<input type="checkbox" checked={corrVarIds.includes(c.id)} onChange={(e) => setCorrVarIds(e.target.checked ? [...corrVarIds, c.id] : corrVarIds.filter((x) => x !== c.id))} />
+<input type="checkbox" checked={corrIvIds.includes(c.id)} onChange={(e) => setCorrIvIds(e.target.checked ? [...corrIvIds, c.id] : corrIvIds.filter((x) => x !== c.id))} />
 <span style={{ color: '#555555', fontSize: '12px' }}>{c.name}</span>
 </label>
 ))}
+</div>
+<div>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px' }}>Dependent variables</p>
+{[...ivConstructs, ...dvConstructs].map((c) => (
+<label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+<input type="checkbox" checked={corrDvIds.includes(c.id)} onChange={(e) => setCorrDvIds(e.target.checked ? [...corrDvIds, c.id] : corrDvIds.filter((x) => x !== c.id))} />
+<span style={{ color: '#555555', fontSize: '12px' }}>{c.name}</span>
+</label>
+))}
+</div>
+</div>
 
                 <p style={{ color: '#333333', fontSize: '12px', margin: 0 }}>
                   We'll correlate: {[...ivConstructs, ...dvConstructs].map((c) => c.name).join(', ')}
@@ -673,18 +689,27 @@ export default function AnalysisTypePage() {
 
             {type === 'regression' && isSelected && avail.available && (
               <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '10px 12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
-<p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Dependent variable (what you want to predict). Leave empty to use your earlier setup.</p>
-<select value={regDvId} onChange={(e) => { setRegDvId(e.target.value); setRegIvIds(regIvIds.filter((x) => x !== e.target.value)) }} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '8px' }}>
-<option value="">Use my earlier setup</option>
-{[...ivConstructs, ...dvConstructs].map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-</select>
-<p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Independent variable(s) (what predicts it)</p>
-{[...ivConstructs, ...dvConstructs].filter((c) => c.id !== regDvId).map((c) => (
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Choose the variables for regression. Independent variables predict the dependent variable (pick one dependent). Leave both empty to use your earlier setup.</p>
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+<div>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px' }}>Independent variables</p>
+{[...ivConstructs, ...dvConstructs].map((c) => (
 <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-<input type="checkbox" checked={regIvIds.includes(c.id)} onChange={(e) => setRegIvIds(e.target.checked ? [...regIvIds, c.id] : regIvIds.filter((x) => x !== c.id))} />
+<input type="checkbox" checked={regIvIds.includes(c.id)} disabled={c.id === regDvId} onChange={(e) => setRegIvIds(e.target.checked ? [...regIvIds, c.id] : regIvIds.filter((x) => x !== c.id))} />
 <span style={{ color: '#555555', fontSize: '12px' }}>{c.name}</span>
 </label>
 ))}
+</div>
+<div>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px' }}>Dependent variable (one)</p>
+{[...ivConstructs, ...dvConstructs].map((c) => (
+<label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+<input type="checkbox" checked={regDvId === c.id} onChange={(e) => { setRegDvId(e.target.checked ? c.id : ''); if (e.target.checked) setRegIvIds(regIvIds.filter((x) => x !== c.id)) }} />
+<span style={{ color: '#555555', fontSize: '12px' }}>{c.name}</span>
+</label>
+))}
+</div>
+</div>
 
                 <p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '8px' }}>
                   We'll test whether {(regIvIds.length >= 1 && regDvId ? [...ivConstructs, ...dvConstructs].filter((c) => regIvIds.includes(c.id)) : ivConstructs).map((c) => c.name).join(' and ')} predict{(regIvIds.length >= 1 && regDvId ? regIvIds.length : ivConstructs.length) === 1 ? 's' : ''} {regDvId ? [...ivConstructs, ...dvConstructs].find((c) => c.id === regDvId)?.name : dvConstructs[0]?.name}.
