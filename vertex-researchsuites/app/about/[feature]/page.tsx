@@ -2,13 +2,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from '@/lib/supabase';
 import { FEATURES } from "@/lib/aboutContent";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
 const NAVY = "#0b1f3a";
 const GOLD = "#D4AF37";
 

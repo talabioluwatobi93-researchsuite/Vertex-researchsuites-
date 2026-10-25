@@ -1,13 +1,8 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase';
 import TestRecommendation from '../../components/TestRecommendation'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-)
 
 type AnalysisType = 'descriptive' | 'correlation' | 'regression' | 'ttest' | 'anova' | 'chisquare' | 'paired' | 'mannwhitney' | 'wilcoxon' | 'kruskalwallis' | 'twowayanova' | 'mediation' | 'moderation' | 'logistic'
 type Construct = { id: string; name: string; role: string; columnIndexes: number[] }

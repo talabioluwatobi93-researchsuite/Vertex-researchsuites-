@@ -1,14 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase';
 import { qualAuthHeaders } from '@/lib/qualAuth'
 import { loadQualExportInput, buildQualWordBlob, buildQualExcelBlob, saveBlob, qualFileName } from '@/lib/qualExport'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-)
 
 const thStyle: React.CSSProperties = {
   textAlign: 'left', padding: '6px 10px', fontSize: '13px', fontWeight: 400,

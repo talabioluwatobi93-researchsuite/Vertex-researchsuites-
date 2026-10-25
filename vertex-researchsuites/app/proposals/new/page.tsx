@@ -1,15 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from '@/lib/supabase';
 import { CITATION_STYLES } from "@/lib/citationStyles";
 import { parseProposal, linkify } from "@/lib/proposalFormat";
 import { proposalToDocxBlob, triggerDownload, safeFileName } from "@/lib/proposalDocx";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
 
 const GOLD = "#D4AF37";
 const DARK = "#333333";

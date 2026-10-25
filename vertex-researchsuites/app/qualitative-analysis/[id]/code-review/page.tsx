@@ -1,13 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase';
 import { qualAuthHeaders } from '@/lib/qualAuth'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-)
 
 type Assignment = { theme: string; quote: string; removed?: boolean; blockIndex?: number; participantId?: string; speaker?: string | null }
 type Theme = { name: string; description: string }

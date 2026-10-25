@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation'
 import TopUpButton from '../../components/TopUpButton'
 import LogoutButton from '../../components/LogoutButton'
@@ -9,11 +9,6 @@ import TransactionHistory from '../../components/TransactionHistory';
 import PurchaseHistory from '../../components/PurchaseHistory';
 import BannerSlider from '../../components/BannerSlider';
 import { checkFeatureAccess } from '@/lib/checkFeatureAccess'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-)
 
 type BannerMessage = {
   message_text: string

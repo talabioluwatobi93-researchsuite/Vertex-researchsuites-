@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from '@/lib/supabase';
 import { stitchParts, type PartInput } from "@/lib/voiceStitch";
 import { LANGUAGE_GROUPS, LANGUAGE_NOTE, languageCodesFor, optionText } from "@/lib/voiceLanguages";
 import { INTRON_LANGUAGE_GROUPS, INTRON_LANGUAGE_NOTE } from "@/lib/intronLanguages";
@@ -16,10 +16,6 @@ import { runDiarize, toPieceIn, toRunnerParts } from "@/lib/diarizeRun";
 import { finishSpeakerFirst, reportText } from "@/lib/diarizeFinish";
 import type { Piece } from "@/lib/diarizePlan";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
 
 const GOLD = "#D4AF37";
 const DARK = "#333333";

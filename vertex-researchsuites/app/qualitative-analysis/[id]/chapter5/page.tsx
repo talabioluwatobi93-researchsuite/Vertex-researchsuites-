@@ -1,14 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase';
 import { mergeAndDownload } from '@/lib/chapter5Docx'
 import { qualAuthHeaders } from '@/lib/qualAuth'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-)
 
 export default function QualChapter5Page() {
   const { id } = useParams()

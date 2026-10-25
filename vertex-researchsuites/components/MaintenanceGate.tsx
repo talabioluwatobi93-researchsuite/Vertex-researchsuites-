@@ -2,12 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from '@/lib/supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
 
 export default function MaintenanceGate({ flagKey, children }: { flagKey: string; children: ReactNode }) {
   const [state, setState] = useState<"loading" | "on" | "off">("loading");

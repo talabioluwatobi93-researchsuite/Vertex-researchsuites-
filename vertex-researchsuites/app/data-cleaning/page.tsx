@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase';
 import type { CodedQuestion } from '@/lib/dataCleaning'
 import { buildCleanedFile, cleanedFileName, downloadBlob, loadSheet, SAVE_LIMIT_BYTES } from '@/lib/dataCleaningFile'
 import type { LoadedSheet } from '@/lib/dataCleaningFile'
@@ -15,10 +15,6 @@ import DoneStep from './DoneStep'
 import type { DoneInfo } from './DoneStep'
 import { backLink, iconTile, muted, page, title, wrap } from './styles'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-)
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 type Step = 'upload' | 'code' | 'review' | 'done'

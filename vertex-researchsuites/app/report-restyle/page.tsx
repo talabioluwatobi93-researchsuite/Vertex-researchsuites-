@@ -2,15 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { CITATION_STYLES } from '@/lib/citationStyles'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase';
 
 type Item = { id: string; text: string }
 type Result = { id: string; text: string; ok: boolean; reason?: string }
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-)
 
 async function runPool<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
   const results: T[] = new Array(tasks.length)

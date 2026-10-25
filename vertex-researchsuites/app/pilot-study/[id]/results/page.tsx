@@ -3,13 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { pilotResultsToDocxBlob } from '@/lib/pilotDocx'
 import { useParams } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase';
 import { CITATION_STYLES, CitationStyleValue } from '@/lib/citationStyles'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-)
 
 type ConstructResult = { name: string; k: number; n: number; alpha: number; error?: string }
 type CombinedResult = { k: number; n: number; alpha: number } | null
