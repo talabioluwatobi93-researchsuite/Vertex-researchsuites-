@@ -1,19 +1,28 @@
 'use client'
 
+import { createClient } from '@supabase/supabase-js'
+
 // Adds the signed-in user's token to calls to the analysis and voice API routes.
 // Only when the call has no Authorization header yet.
+// The token is asked from the login library, which renews it if it expired.
 const PREFIXES = ['/api/quantitative-analysis/', '/api/qualitative-analysis/', '/api/voice-transcription/']
 
-function readToken(): string {
+let client: any = null
+function getClient(): any {
+  if (!client) {
+    client = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: true } }
+    )
+  }
+  return client
+}
+
+async function freshToken(): Promise<string> {
   try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i) || ''
-      if (k.startsWith('sb-') && k.endsWith('-auth-token')) {
-        const v = JSON.parse(window.localStorage.getItem(k) || 'null')
-        const t = v && (v.access_token || (v.currentSession && v.currentSession.access_token))
-        if (t) return String(t)
-      }
-    }
+    const { data } = await getClient().auth.getSession()
+    return data?.session?.access_token || ''
   } catch {}
   return ''
 }
@@ -21,7 +30,8 @@ function readToken(): string {
 if (typeof window !== 'undefined' && !(window as any).__vxFetchPatched) {
   ;(window as any).__vxFetchPatched = true
   const orig = window.fetch.bind(window)
-  ;(window as any).fetch = (input: any, init?: any) => {
+  ;(window as any).fetch = async (input: any, init?: any) => {
+    let opts = init
     try {
       const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : ''
       if (raw) {
@@ -29,14 +39,14 @@ if (typeof window !== 'undefined' && !(window as any).__vxFetchPatched) {
         if (PREFIXES.some((p) => path.startsWith(p))) {
           const headers = new Headers((init && init.headers) || undefined)
           if (!headers.has('authorization')) {
-            const tok = readToken()
+            const tok = await freshToken()
             if (tok) headers.set('Authorization', 'Bearer ' + tok)
           }
-          return orig(input, { ...(init || {}), headers })
+          opts = { ...(init || {}), headers }
         }
       }
     } catch {}
-    return orig(input, init)
+    return orig(input, opts)
   }
 }
 
