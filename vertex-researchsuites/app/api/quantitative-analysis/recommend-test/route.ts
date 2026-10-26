@@ -134,13 +134,30 @@ Respond with ONLY valid JSON, no markdown fences:
 }
 
 // CHUNK 4 — combine rule-based scan + LLM suggestion into final output
+const TEST_PLAIN: Record<string, string> = {
+  descriptive: 'Shows the average, spread and counts of your data. A good first look.',
+  correlation: 'Checks whether two things rise and fall together, and how strongly. It does not prove that one causes the other.',
+  regression: 'Shows how well one or more things predict another, and which matters most.',
+  logistic: 'Used when the result is yes or no. Shows what makes yes more or less likely.',
+  ttest: 'Compares the average of two different groups, for example males and females.',
+  paired: 'Compares the same people measured twice, for example before and after training.',
+  mannwhitney: 'Compares two different groups when scores are ranked or not evenly spread.',
+  wilcoxon: 'Compares the same people measured twice when scores are ranked or not evenly spread.',
+  anova: 'Compares the average of three or more groups.',
+  kruskalwallis: 'Compares three or more groups when scores are ranked or not evenly spread.',
+  twowayanova: 'Checks how two group types, for example gender and level, affect a score, and whether they work together.',
+  mediation: 'Checks whether one thing affects another through a third thing in between.',
+  moderation: 'Checks whether the effect of one thing on another is stronger or weaker depending on a third thing.',
+  chisquare: 'Checks whether two categories are related, for example gender and preferred course.',
+};
+
 function pickAppRecommendation(structural: Record<string, { eligible: boolean; reason?: string }>) {
   const priority = ['regression', 'logistic', 'correlation', 'anova', 'ttest', 'paired',
     'mannwhitney', 'wilcoxon', 'kruskalwallis', 'twowayanova', 'mediation', 'moderation',
     'chisquare', 'descriptive'];
   for (const test of priority) {
     if (structural[test]?.eligible) {
-      return { test, reason: `Your data structurally supports ${test} (all required constructs and sample-size conditions are met).` };
+      return { test, reason: `Your data supports this test. ${TEST_PLAIN[test] ?? ''}`.trim() };
     }
   }
   return { test: 'descriptive', reason: 'No inferential test is currently supported by your data configuration — descriptive statistics are available.' };
