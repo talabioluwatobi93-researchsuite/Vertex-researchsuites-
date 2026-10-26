@@ -96,7 +96,6 @@ export default function AnalysisTypePage() {
     return out;
   }, [rawConstructs]);
   const [selected, setSelected] = useState<AnalysisType[]>([])
-  const [modelConfirmed, setModelConfirmed] = useState(false)
 
   const [rawData, setRawData] = useState<any[][]>([])
   const [ttestGroupId, setTtestGroupId] = useState('')
@@ -417,10 +416,6 @@ export default function AnalysisTypePage() {
       setErrorMsg('For regression, please choose one dependent variable and at least one independent variable, or leave both empty to use your earlier setup.')
       return
     }
-    if (selected.includes('regression') && !modelConfirmed) {
-      setErrorMsg('Please confirm your regression model before continuing.')
-      return
-    }
 
     if (selected.includes('ttest')) {
       if (!ttestGroupId) {
@@ -656,9 +651,6 @@ export default function AnalysisTypePage() {
 </div>
 </div>
 
-                <p style={{ color: '#333333', fontSize: '12px', margin: 0 }}>
-                  We'll correlate: {[...ivConstructs, ...dvConstructs].map((c) => c.name).join(', ')}
-                </p>
                   <p style={{ color: '#333333', fontSize: '12px', margin: '10px 0 4px 0' }}>
                     Pearson correlation runs by default. Only turn on Spearman if your data is ranked/ordinal or you specifically need a non-parametric test.
                   </p>
@@ -711,13 +703,6 @@ export default function AnalysisTypePage() {
 </div>
 </div>
 
-                <p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '8px' }}>
-                  We'll test whether {(regIvIds.length >= 1 && regDvId ? [...ivConstructs, ...dvConstructs].filter((c) => regIvIds.includes(c.id)) : ivConstructs).map((c) => c.name).join(' and ')} predict{(regIvIds.length >= 1 && regDvId ? regIvIds.length : ivConstructs.length) === 1 ? 's' : ''} {regDvId ? [...ivConstructs, ...dvConstructs].find((c) => c.id === regDvId)?.name : dvConstructs[0]?.name}.
-                </p>
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                  <input type="checkbox" checked={modelConfirmed} onChange={(e) => setModelConfirmed(e.target.checked)} style={{ marginTop: '2px' }} />
-                  <span style={{ color: '#555555', fontSize: '12px' }}>Yes, this is correct.</span>
-                </label>
               </div>
             )}
 
@@ -832,11 +817,6 @@ export default function AnalysisTypePage() {
                   ))}
                 </select>
 
-                {chisquareRowId && chisquareColId && (
-                  <p style={{ color: '#777777', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>
-                    We'll test whether {chisquareEligibleConstructs.find((c) => c.id === chisquareRowId)?.name} and {chisquareEligibleConstructs.find((c) => c.id === chisquareColId)?.name} are related.
-                  </p>
-                )}
               </div>
             )}
           {type === 'paired' && isSelected && avail.available && (
