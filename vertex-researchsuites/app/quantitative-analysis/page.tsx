@@ -79,6 +79,21 @@ export default function QuantitativeAnalysisUploadPage() {
       const columnHeaders = rows[0]
       const dataRows = rows.slice(1)
 
+      const isWordCell = (v: any) => typeof v === 'string' && /[A-Za-z]/.test(v)
+      const width = rows.reduce((m, r) => Math.max(m, Array.isArray(r) ? r.length : 0), 0)
+      const wordCols: string[] = []
+      for (let c = 0; c < width; c++) {
+        if (dataRows.some((r) => Array.isArray(r) && isWordCell(r[c]))) {
+          const h = columnHeaders[c]
+          wordCols.push(h !== null && h !== undefined && String(h).trim() ? String(h).trim() : 'Column ' + (c + 1))
+        }
+      }
+      if (wordCols.length > 0) {
+        setErrorMsg('Your spreadsheet has words in its data cells (for example in: ' + wordCols.slice(0, 3).join(', ') + (wordCols.length > 3 ? ' and more' : '') + '). Quantitative analysis needs numbers, so words would give wrong or missing results. Please use Data Cleaning first to prepare your file, then upload it again. It takes only a few minutes and protects the quality of your results.')
+        setLoading(false)
+        return
+      }
+
     const filledCount = [researchQuestions, hypotheses, objectives].filter((x) => x.trim().length > 0).length
     if (filledCount < 2) {
       setErrorMsg('Please fill in at least 2 of: Research Questions, Hypotheses, Objectives.')
