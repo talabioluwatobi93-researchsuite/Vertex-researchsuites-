@@ -682,6 +682,13 @@ export default function AnalysisTypePage() {
             {type === 'regression' && isSelected && avail.available && (
               <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '10px 12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
 <p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Choose the variables for regression. Independent variables predict the dependent variable (pick one dependent). Leave both empty to use your earlier setup.</p>
+<div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E5E5', borderRadius: '6px', padding: '8px 10px', margin: '0 0 8px 0' }}>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 4px 0' }}>How to choose</p>
+<p style={{ color: '#333333', fontSize: '12px', margin: '0 0 4px 0' }}><strong>Independent:</strong> what you think influences something. Example: Study Hours.</p>
+<p style={{ color: '#333333', fontSize: '12px', margin: '0 0 4px 0' }}><strong>Dependent:</strong> what you think is affected. Example: Exam Score.</p>
+<p style={{ color: '#333333', fontSize: '12px', margin: '0 0 4px 0' }}>Not sure? Ask yourself: what do I think changes what? The thing that changes is the dependent one.</p>
+<p style={{ color: '#333333', fontSize: '12px', margin: 0 }}>Each variable listed here is a construct: a topic you measured with several questions, for example Job Satisfaction.</p>
+</div>
 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
 <div>
 <p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px' }}>Independent variables</p>
