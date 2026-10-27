@@ -135,6 +135,11 @@ export async function POST(req: NextRequest) {
       })
     })
 
+    const constructScoresByRow: Record<string, (number | null)[]> = {}
+    allScaleConstructs.forEach((c) => {
+      constructScoresByRow[c.id] = cleanedRows.map((row: any) => getConstructScore(row, c, textMappings))
+    })
+
     const descriptives = allScaleConstructs.map((c) => {
       const scores = constructScores[c.id]
       return {
@@ -208,9 +213,14 @@ export async function POST(req: NextRequest) {
             }
             continue
           }
-          const n = Math.min(constructScores[rowC.id].length, constructScores[colC.id].length)
-          const x = constructScores[rowC.id].slice(0, n)
-          const y = constructScores[colC.id].slice(0, n)
+          // pairwise: only respondents who answered both (SPSS default for correlation)
+          const rowA = constructScoresByRow[rowC.id]
+          const rowB = constructScoresByRow[colC.id]
+          const pairIdx: number[] = []
+          for (let k = 0; k < rowA.length; k++) { if (rowA[k] !== null && rowB[k] !== null) pairIdx.push(k) }
+          const x = pairIdx.map((k) => rowA[k] as number)
+          const y = pairIdx.map((k) => rowB[k] as number)
+          const n = x.length
           const result = pearson(x, y)
           rowResult.cells.push({ r: r3(result.r), p: r3(result.p), pOneTailed: r3(result.pOneTailed), n: result.n })
           if (includeSpearman) {
@@ -249,13 +259,17 @@ export async function POST(req: NextRequest) {
   let regression: any = null
     if (analysisTypes.includes('regression') && regIvs.length >= 1 && regDvs.length >= 1) {
       const dv = regDvs[0]
-      const n = Math.min(dv ? constructScores[dv.id].length : 0, ...regIvs.map((c) => constructScores[c.id].length))
+      // listwise: only respondents who answered the DV and every IV (SPSS default for regression)
+      const dvRow = dv ? constructScoresByRow[dv.id] : []
+      const rowsOk: number[] = []
+      for (let k = 0; k < dvRow.length; k++) { if (dvRow[k] !== null && regIvs.every((c) => constructScoresByRow[c.id][k] !== null)) rowsOk.push(k) }
+      const n = rowsOk.length
 
       if (n >= regIvs.length + 2) {
-        const y = constructScores[dv.id].slice(0, n)
-        const X = Array.from({ length: n }, (_, i) => [
+        const y = rowsOk.map((k) => dvRow[k] as number)
+        const X = rowsOk.map((k) => [
           1,
-          ...regIvs.map((c) => constructScores[c.id][i])
+          ...regIvs.map((c) => constructScoresByRow[c.id][k] as number)
         ])
         const ivNames = regIvs.map((c) => c.name)
         const reg = olsRegression(y, X, ivNames)
