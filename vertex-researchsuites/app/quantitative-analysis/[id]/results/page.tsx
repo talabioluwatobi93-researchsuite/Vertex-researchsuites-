@@ -867,8 +867,9 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {results.regression && (
-        <>
+      {results.regression && [results.regression, ...(Array.isArray(results.regression_runs) ? results.regression_runs : [])].map((reg: any, regIdx: number) => (
+        <div key={'regression_runs' + regIdx}>
+          {regIdx > 0 && <p style={noteStyle}>Regression (Run {reg.run})</p>}
           <div style={tableWrap}>
             <p style={tableTitle}>Table {nextTable()}. Variables Entered/Removed</p>
             <table style={table}>
@@ -883,14 +884,14 @@ export default function ResultsPage() {
               <tbody>
                 <tr>
                   <td style={tdStyle}>1</td>
-                  <td style={tdStyle}>{results.regression.variablesEntered.entered.join(', ')}</td>
+                  <td style={tdStyle}>{reg.variablesEntered.entered.join(', ')}</td>
                   <td style={tdStyle}>—</td>
-                  <td style={tdStyle}>{results.regression.variablesEntered.method}</td>
+                  <td style={tdStyle}>{reg.variablesEntered.method}</td>
                 </tr>
               </tbody>
             </table>
-                <p style={noteStyle}>a. Dependent Variable: {results.regression.dvName}.</p>
-            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['variables entered/removed'], starts: ['variables entered'] })}
+                <p style={noteStyle}>a. Dependent Variable: {reg.dvName}.</p>
+            {viewMode === 'fullDocument' && regIdx === 0 && p7InterpBox(tableInterpretations, { eq: ['variables entered/removed'], starts: ['variables entered'] })}
                 <p style={noteStyle}>b. All requested variables entered.</p>
           </div>
 
@@ -917,19 +918,19 @@ export default function ResultsPage() {
                   <tbody>
                     <tr>
                       <td style={tdStyle}>1</td>
-                      <td style={tdStyle}>{formatSpssValue(results.regression.modelSummary.r, 3)}</td>
-                      <td style={tdStyle}>{results.regression.modelSummary.rSquared.toFixed(3)}</td>
-                      <td style={tdStyle}>{results.regression.modelSummary.adjRSquared.toFixed(3)}</td>
-                      <td style={tdStyle}>{results.regression.modelSummary.stdError.toFixed(3)}</td>
-                      <td style={tdStyle}>{results.regression.modelSummary.rSquaredChange?.toFixed(3) ?? '-'}</td>
-                      <td style={tdStyle}>{results.regression.modelSummary.fChange?.toFixed(3) ?? '-'}</td>
-                      <td style={tdStyle}>{results.regression.modelSummary.df1 ?? '-'}</td>
-                      <td style={tdStyle}>{results.regression.modelSummary.df2 ?? '-'}</td>
-                      <td style={tdStyle}>{results.regression.modelSummary.sigFChange?.toFixed(3) ?? '-'}</td>
+                      <td style={tdStyle}>{formatSpssValue(reg.modelSummary.r, 3)}</td>
+                      <td style={tdStyle}>{reg.modelSummary.rSquared.toFixed(3)}</td>
+                      <td style={tdStyle}>{reg.modelSummary.adjRSquared.toFixed(3)}</td>
+                      <td style={tdStyle}>{reg.modelSummary.stdError.toFixed(3)}</td>
+                      <td style={tdStyle}>{reg.modelSummary.rSquaredChange?.toFixed(3) ?? '-'}</td>
+                      <td style={tdStyle}>{reg.modelSummary.fChange?.toFixed(3) ?? '-'}</td>
+                      <td style={tdStyle}>{reg.modelSummary.df1 ?? '-'}</td>
+                      <td style={tdStyle}>{reg.modelSummary.df2 ?? '-'}</td>
+                      <td style={tdStyle}>{reg.modelSummary.sigFChange?.toFixed(3) ?? '-'}</td>
                     </tr>
                   </tbody>
                 </table>
-            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['model summary'], starts: ['regression model summary'] })}
+            {viewMode === 'fullDocument' && regIdx === 0 && p7InterpBox(tableInterpretations, { eq: ['model summary'], starts: ['regression model summary'] })}
           </div>
 
           <div style={tableWrap}>
@@ -948,33 +949,33 @@ export default function ResultsPage() {
               <tbody>
                 <tr>
                   <td style={tdStyle}>Regression</td>
-                  <td style={tdStyle}>{results.regression.anova.regression.ss.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.regression.anova.regression.df}</td>
-                  <td style={tdStyle}>{results.regression.anova.regression.ms.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.regression.anova.F.toFixed(3)}</td>
-                  <td style={tdStyle}>{formatSpssValue(results.regression.anova.p, 3)}</td>
+                  <td style={tdStyle}>{reg.anova.regression.ss.toFixed(3)}</td>
+                  <td style={tdStyle}>{reg.anova.regression.df}</td>
+                  <td style={tdStyle}>{reg.anova.regression.ms.toFixed(3)}</td>
+                  <td style={tdStyle}>{reg.anova.F.toFixed(3)}</td>
+                  <td style={tdStyle}>{formatSpssValue(reg.anova.p, 3)}</td>
                 </tr>
                 <tr>
                   <td style={tdStyle}>Residual</td>
-                  <td style={tdStyle}>{results.regression.anova.residual.ss.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.regression.anova.residual.df}</td>
-                  <td style={tdStyle}>{results.regression.anova.residual.ms.toFixed(3)}</td>
+                  <td style={tdStyle}>{reg.anova.residual.ss.toFixed(3)}</td>
+                  <td style={tdStyle}>{reg.anova.residual.df}</td>
+                  <td style={tdStyle}>{reg.anova.residual.ms.toFixed(3)}</td>
                   <td style={tdStyle}></td>
                   <td style={tdStyle}></td>
                 </tr>
                 <tr>
                   <td style={tdStyle}>Total</td>
-                  <td style={tdStyle}>{results.regression.anova.total.ss.toFixed(3)}</td>
-                  <td style={tdStyle}>{results.regression.anova.total.df}</td>
+                  <td style={tdStyle}>{reg.anova.total.ss.toFixed(3)}</td>
+                  <td style={tdStyle}>{reg.anova.total.df}</td>
                   <td style={tdStyle}></td>
                   <td style={tdStyle}></td>
                   <td style={tdStyle}></td>
                 </tr>
               </tbody>
             </table>
-                <p style={noteStyle}>a. Dependent Variable: {results.regression.dvName}.</p>
-            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['anova'], starts: ['regression anova'] })}
-                <p style={noteStyle}>b. Predictors: (Constant), {results.regression.variablesEntered.entered.join(', ')}.</p>
+                <p style={noteStyle}>a. Dependent Variable: {reg.dvName}.</p>
+            {viewMode === 'fullDocument' && regIdx === 0 && p7InterpBox(tableInterpretations, { eq: ['anova'], starts: ['regression anova'] })}
+                <p style={noteStyle}>b. Predictors: (Constant), {reg.variablesEntered.entered.join(', ')}.</p>
           </div>
 
           <div style={tableWrap}>
@@ -991,7 +992,7 @@ export default function ResultsPage() {
                 </tr>
               </thead>
               <tbody>
-                {results.regression.coefficients.map((c: any, i: number) => (
+                {reg.coefficients.map((c: any, i: number) => (
                   <tr key={i}>
                     <td style={tdStyle}>{c.name}</td>
                     <td style={tdStyle}>{c.B.toFixed(3)}</td>
@@ -1003,11 +1004,11 @@ export default function ResultsPage() {
                 ))}
               </tbody>
             </table>
-            <p style={noteStyle}>Note. Dependent Variable: {results.regression.dvName}.</p>
-            {viewMode === 'fullDocument' && p7InterpBox(tableInterpretations, { eq: ['coefficients'], starts: ['regression coefficients'] })}
+            <p style={noteStyle}>Note. Dependent Variable: {reg.dvName}.</p>
+            {viewMode === 'fullDocument' && regIdx === 0 && p7InterpBox(tableInterpretations, { eq: ['coefficients'], starts: ['regression coefficients'] })}
           </div>
-        </>
-      )}
+        </div>
+      ))}
 
 
       {results.ttest && (
