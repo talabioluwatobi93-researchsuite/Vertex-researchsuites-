@@ -416,6 +416,39 @@ export async function POST(req: NextRequest) {
         else extraRunErrors.push({ type: 'ttest (Run ' + (ri + 2) + ')', reason: 'This run could not be produced: a chosen variable was not found, or a group has fewer than 2 valid answers.' })
       })
     }
+    // PHASE8A: extra regression runs (Run 2 to Run 5), same method as run 1, respondents matched (listwise)
+    const regression_runs: any[] = []
+    const regExtra: any[] = session.correlation_config && Array.isArray(session.correlation_config.regRunsMore) ? session.correlation_config.regRunsMore.slice(0, 4) : []
+    if (analysisTypes.includes('regression') && regExtra.length > 0) {
+      regExtra.forEach((cfgRun: any, ri: number) => {
+        const label = 'regression (Run ' + (ri + 2) + ')'
+        try {
+          const dvX: any = pickScaleConstructs.find((c: any) => String(c.id) === String(cfgRun && cfgRun.dvId))
+          const ivIdsX: string[] = Array.isArray(cfgRun && cfgRun.ivIds) ? cfgRun.ivIds.map(String) : []
+          const ivsX: any[] = Array.from(new Set(ivIdsX)).filter((id) => !dvX || id !== String(dvX.id)).map((id) => pickScaleConstructs.find((c: any) => String(c.id) === id)).filter(Boolean)
+          if (!dvX || ivsX.length < 1) { extraRunErrors.push({ type: label, reason: 'This run needs one dependent variable and at least one independent variable.' }); return }
+          const dvRowX: (number | null)[] = constructScoresByRow[dvX.id] || []
+          const okX: number[] = []
+          for (let k = 0; k < dvRowX.length; k++) { if (dvRowX[k] !== null && ivsX.every((c: any) => constructScoresByRow[c.id][k] !== null)) okX.push(k) }
+          if (okX.length < ivsX.length + 2) { extraRunErrors.push({ type: label, reason: 'Not enough respondents answered every variable in this run.' }); return }
+          const namesX = ivsX.map((c: any) => c.name)
+          const regX = olsRegression(okX.map((k) => dvRowX[k] as number), okX.map((k) => [1, ...ivsX.map((c: any) => constructScoresByRow[c.id][k] as number)]), namesX)
+          regression_runs.push({
+            run: ri + 2, dvName: dvX.name, ivNames: namesX,
+            variablesEntered: { entered: namesX, removed: [], method: 'Enter' },
+            modelSummary: { r: r3(regX.multipleR), rSquared: r3(regX.rSquared), adjRSquared: r3(regX.adjRSquared), stdError: r3(regX.stdErrEstimate), rSquaredChange: r3(regX.rSquared), fChange: r3(regX.F), df1: regX.dfRegression, df2: regX.dfResidual, sigFChange: r3(regX.fP) },
+            anova: { regression: { ss: r3(regX.ssRegression), df: regX.dfRegression, ms: r3(regX.msRegression) }, residual: { ss: r3(regX.ssResidual), df: regX.dfResidual, ms: r3(regX.msResidual) }, total: { ss: r3(regX.ssTotal), df: regX.dfRegression + regX.dfResidual }, F: r3(regX.F), p: r3(regX.fP) },
+            coefficients: [
+              { name: '(Constant)', B: r3(regX.coefficients[0]), SE: r3(regX.standardErrors[0]), beta: null, t: r3(regX.tStats[0]), p: r3(regX.pValues[0]) },
+              ...namesX.map((name: string, i: number) => ({ name, B: r3(regX.coefficients[i + 1]), SE: r3(regX.standardErrors[i + 1]), beta: r3(regX.betas[i]), t: r3(regX.tStats[i + 1]), vif: (regX.vif && regX.vif[i] != null) ? r3(regX.vif[i]) : null, tolerance: (regX.tolerance && regX.tolerance[i] != null) ? r3(regX.tolerance[i]) : null, p: r3(regX.pValues[i + 1]) }))
+            ]
+          })
+        } catch (e) {
+          extraRunErrors.push({ type: label, reason: 'This run could not be calculated. Check that its variables are not almost identical to each other.' })
+        }
+      })
+    }
+
     let moderation: any = null
     if (analysisTypes.includes('moderation') && session.moderation_config) {
       const { predictorConstructId, moderatorConstructId, outcomeConstructId } = session.moderation_config
@@ -1158,6 +1191,7 @@ export async function POST(req: NextRequest) {
       moderation_runs: moderationRuns.length ? moderationRuns : undefined,
       ttest_runs: ttest_runs.length ? ttest_runs : undefined,
       mannwhitney_runs: mannwhitney_runs.length ? mannwhitney_runs : undefined,
+      regression_runs: regression_runs.length ? regression_runs : undefined,
       anova_runs: anova_runs.length ? anova_runs : undefined,
       kruskalwallis_runs: kruskalwallis_runs.length ? kruskalwallis_runs : undefined,
       computedAt: new Date().toISOString()
