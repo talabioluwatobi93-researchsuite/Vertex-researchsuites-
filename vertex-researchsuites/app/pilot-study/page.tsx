@@ -8,7 +8,16 @@ import * as XLSX from 'xlsx'
 export default function PilotStudyUploadPage() {
   useEffect(() => {
     try {
-      if (!new URLSearchParams(window.location.search).get('job')) router.replace('/pilot-study/pricing')
+      // Server decides: free price = open; paid price = needs an open, unexpired job (no ?job= needed)
+      void (async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        const { data: pr } = await supabase.from('feature_pricing').select('price').eq('feature_name', 'pilot_study').maybeSingle()
+        if (pr && Number(pr.price) > 0) {
+          const { data: jobs } = await supabase.from('feature_jobs').select('id').eq('user_id', user.id).eq('feature', 'pilot_study').eq('status', 'open').gt('deadline_at', new Date().toISOString()).limit(1)
+          if (!jobs || jobs.length === 0) router.replace('/pilot-study/pricing')
+        }
+      })().catch(() => {})
     } catch {}
   }, [])
 
