@@ -115,6 +115,8 @@ export default function AnalysisTypePage() {
   const [partialOn, setPartialOn] = useState(false)
   const [binaryOn, setBinaryOn] = useState(false)
   const [binaryVarId, setBinaryVarId] = useState('')
+  const [itemOn, setItemOn] = useState(false)
+  const [itemVarId, setItemVarId] = useState('')
   const [partialCtlIds, setPartialCtlIds] = useState<string[]>([])
   const [pairedGroup1Id, setPairedGroup1Id] = useState('')
   const [pairedGroup2Id, setPairedGroup2Id] = useState('')
@@ -537,7 +539,7 @@ export default function AnalysisTypePage() {
           ? { rowConstructId: chisquareRowId, colConstructId: chisquareColId }
           : null,
         correlation_config: (selected.includes('correlation') || selected.includes('regression'))
-            ? { includeSpearman, tailType, partialOn: selected.includes('correlation') && partialOn, partialControlIds: selected.includes('correlation') && partialOn ? partialCtlIds : [], binaryOn: selected.includes('correlation') && binaryOn && !!binaryVarId, binaryVarId: selected.includes('correlation') && binaryOn ? binaryVarId : '', corrVarIds: selected.includes('correlation') ? corrVarIds : [], regIvIds: selected.includes('regression') ? regIvIds : [], regDvId: selected.includes('regression') ? regDvId : '', regRunsMore: selected.includes('regression') ? regRuns.filter((r) => r.dvId && (r.same ? regIvIds.length > 0 : r.ivIds.length > 0)).slice(0, 4).map((r) => ({ dvId: r.dvId, ivIds: r.same ? regIvIds : r.ivIds })) : [] }
+            ? { includeSpearman, tailType, partialOn: selected.includes('correlation') && partialOn, partialControlIds: selected.includes('correlation') && partialOn ? partialCtlIds : [], binaryOn: selected.includes('correlation') && binaryOn && !!binaryVarId, binaryVarId: selected.includes('correlation') && binaryOn ? binaryVarId : '', itemOn: selected.includes('correlation') && itemOn && !!itemVarId, itemVarId: selected.includes('correlation') && itemOn ? itemVarId : '', corrVarIds: selected.includes('correlation') ? corrVarIds : [], regIvIds: selected.includes('regression') ? regIvIds : [], regDvId: selected.includes('regression') ? regDvId : '', regRunsMore: selected.includes('regression') ? regRuns.filter((r) => r.dvId && (r.same ? regIvIds.length > 0 : r.ivIds.length > 0)).slice(0, 4).map((r) => ({ dvId: r.dvId, ivIds: r.same ? regIvIds : r.ivIds })) : [] }
             : null,
         paired_config: selected.includes('paired')
           ? { group1ConstructId: pairedGroup1Id, group2ConstructId: pairedGroup2Id }
@@ -699,6 +701,18 @@ export default function AnalysisTypePage() {
                   ))}
                   {partialCtlIds.length === 0 && (<p style={{ color: '#777777', fontSize: '11px', margin: '4px 0 0 0' }}>Tick at least one control variable to see the partial correlation table. Controls are not correlated with each other in that table.</p>)}
                   </div>
+                  )}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <input type="checkbox" checked={itemOn} onChange={(e) => setItemOn(e.target.checked)} />
+                    <span style={{ color: '#555555', fontSize: '12px' }}>Also run item-level and item-total correlation (a construct with 2 or more items)</span>
+                  </label>
+                  {itemOn && (
+                    <div style={{ marginLeft: '4px', marginBottom: '6px' }}>
+                      <select value={itemVarId} onChange={(e) => setItemVarId(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}>
+                        <option value="">Select a construct with 2 or more items...</option>
+                        {constructs.filter((c) => c.role !== 'Demographic' && c.columnIndexes && c.columnIndexes.length >= 2).map((c) => (<option key={c.id} value={c.id}>{c.name} ({c.columnIndexes.length} items)</option>))}
+                      </select>
+                    </div>
                   )}
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                   <input type="checkbox" checked={binaryOn} onChange={(e) => setBinaryOn(e.target.checked)} />
