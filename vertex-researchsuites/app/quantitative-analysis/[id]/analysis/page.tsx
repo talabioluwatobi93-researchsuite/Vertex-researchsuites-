@@ -112,6 +112,8 @@ export default function AnalysisTypePage() {
   const [chisquareColId, setChisquareColId] = useState('')
   const [includeSpearman, setIncludeSpearman] = useState(false)
   const [tailType, setTailType] = useState<'two' | 'one'>('two')
+  const [partialOn, setPartialOn] = useState(false)
+  const [partialCtlIds, setPartialCtlIds] = useState<string[]>([])
   const [pairedGroup1Id, setPairedGroup1Id] = useState('')
   const [pairedGroup2Id, setPairedGroup2Id] = useState('')
   const [mannwhitneyGroupId, setMannwhitneyGroupId] = useState('')
@@ -533,7 +535,7 @@ export default function AnalysisTypePage() {
           ? { rowConstructId: chisquareRowId, colConstructId: chisquareColId }
           : null,
         correlation_config: (selected.includes('correlation') || selected.includes('regression'))
-            ? { includeSpearman, tailType, corrVarIds: selected.includes('correlation') ? corrVarIds : [], regIvIds: selected.includes('regression') ? regIvIds : [], regDvId: selected.includes('regression') ? regDvId : '', regRunsMore: selected.includes('regression') ? regRuns.filter((r) => r.dvId && (r.same ? regIvIds.length > 0 : r.ivIds.length > 0)).slice(0, 4).map((r) => ({ dvId: r.dvId, ivIds: r.same ? regIvIds : r.ivIds })) : [] }
+            ? { includeSpearman, tailType, partialOn: selected.includes('correlation') && partialOn, partialControlIds: selected.includes('correlation') && partialOn ? partialCtlIds : [], corrVarIds: selected.includes('correlation') ? corrVarIds : [], regIvIds: selected.includes('regression') ? regIvIds : [], regDvId: selected.includes('regression') ? regDvId : '', regRunsMore: selected.includes('regression') ? regRuns.filter((r) => r.dvId && (r.same ? regIvIds.length > 0 : r.ivIds.length > 0)).slice(0, 4).map((r) => ({ dvId: r.dvId, ivIds: r.same ? regIvIds : r.ivIds })) : [] }
             : null,
         paired_config: selected.includes('paired')
           ? { group1ConstructId: pairedGroup1Id, group2ConstructId: pairedGroup2Id }
@@ -677,10 +679,30 @@ export default function AnalysisTypePage() {
                   <p style={{ color: '#777777', fontSize: '11px', margin: '6px 0 0 0' }}>
                     Not sure? Stick with two-tailed - it's the safer, standard choice for most student research and doesn't assume a direction of effect.
                   </p>
-              </div>
-            )}
+                  <div style={{ marginTop: '12px' }}>
+                  <p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px 0' }}>Type of correlation</p>
+                  <p style={{ color: '#555555', fontSize: '12px', margin: '0 0 6px 0' }}>Pearson is always reported. You can also ask for a partial correlation, which shows the link between two variables after removing the effect of one or more control variables.</p>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <input type="checkbox" checked={partialOn} onChange={(e) => setPartialOn(e.target.checked)} />
+                  <span style={{ color: '#555555', fontSize: '12px' }}>Also run partial correlation</span>
+                  </label>
+                  {partialOn && (
+                  <div style={{ marginLeft: '4px' }}>
+                  <p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '4px 0 6px 0' }}>Control for:</p>
+                  {[...ivConstructs, ...dvConstructs].map((c) => (
+                  <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <input type="checkbox" checked={partialCtlIds.includes(c.id)} onChange={(e) => setPartialCtlIds(e.target.checked ? [...partialCtlIds, c.id] : partialCtlIds.filter((x) => x !== c.id))} />
+                  <span style={{ color: '#555555', fontSize: '12px' }}>{c.name}</span>
+                  </label>
+                  ))}
+                  {partialCtlIds.length === 0 && (<p style={{ color: '#777777', fontSize: '11px', margin: '4px 0 0 0' }}>Tick at least one control variable to see the partial correlation table. Controls are not correlated with each other in that table.</p>)}
+                  </div>
+                  )}
+                  </div>
+                  </div>
+                  )}
 
-            {type === 'regression' && isSelected && avail.available && (
+                  {type === 'regression' && isSelected && avail.available && (
               <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '10px 12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
 <p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Choose the variables for regression. Independent variables predict the dependent variable (pick one dependent). Leave both empty to use your earlier setup.</p>
 <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E5E5', borderRadius: '6px', padding: '8px 10px', margin: '0 0 8px 0' }}>
