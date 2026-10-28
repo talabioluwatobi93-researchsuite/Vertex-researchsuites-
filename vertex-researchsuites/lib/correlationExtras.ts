@@ -58,3 +58,27 @@ export function binaryCorrelation(g: number[], y: number[]) {
   const p = Math.abs(r) >= 1 ? 0 : tTestPValue(r * Math.sqrt(df / (1 - r * r)), df)
   return { r, p, pOneTailed: p / 2, n, df }
 }
+
+// Item analysis for one construct. `cols` = one array per item, all the same length,
+// already matched by respondent (only respondents who answered every item).
+// Returns the item-by-item Pearson matrix and each item's corrected item-total correlation
+// (item vs the sum of the OTHER items).
+export function itemAnalysis(cols: number[][]) {
+  const k = cols.length
+  if (k < 2) return null
+  const n = cols[0].length
+  const df = n - 2
+  if (df < 1 || cols.some((c) => c.length !== n)) return null
+  const cell = (a: number[], b: number[]) => {
+    const r = corr(a, b)
+    if (!isFinite(r)) return { r: null as number | null, p: null as number | null }
+    const p = Math.abs(r) >= 1 ? 0 : tTestPValue(r * Math.sqrt(df / (1 - r * r)), df)
+    return { r, p }
+  }
+  const matrix = cols.map((a, i) => cols.map((b, j) => (i === j ? { r: 1 as number | null, p: null as number | null } : cell(a, b))))
+  const itemTotal = cols.map((a, i) => {
+    const rest = a.map((_, m) => cols.reduce((s, c, j) => (j === i ? s : s + c[m]), 0))
+    return cell(a, rest)
+  })
+  return { n, df, k, matrix, itemTotal }
+}
