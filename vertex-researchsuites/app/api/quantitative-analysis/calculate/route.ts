@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 60
 import { createClient } from '@supabase/supabase-js'
 import { moderationAnalysis } from "@/lib/stats"
-import { partialCorrelation, binaryCorrelation } from "@/lib/correlationExtras"
+import { partialCorrelation, binaryCorrelation, itemAnalysis } from "@/lib/correlationExtras"
 import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis, twoWayAnova, sobelMediation, logisticRegression } from '@/lib/stats'
 
 const supabase = createClient(
@@ -295,7 +295,35 @@ export async function POST(req: NextRequest) {
           binaryOut = { name: binC.name, label0: binUniq[0], label1: binUniq[1], rows: binRows }
         }
       }
-      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation, partial: partialOut || undefined, binary: binaryOut || undefined }
+      // PHASE8D: item-level and item-total correlation (only when ticked), respondents matched
+      let itemsOut: any = null
+      const itemId: string = session.correlation_config && session.correlation_config.itemOn === true && session.correlation_config.itemVarId ? String(session.correlation_config.itemVarId) : ''
+      if (itemId) {
+        const itC: any = allScaleConstructs.find((c: any) => String(c.id) === itemId)
+        const itCols: number[] = itC && Array.isArray(itC.columnIndexes) ? itC.columnIndexes : []
+        if (itC && itCols.length >= 2) {
+          const itMin: number = itC.scaleMin ?? 1
+          const itMax: number = itC.scaleMax ?? 5
+          const itRev: number[] = itC.reverseIndexes || []
+          const itRows: number[][] = []
+          cleanedRows.forEach((row: any) => {
+            const vals: number[] = []
+            for (const ci of itCols) {
+              let num = resolveNumeric(row[ci], itC.id, textMappings)
+              if (num === null) return
+              if (itC.scaleReversed) num = (itMin + itMax) - num
+              vals.push(itRev.includes(ci) ? (itMin + itMax) - num : num)
+            }
+            itRows.push(vals)
+          })
+          const ia = itemAnalysis(itCols.map((_: number, j: number) => itRows.map((r) => r[j])))
+          if (ia) {
+            const fx = (cell: any) => ({ r: cell.r === null ? null : r3(cell.r), p: cell.p === null ? null : r3(cell.p) })
+            itemsOut = { construct: itC.name, labels: itCols.map((ci: number) => columnHeaders[ci] || ('Item ' + ci)), n: ia.n, df: ia.df, matrix: ia.matrix.map((row: any[]) => row.map(fx)), itemTotal: ia.itemTotal.map(fx) }
+          }
+        }
+      }
+      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation, partial: partialOut || undefined, binary: binaryOut || undefined, items: itemsOut || undefined }
     }
 
     const regIvIds: string[] = Array.isArray(session.correlation_config?.regIvIds) ? session.correlation_config.regIvIds.map(String) : []
