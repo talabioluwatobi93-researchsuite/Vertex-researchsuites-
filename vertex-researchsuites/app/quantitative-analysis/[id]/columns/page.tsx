@@ -182,14 +182,14 @@ export default function ColumnsPage() {
     )
   }
 
-  function setDV(constructId: string) {
-    setConstructs((prev) =>
-      prev.map((c) => {
-        if (c.id === constructId) return { ...c, role: 'DV' }
-        if (c.role === 'DV') return { ...c, role: 'Unassigned' }
-        return c
-      })
-    )
+  function toggleDV(constructId: string) {
+  setConstructs((prev) =>
+  prev.map((c) => {
+  if (c.id !== constructId) return c
+  if (c.role === 'DV') return { ...c, role: 'Unassigned' }
+  return { ...c, role: 'DV' }
+  })
+  )
   }
 
   const handleSave = async () => {
@@ -405,12 +405,12 @@ export default function ColumnsPage() {
           </div>
 
           <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '8px', display: 'block' }}>
-            Dependent Variable
+            Dependent Variable(s)
           </label>
           <div>
             {scaleConstructs.map((c) => (
               <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <input type="radio" name="dv" checked={c.role === 'DV'} onChange={() => setDV(c.id)} />
+                <input type="checkbox" checked={c.role === 'DV'} onChange={() => toggleDV(c.id)} />
                 <span style={{ color: '#333333', fontSize: '13px' }}>{c.name}</span>
               </label>
             ))}
