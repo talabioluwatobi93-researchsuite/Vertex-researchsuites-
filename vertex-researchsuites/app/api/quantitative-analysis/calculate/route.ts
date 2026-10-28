@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 60
 import { createClient } from '@supabase/supabase-js'
 import { moderationAnalysis } from "@/lib/stats"
-import { partialCorrelation } from "@/lib/correlationExtras"
+import { partialCorrelation, binaryCorrelation } from "@/lib/correlationExtras"
 import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis, twoWayAnova, sobelMediation, logisticRegression } from '@/lib/stats'
 
 const supabase = createClient(
@@ -272,7 +272,30 @@ export async function POST(req: NextRequest) {
         }
         partialOut = { labels: scaleConstructsList.map((c: any) => c.name), controls: partialCtl.map((c: any) => c.name), matrix: pMatrix }
       }
-      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation, partial: partialOut || undefined }
+      // PHASE8C: point-biserial / phi (only when ticked), respondents matched
+      let binaryOut: any = null
+      const binId: string = session.correlation_config && session.correlation_config.binaryOn === true && session.correlation_config.binaryVarId ? String(session.correlation_config.binaryVarId) : ''
+      if (binId) {
+        const binC: any = resolveVariableConstruct(binId, constructs, columnHeaders)
+        const binCol: number = binC && binC.columnIndexes && binC.columnIndexes.length === 1 ? binC.columnIndexes[0] : -1
+        const binLabels: string[] = binCol >= 0 ? cleanedRows.map((row: any) => String(row[binCol] === null || row[binCol] === undefined ? '' : row[binCol]).trim()) : []
+        const binUniq: string[] = Array.from(new Set(binLabels.filter(Boolean)))
+        if (binUniq.length === 2) {
+          const binRows: any[] = []
+          for (const c of scaleConstructsList) {
+            const empty = { name: c.name, r: null, p: null, pOneTailed: null, n: 0, df: null }
+            if (String(c.id) === binId) { binRows.push(empty); continue }
+            const sc = constructScoresByRow[c.id]
+            const gI: number[] = []
+            const yI: number[] = []
+            for (let k = 0; k < sc.length; k++) { if (binLabels[k] && sc[k] !== null) { gI.push(binLabels[k] === binUniq[1] ? 1 : 0); yI.push(sc[k] as number) } }
+            const bres = binaryCorrelation(gI, yI)
+            binRows.push(bres ? { name: c.name, r: r3(bres.r), p: r3(bres.p), pOneTailed: r3(bres.pOneTailed), n: bres.n, df: bres.df } : { ...empty, n: gI.length })
+          }
+          binaryOut = { name: binC.name, label0: binUniq[0], label1: binUniq[1], rows: binRows }
+        }
+      }
+      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation, partial: partialOut || undefined, binary: binaryOut || undefined }
     }
 
     const regIvIds: string[] = Array.isArray(session.correlation_config?.regIvIds) ? session.correlation_config.regIvIds.map(String) : []
