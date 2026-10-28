@@ -108,6 +108,7 @@ export default function AnalysisTypePage() {
   const corrVarIds: string[] = Array.from(new Set([...corrIvIds, ...corrDvIds]))
   const [regIvIds, setRegIvIds] = useState<string[]>([])
   const [regDvId, setRegDvId] = useState('')
+  const [regRuns, setRegRuns] = useState<{ dvId: string; ivIds: string[]; same: boolean }[]>([])
   const [chisquareColId, setChisquareColId] = useState('')
   const [includeSpearman, setIncludeSpearman] = useState(false)
   const [tailType, setTailType] = useState<'two' | 'one'>('two')
@@ -532,7 +533,7 @@ export default function AnalysisTypePage() {
           ? { rowConstructId: chisquareRowId, colConstructId: chisquareColId }
           : null,
         correlation_config: (selected.includes('correlation') || selected.includes('regression'))
-            ? { includeSpearman, tailType, corrVarIds: selected.includes('correlation') ? corrVarIds : [], regIvIds: selected.includes('regression') ? regIvIds : [], regDvId: selected.includes('regression') ? regDvId : '' }
+            ? { includeSpearman, tailType, corrVarIds: selected.includes('correlation') ? corrVarIds : [], regIvIds: selected.includes('regression') ? regIvIds : [], regDvId: selected.includes('regression') ? regDvId : '', regRunsMore: selected.includes('regression') ? regRuns.filter((r) => r.dvId && (r.same ? regIvIds.length > 0 : r.ivIds.length > 0)).slice(0, 4).map((r) => ({ dvId: r.dvId, ivIds: r.same ? regIvIds : r.ivIds })) : [] }
             : null,
         paired_config: selected.includes('paired')
           ? { group1ConstructId: pairedGroup1Id, group2ConstructId: pairedGroup2Id }
@@ -709,11 +710,38 @@ export default function AnalysisTypePage() {
 ))}
 </div>
 </div>
+<div style={{ marginTop: '12px' }} onClick={(e) => e.stopPropagation()}>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px 0' }}>More regression runs (optional, up to 5 in total)</p>
+<p style={{ color: '#333333', fontSize: '12px', margin: '0 0 6px 0' }}>Each extra run has its own dependent variable. For best results, a variable should be either dependent or independent within one run.</p>
+{regRuns.map((run, ri) => (
+<div key={ri} style={{ border: '1px solid #E5E5E5', borderRadius: '6px', padding: '8px 10px', marginBottom: '8px' }}>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px 0' }}>Run {ri + 2}</p>
+<select value={run.dvId} onChange={(e) => setRegRuns(regRuns.map((r, j) => (j === ri ? { ...r, dvId: e.target.value } : r)))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '8px' }}>
+<option value="">Select dependent variable...</option>
+{[...ivConstructs, ...dvConstructs].map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+</select>
+<label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+<input type="checkbox" checked={run.same} onChange={(e) => setRegRuns(regRuns.map((r, j) => (j === ri ? { ...r, same: e.target.checked } : r)))} />
+<span style={{ color: '#555555', fontSize: '12px' }}>Use the same independent variables as Run 1</span>
+</label>
+{!run.same && [...ivConstructs, ...dvConstructs].filter((c) => c.id !== run.dvId).map((c) => (
+<label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+<input type="checkbox" checked={run.ivIds.includes(c.id)} onChange={(e) => setRegRuns(regRuns.map((r, j) => (j === ri ? { ...r, ivIds: e.target.checked ? [...r.ivIds, c.id] : r.ivIds.filter((x) => x !== c.id) } : r)))} />
+<span style={{ color: '#555555', fontSize: '12px' }}>{c.name}</span>
+</label>
+))}
+<button type="button" onClick={() => setRegRuns(regRuns.filter((_, j) => j !== ri))} style={{ marginTop: '6px', fontSize: '12px', background: 'none', border: 'none', color: '#B00B00', cursor: 'pointer', padding: 0 }}>Remove this run</button>
+</div>
+))}
+{regRuns.length < 4 && (
+<button type="button" onClick={() => setRegRuns([...regRuns, { dvId: '', ivIds: [], same: true }])} style={{ fontSize: '12px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #D4AF37', background: '#FFFFFF', color: '#333333', cursor: 'pointer' }}>+ Add another regression run</button>
+)}
+</div>
 
-              </div>
-            )}
+</div>
+)}
 
-            {type === 'ttest' && isSelected && avail.available && (
+{type === 'ttest' && isSelected && avail.available && (
               <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
                 <label style={{ color: '#333333', fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
                   Grouping variable (must have exactly 2 groups)
