@@ -867,6 +867,48 @@ export default function ResultsPage() {
         </div>
       )}
 
+      {results.correlation?.partial && (
+      <div style={tableWrap}>
+      <p style={tableTitle}>Table {nextTable()}. Partial Correlations (controlling for {results.correlation.partial.controls.join(', ')})</p>
+      <table style={table}>
+      <thead>
+      <tr>
+      <th style={thStyle}></th>
+      <th style={thStyle}></th>
+      {results.correlation.partial.labels.map((l: string, i: number) => (<th style={thStyle} key={i}>{i + 1}</th>))}
+      </tr>
+      </thead>
+      <tbody>
+      {results.correlation.partial.matrix.flatMap((row: any, i: number) => ([
+      <tr key={`${i}-r`}>
+      <td style={tdStyle} rowSpan={4}>{i + 1}. {row.name}</td>
+      <td style={tdStyle}>Partial r</td>
+      {row.cells.map((cell: any, j: number) => (
+      <td style={tdStyle} key={j}>
+      {cell.r === null ? '' : formatSpssValue(cell.r, 3)}
+      {cell.p !== null && cell.p < 0.05 ? '*' : ''}
+      </td>
+      ))}
+      </tr>,
+      <tr key={`${i}-p`}>
+      <td style={tdStyle}>Sig. (2-tailed)</td>
+      {row.cells.map((cell: any, j: number) => (<td style={tdStyle} key={j}>{cell.p === null ? '' : formatSpssValue(cell.p, 3)}</td>))}
+      </tr>,
+      <tr key={`${i}-df`}>
+      <td style={tdStyle}>df</td>
+      {row.cells.map((cell: any, j: number) => (<td style={tdStyle} key={j}>{cell.df === null ? '' : cell.df}</td>))}
+      </tr>,
+      <tr key={`${i}-n`}>
+      <td style={tdStyle}>N</td>
+      {row.cells.map((cell: any, j: number) => (<td style={tdStyle} key={j}>{cell.n}</td>))}
+      </tr>
+      ]))}
+      </tbody>
+      </table>
+      <p style={noteStyle}>* p &lt; .05. Each cell uses only respondents who answered both variables and every control variable. Cells for the control variables are left empty.</p>
+      </div>
+      )}
+
       {results.regression && [results.regression, ...(Array.isArray(results.regression_runs) ? results.regression_runs : [])].map((reg: any, regIdx: number) => (
         <div key={'regression_runs' + regIdx}>
           {regIdx > 0 && <p style={noteStyle}>Regression (Run {reg.run})</p>}
