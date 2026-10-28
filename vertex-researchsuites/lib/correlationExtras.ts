@@ -44,3 +44,17 @@ export function partialCorrelation(x: number[], y: number[], controls: number[][
   const p = Math.abs(r) >= 1 ? 0 : tTestPValue(r * Math.sqrt(df / (1 - r * r)), df)
   return { r, p, pOneTailed: p / 2, n, df }
 }
+
+// Point-biserial (0/1 with a scale score) and phi (0/1 with 0/1) are both Pearson on the coded values.
+// `g` must contain only 0 and 1, both present. Arrays must already be matched by respondent.
+export function binaryCorrelation(g: number[], y: number[]) {
+  const n = g.length
+  const df = n - 2
+  if (n !== y.length || df < 1) return null
+  const ones = g.filter((v) => v === 1).length
+  if (ones === 0 || ones === n || g.some((v) => v !== 0 && v !== 1)) return null
+  const r = corr(g, y)
+  if (!isFinite(r)) return null
+  const p = Math.abs(r) >= 1 ? 0 : tTestPValue(r * Math.sqrt(df / (1 - r * r)), df)
+  return { r, p, pOneTailed: p / 2, n, df }
+}
