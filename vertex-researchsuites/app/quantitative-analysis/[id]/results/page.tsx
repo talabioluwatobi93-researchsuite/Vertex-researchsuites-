@@ -909,6 +909,35 @@ export default function ResultsPage() {
       </div>
       )}
 
+      {results.correlation?.binary && (
+      <div style={tableWrap}>
+      <p style={tableTitle}>Table {nextTable()}. Point-Biserial / Phi Correlations with {results.correlation.binary.name}</p>
+      <table style={table}>
+      <thead>
+      <tr>
+      <th style={thStyle}>Variable</th>
+      <th style={thStyle}>r</th>
+      <th style={thStyle}>Sig. (2-tailed)</th>
+      <th style={thStyle}>df</th>
+      <th style={thStyle}>N</th>
+      </tr>
+      </thead>
+      <tbody>
+      {results.correlation.binary.rows.map((row: any, i: number) => (
+      <tr key={i}>
+      <td style={tdStyle}>{row.name}</td>
+      <td style={tdStyle}>{row.r === null ? '' : formatSpssValue(row.r, 3)}{row.p !== null && row.p < 0.05 ? '*' : ''}</td>
+      <td style={tdStyle}>{row.p === null ? '' : formatSpssValue(row.p, 3)}</td>
+      <td style={tdStyle}>{row.df === null ? '' : row.df}</td>
+      <td style={tdStyle}>{row.n}</td>
+      </tr>
+      ))}
+      </tbody>
+      </table>
+      <p style={noteStyle}>* p &lt; .05. {results.correlation.binary.name} is coded 0 = {results.correlation.binary.label0}, 1 = {results.correlation.binary.label1}. A positive r means the group coded 1 scores higher. This is the point-biserial correlation, and phi when the other variable is also coded 0 and 1.</p>
+      </div>
+      )}
+
       {results.regression && [results.regression, ...(Array.isArray(results.regression_runs) ? results.regression_runs : [])].map((reg: any, regIdx: number) => (
         <div key={'regression_runs' + regIdx}>
           {regIdx > 0 && <p style={noteStyle}>Regression (Run {reg.run})</p>}
