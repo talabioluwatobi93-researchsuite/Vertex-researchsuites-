@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 60
 import { createClient } from '@supabase/supabase-js'
 import { moderationAnalysis } from "@/lib/stats"
+import { partialCorrelation } from "@/lib/correlationExtras"
 import { mean, sd, skewness, pearson, spearman, olsRegression, independentTTest, oneWayAnova, chiSquareTest, moderatedRegression, pairedTTest, mannWhitneyU, wilcoxonSignedRank, kruskalWallis, twoWayAnova, sobelMediation, logisticRegression } from '@/lib/stats'
 
 const supabase = createClient(
@@ -248,7 +249,30 @@ export async function POST(req: NextRequest) {
             : "Some variables show notable skew - consider also requesting Spearman's rank correlation for more robust results.")
         : 'Data distributions appear reasonably normal - Pearson (the default correlation) is appropriate here.'
 
-      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation }
+      // PHASE8B: partial correlation (only when ticked), respondents matched
+      let partialOut: any = null
+      const partialIds: string[] = session.correlation_config && Array.isArray(session.correlation_config.partialControlIds) ? session.correlation_config.partialControlIds.map(String) : []
+      const partialCtl: any[] = session.correlation_config && session.correlation_config.partialOn === true ? Array.from(new Set(partialIds)).map((id) => allScaleConstructs.find((c: any) => String(c.id) === id)).filter(Boolean) : []
+      if (partialCtl.length > 0) {
+        const ctlIds = partialCtl.map((c: any) => String(c.id))
+        const pMatrix: any[] = []
+        for (const rowC of scaleConstructsList) {
+          const cells: any[] = []
+          for (const colC of scaleConstructsList) {
+            const empty = { r: null, p: null, pOneTailed: null, n: 0, df: null }
+            if (rowC.id === colC.id || ctlIds.includes(String(rowC.id)) || ctlIds.includes(String(colC.id))) { cells.push(empty); continue }
+            const a = constructScoresByRow[rowC.id]
+            const b = constructScoresByRow[colC.id]
+            const idx: number[] = []
+            for (let k = 0; k < a.length; k++) { if (a[k] !== null && b[k] !== null && partialCtl.every((c: any) => constructScoresByRow[c.id][k] !== null)) idx.push(k) }
+            const res = partialCorrelation(idx.map((k) => a[k] as number), idx.map((k) => b[k] as number), partialCtl.map((c: any) => idx.map((k) => constructScoresByRow[c.id][k] as number)))
+            cells.push(res ? { r: r3(res.r), p: r3(res.p), pOneTailed: r3(res.pOneTailed), n: res.n, df: res.df } : { ...empty, n: idx.length })
+          }
+          pMatrix.push({ name: rowC.name, cells })
+        }
+        partialOut = { labels: scaleConstructsList.map((c: any) => c.name), controls: partialCtl.map((c: any) => c.name), matrix: pMatrix }
+      }
+      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation, partial: partialOut || undefined }
     }
 
     const regIvIds: string[] = Array.isArray(session.correlation_config?.regIvIds) ? session.correlation_config.regIvIds.map(String) : []
