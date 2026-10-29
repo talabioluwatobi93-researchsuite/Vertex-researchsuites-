@@ -38,6 +38,46 @@ export function buildCorrelationTables(corr: any, tableNumber: number, citationS
     });
   }
 
+  // ---- Other correlation types (added only when that analysis was run) ----
+  const addStars = (p: any) => (p === null || p === undefined ? '' : p < 0.001 ? '***' : p < 0.01 ? '**' : p < 0.05 ? '*' : '')
+  const cellR = (c: any) => (c && c.r !== null && c.r !== undefined ? `${fmt(c.r, 3)}${addStars(c.p)}` : '')
+  const cellP = (c: any) => (c && c.p !== null && c.p !== undefined ? fmt(c.p, 3) : '')
+  const cellN = (v: any) => (v === null || v === undefined ? '' : String(v))
+  let nextNo = tableNumber + (corr.spearmanMatrix ? 2 : 1)
+  if (corr.partial && Array.isArray(corr.partial.matrix) && Array.isArray(corr.partial.labels)) {
+    const pTitle = `Table ${nextNo}. Partial Correlations (controlling for ${(corr.partial.controls || []).join(', ')})`
+    nextNo++
+    const pRows: string[][] = []
+    corr.partial.matrix.forEach((row: any) => {
+      const cells: any[] = row.cells || []
+      pRows.push([row.name, 'Partial r', ...cells.map(cellR)])
+      pRows.push(['', 'Sig. (2-tailed)', ...cells.map(cellP)])
+      pRows.push(['', 'df', ...cells.map((c: any) => cellN(c && c.df))])
+      pRows.push(['', 'N', ...cells.map((c: any) => cellN(c && c.n))])
+    })
+    groups.push({ title: pTitle, blocks: [tableTitle(pTitle), makeTable(['Variable', 'Statistic', ...corr.partial.labels], pRows, true), spacer()] })
+  }
+  if (corr.binary && Array.isArray(corr.binary.rows)) {
+    const bTitle = `Table ${nextNo}. Point-Biserial / Phi Correlations with ${corr.binary.name} (${corr.binary.label0} = 0, ${corr.binary.label1} = 1)`
+    nextNo++
+    const bRows: string[][] = corr.binary.rows.map((r: any) => [r.name, cellR(r), cellP(r), cellN(r.df), cellN(r.n)])
+    groups.push({ title: bTitle, blocks: [tableTitle(bTitle), makeTable(['Variable', 'r', 'Sig. (2-tailed)', 'df', 'N'], bRows, true), spacer()] })
+  }
+  if (corr.items && Array.isArray(corr.items.matrix) && Array.isArray(corr.items.labels)) {
+    const iTitle = `Table ${nextNo}. Inter-Item Correlations for ${corr.items.construct}`
+    nextNo++
+    const iRows: string[][] = []
+    corr.items.matrix.forEach((row: any[], i: number) => {
+      iRows.push([corr.items.labels[i], 'Pearson r', ...row.map(cellR)])
+      iRows.push(['', 'Sig. (2-tailed)', ...row.map(cellP)])
+    })
+    groups.push({ title: iTitle, blocks: [tableTitle(iTitle), makeTable(['Item', 'Statistic', ...corr.items.labels], iRows, true), spacer()] })
+    const tTitle = `Table ${nextNo}. Corrected Item-Total Correlations for ${corr.items.construct}`
+    nextNo++
+    const tRows: string[][] = (corr.items.itemTotal || []).map((c: any, i: number) => [corr.items.labels[i], cellR(c), cellP(c), cellN(corr.items.n)])
+    groups.push({ title: tTitle, blocks: [tableTitle(tTitle), makeTable(['Item', 'Corrected item-total r', 'Sig. (2-tailed)', 'N'], tRows, true), spacer()] })
+  }
+
   return groups;
 }
 
