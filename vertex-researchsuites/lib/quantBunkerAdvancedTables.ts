@@ -57,24 +57,24 @@ export function buildCorrelationTables(corr: any, tableNumber: number, citationS
     })
     groups.push({ title: pTitle, blocks: [tableTitle(pTitle), makeTable(['Variable', 'Statistic', ...corr.partial.labels], pRows, true), spacer()] })
   }
-  if (corr.binary && Array.isArray(corr.binary.rows)) {
-    const bTitle = `Table ${nextNo}. Point-Biserial / Phi Correlations with ${corr.binary.name} (${corr.binary.label0} = 0, ${corr.binary.label1} = 1)`
+  for (const bin of ((corr.binaries || (corr.binary ? [corr.binary] : [])) as any[])) { if (!bin || !Array.isArray(bin.rows)) continue
+    const bTitle = `Table ${nextNo}. Point-Biserial / Phi Correlations with ${bin.name} (${bin.label0} = 0, ${bin.label1} = 1)`
     nextNo++
-    const bRows: string[][] = corr.binary.rows.map((r: any) => [r.name, cellR(r), cellP(r), cellN(r.df), cellN(r.n)])
+    const bRows: string[][] = bin.rows.map((r: any) => [r.name, cellR(r), cellP(r), cellN(r.df), cellN(r.n)])
     groups.push({ title: bTitle, blocks: [tableTitle(bTitle), makeTable(['Variable', 'r', 'Sig. (2-tailed)', 'df', 'N'], bRows, true), spacer()] })
   }
-  if (corr.items && Array.isArray(corr.items.matrix) && Array.isArray(corr.items.labels)) {
-    const iTitle = `Table ${nextNo}. Inter-Item Correlations for ${corr.items.construct}`
+  for (const it of ((corr.itemsList || (corr.items ? [corr.items] : [])) as any[])) { if (!it || !Array.isArray(it.matrix) || !Array.isArray(it.labels)) continue
+    const iTitle = `Table ${nextNo}. Inter-Item Correlations for ${it.construct}`
     nextNo++
     const iRows: string[][] = []
-    corr.items.matrix.forEach((row: any[], i: number) => {
-      iRows.push([corr.items.labels[i], 'Pearson r', ...row.map(cellR)])
+    it.matrix.forEach((row: any[], i: number) => {
+      iRows.push([it.labels[i], 'Pearson r', ...row.map(cellR)])
       iRows.push(['', 'Sig. (2-tailed)', ...row.map(cellP)])
     })
-    groups.push({ title: iTitle, blocks: [tableTitle(iTitle), makeTable(['Item', 'Statistic', ...corr.items.labels], iRows, true), spacer()] })
-    const tTitle = `Table ${nextNo}. Corrected Item-Total Correlations for ${corr.items.construct}`
+    groups.push({ title: iTitle, blocks: [tableTitle(iTitle), makeTable(['Item', 'Statistic', ...it.labels], iRows, true), spacer()] })
+    const tTitle = `Table ${nextNo}. Corrected Item-Total Correlations for ${it.construct}`
     nextNo++
-    const tRows: string[][] = (corr.items.itemTotal || []).map((c: any, i: number) => [corr.items.labels[i], cellR(c), cellP(c), cellN(corr.items.n)])
+    const tRows: string[][] = (it.itemTotal || []).map((c: any, i: number) => [it.labels[i], cellR(c), cellP(c), cellN(it.n)])
     groups.push({ title: tTitle, blocks: [tableTitle(tTitle), makeTable(['Item', 'Corrected item-total r', 'Sig. (2-tailed)', 'N'], tRows, true), spacer()] })
   }
 

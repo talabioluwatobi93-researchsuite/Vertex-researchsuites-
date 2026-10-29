@@ -685,7 +685,7 @@ export default function AnalysisTypePage() {
                   </p>
                   <div style={{ marginTop: '12px' }}>
                   <p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px 0' }}>Type of correlation</p>
-                  <p style={{ color: '#555555', fontSize: '12px', margin: '0 0 6px 0' }}>Pearson is always reported. You can also ask for a partial correlation, which shows the link between two variables after removing the effect of one or more control variables.</p>
+                  <p style={{ color: '#555555', fontSize: '12px', margin: '0 0 6px 0' }}>Bivariate correlation (Pearson) between the constructs you ticked above is always reported, with r, significance and N for each pair. You can also ask for a partial correlation, which shows the link between two variables after removing the effect of one or more control variables.</p>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                   <input type="checkbox" checked={partialOn} onChange={(e) => setPartialOn(e.target.checked)} />
                   <span style={{ color: '#555555', fontSize: '12px' }}>Also run partial correlation</span>

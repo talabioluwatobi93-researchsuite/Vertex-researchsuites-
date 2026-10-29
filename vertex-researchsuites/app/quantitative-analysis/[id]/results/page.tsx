@@ -909,9 +909,9 @@ export default function ResultsPage() {
       </div>
       )}
 
-      {results.correlation?.binary && (
-      <div style={tableWrap}>
-      <p style={tableTitle}>Table {nextTable()}. Point-Biserial / Phi Correlations with {results.correlation.binary.name}</p>
+      {results.correlation && (results.correlation.binaries || (results.correlation.binary ? [results.correlation.binary] : [])).map((bin: any, bIdx: number) => (
+      <div key={'bin' + bIdx} style={tableWrap}>
+      <p style={tableTitle}>Table {nextTable()}. Point-Biserial / Phi Correlations with {bin.name}</p>
       <table style={table}>
       <thead>
       <tr>
@@ -923,7 +923,7 @@ export default function ResultsPage() {
       </tr>
       </thead>
       <tbody>
-      {results.correlation.binary.rows.map((row: any, i: number) => (
+      {bin.rows.map((row: any, i: number) => (
       <tr key={i}>
       <td style={tdStyle}>{row.name}</td>
       <td style={tdStyle}>{row.r === null ? '' : formatSpssValue(row.r, 3)}{row.p !== null && row.p < 0.05 ? '*' : ''}</td>
@@ -934,25 +934,26 @@ export default function ResultsPage() {
       ))}
       </tbody>
       </table>
-      <p style={noteStyle}>* p &lt; .05. {results.correlation.binary.name} is coded 0 = {results.correlation.binary.label0}, 1 = {results.correlation.binary.label1}. A positive r means the group coded 1 scores higher. This is the point-biserial correlation, and phi when the other variable is also coded 0 and 1.</p>
+      <p style={noteStyle}>* p &lt; .05. {bin.name} is coded 0 = {bin.label0}, 1 = {bin.label1}. A positive r means the group coded 1 scores higher. This is the point-biserial correlation, and phi when the other variable is also coded 0 and 1.</p>
       </div>
-      )}
+      ))}
 
-      {results.correlation?.items && (
+      {results.correlation && (results.correlation.itemsList || (results.correlation.items ? [results.correlation.items] : [])).map((it: any, itIdx: number) => (
+        <div key={'it' + itIdx}>
         <div style={tableWrap}>
-          <p style={tableTitle}>Table {nextTable()}. Inter-Item Correlations for {results.correlation.items.construct}</p>
+          <p style={tableTitle}>Table {nextTable()}. Inter-Item Correlations for {it.construct}</p>
           <table style={table}>
             <thead>
               <tr>
                 <th style={thStyle}>Item</th>
                 <th style={thStyle}>Statistic</th>
-                {results.correlation.items.labels.map((l: string, i: number) => (<th style={thStyle} key={i}>{l}</th>))}
+                {it.labels.map((l: string, i: number) => (<th style={thStyle} key={i}>{l}</th>))}
               </tr>
             </thead>
             <tbody>
-              {results.correlation.items.matrix.flatMap((row: any, i: number) => ([
+              {it.matrix.flatMap((row: any, i: number) => ([
                 <tr key={`${i}-r`}>
-                  <td style={tdStyle} rowSpan={2}>{results.correlation.items.labels[i]}</td>
+                  <td style={tdStyle} rowSpan={2}>{it.labels[i]}</td>
                   <td style={tdStyle}>Pearson r</td>
                   {row.map((cell: any, j: number) => (<td style={tdStyle} key={j}>{cell.r === null ? '' : formatSpssValue(cell.r, 3)}{cell.p !== null && cell.p < 0.05 ? '*' : ''}</td>))}
                 </tr>,
@@ -963,12 +964,10 @@ export default function ResultsPage() {
               ]))}
             </tbody>
           </table>
-          <p style={noteStyle}>* p &lt; .05. N = {results.correlation.items.n}, df = {results.correlation.items.df}. Only respondents who answered every item are included.</p>
+          <p style={noteStyle}>* p &lt; .05. N = {it.n}, df = {it.df}. Only respondents who answered every item are included.</p>
         </div>
-      )}
-      {results.correlation?.items && (
         <div style={tableWrap}>
-          <p style={tableTitle}>Table {nextTable()}. Corrected Item-Total Correlations for {results.correlation.items.construct}</p>
+          <p style={tableTitle}>Table {nextTable()}. Corrected Item-Total Correlations for {it.construct}</p>
           <table style={table}>
             <thead>
               <tr>
@@ -979,19 +978,20 @@ export default function ResultsPage() {
               </tr>
             </thead>
             <tbody>
-              {results.correlation.items.itemTotal.map((cell: any, i: number) => (
+              {it.itemTotal.map((cell: any, i: number) => (
                 <tr key={i}>
-                  <td style={tdStyle}>{results.correlation.items.labels[i]}</td>
+                  <td style={tdStyle}>{it.labels[i]}</td>
                   <td style={tdStyle}>{cell.r === null ? '' : formatSpssValue(cell.r, 3)}{cell.p !== null && cell.p < 0.05 ? '*' : ''}</td>
                   <td style={tdStyle}>{cell.p === null ? '' : formatSpssValue(cell.p, 3)}</td>
-                  <td style={tdStyle}>{results.correlation.items.n}</td>
+                  <td style={tdStyle}>{it.n}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p style={noteStyle}>* p &lt; .05. Each item is correlated with the sum of the other items.</p>
         </div>
-      )}
+        </div>
+      ))}
       {results.regression && [results.regression, ...(Array.isArray(results.regression_runs) ? results.regression_runs : [])].map((reg: any, regIdx: number) => (
         <div key={'regression_runs' + regIdx}>
           {regIdx > 0 && <p style={noteStyle}>Regression (Run {reg.run})</p>}
