@@ -114,9 +114,9 @@ export default function AnalysisTypePage() {
   const [tailType, setTailType] = useState<'two' | 'one'>('two')
   const [partialOn, setPartialOn] = useState(false)
   const [binaryOn, setBinaryOn] = useState(false)
-  const [binaryVarId, setBinaryVarId] = useState('')
+  const [binaryVarIds, setBinaryVarIds] = useState<string[]>([])
   const [itemOn, setItemOn] = useState(false)
-  const [itemVarId, setItemVarId] = useState('')
+  const [itemVarIds, setItemVarIds] = useState<string[]>([])
   const [partialCtlIds, setPartialCtlIds] = useState<string[]>([])
   const [pairedGroup1Id, setPairedGroup1Id] = useState('')
   const [pairedGroup2Id, setPairedGroup2Id] = useState('')
@@ -539,7 +539,7 @@ export default function AnalysisTypePage() {
           ? { rowConstructId: chisquareRowId, colConstructId: chisquareColId }
           : null,
         correlation_config: (selected.includes('correlation') || selected.includes('regression'))
-            ? { includeSpearman, tailType, partialOn: selected.includes('correlation') && partialOn, partialControlIds: selected.includes('correlation') && partialOn ? partialCtlIds : [], binaryOn: selected.includes('correlation') && binaryOn && !!binaryVarId, binaryVarId: selected.includes('correlation') && binaryOn ? binaryVarId : '', itemOn: selected.includes('correlation') && itemOn && !!itemVarId, itemVarId: selected.includes('correlation') && itemOn ? itemVarId : '', corrVarIds: selected.includes('correlation') ? corrVarIds : [], regIvIds: selected.includes('regression') ? regIvIds : [], regDvId: selected.includes('regression') ? regDvId : '', regRunsMore: selected.includes('regression') ? regRuns.filter((r) => r.dvId && (r.same ? regIvIds.length > 0 : r.ivIds.length > 0)).slice(0, 4).map((r) => ({ dvId: r.dvId, ivIds: r.same ? regIvIds : r.ivIds })) : [] }
+            ? { includeSpearman, tailType, partialOn: selected.includes('correlation') && partialOn, partialControlIds: selected.includes('correlation') && partialOn ? partialCtlIds : [], binaryOn: selected.includes('correlation') && binaryOn && binaryVarIds.length > 0, binaryVarId: selected.includes('correlation') && binaryOn && binaryVarIds.length > 0 ? binaryVarIds[0] : '', binaryVarIds: selected.includes('correlation') && binaryOn ? binaryVarIds : [], itemOn: selected.includes('correlation') && itemOn && itemVarIds.length > 0, itemVarId: selected.includes('correlation') && itemOn && itemVarIds.length > 0 ? itemVarIds[0] : '', itemVarIds: selected.includes('correlation') && itemOn ? itemVarIds : [], corrVarIds: selected.includes('correlation') ? corrVarIds : [], regIvIds: selected.includes('regression') ? regIvIds : [], regDvId: selected.includes('regression') ? regDvId : '', regRunsMore: selected.includes('regression') ? regRuns.filter((r) => r.dvId && (r.same ? regIvIds.length > 0 : r.ivIds.length > 0)).slice(0, 4).map((r) => ({ dvId: r.dvId, ivIds: r.same ? regIvIds : r.ivIds })) : [] }
             : null,
         paired_config: selected.includes('paired')
           ? { group1ConstructId: pairedGroup1Id, group2ConstructId: pairedGroup2Id }
@@ -708,10 +708,12 @@ export default function AnalysisTypePage() {
                   </label>
                   {itemOn && (
                     <div style={{ marginLeft: '4px', marginBottom: '6px' }}>
-                      <select value={itemVarId} onChange={(e) => setItemVarId(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333' }}>
-                        <option value="">Select a construct with 2 or more items...</option>
-                        {constructs.filter((c) => c.role !== 'Demographic' && c.columnIndexes && c.columnIndexes.length >= 2).map((c) => (<option key={c.id} value={c.id}>{c.name} ({c.columnIndexes.length} items)</option>))}
-                      </select>
+                      {constructs.filter((c: any) => c.role !== 'Demographic' && c.columnIndexes && c.columnIndexes.length >= 2).map((c: any) => (
+                        <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <input type="checkbox" checked={itemVarIds.includes(c.id)} onChange={(e) => setItemVarIds(e.target.checked ? [...itemVarIds, c.id] : itemVarIds.filter((x) => x !== c.id))} />
+                          <span style={{ color: '#555555', fontSize: '12px' }}>{c.name} ({c.columnIndexes.length} items)</span>
+                        </label>
+                      ))}
                     </div>
                   )}
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -720,11 +722,13 @@ export default function AnalysisTypePage() {
                   </label>
                   {binaryOn && (
                   <div style={{ marginLeft: '4px' }}>
-                  <p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '4px 0 6px 0' }}>Two-group variable:</p>
-                  <select value={binaryVarId} onChange={(e) => setBinaryVarId(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #EEEEEE', fontSize: '12px', color: '#333333', marginBottom: '6px' }}>
-                  <option value="">Select a two-group variable...</option>
-                  {groupEligibleConstructs.map((c) => (<option key={c.id} value={c.id}>{c.name} ({c.distinctValues.join(' vs ')})</option>))}
-                  </select>
+                  <p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '4px 0 6px 0' }}>Two-group variables (tick one or more):</p>
+                  {groupEligibleConstructs.map((c: any) => (
+                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <input type="checkbox" checked={binaryVarIds.includes(c.id)} onChange={(e) => setBinaryVarIds(e.target.checked ? [...binaryVarIds, c.id] : binaryVarIds.filter((x) => x !== c.id))} />
+                      <span style={{ color: '#555555', fontSize: '12px' }}>{c.name} ({c.distinctValues.join(' vs ')})</span>
+                    </label>
+                  ))}
                   <p style={{ color: '#777777', fontSize: '11px', margin: '0' }}>The first group found in your data is coded 0 and the second is coded 1. The results table states which group is coded 1. A positive r means the group coded 1 scores higher.</p>
                   </div>
                   )}
