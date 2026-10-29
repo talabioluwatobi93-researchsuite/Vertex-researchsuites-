@@ -274,8 +274,9 @@ export async function POST(req: NextRequest) {
       }
       // PHASE8C: point-biserial / phi (only when ticked), respondents matched
       let binaryOut: any = null
-      const binId: string = session.correlation_config && session.correlation_config.binaryOn === true && session.correlation_config.binaryVarId ? String(session.correlation_config.binaryVarId) : ''
-      if (binId) {
+      const binariesOut: any[] = []
+      const binIds: string[] = Array.from(new Set<string>(session.correlation_config && session.correlation_config.binaryOn === true ? (Array.isArray(session.correlation_config.binaryVarIds) && session.correlation_config.binaryVarIds.length > 0 ? session.correlation_config.binaryVarIds.map(String) : (session.correlation_config.binaryVarId ? [String(session.correlation_config.binaryVarId)] : [])) : []))
+      for (const binId of binIds) { if (!binId) continue
         const binC: any = resolveVariableConstruct(binId, constructs, columnHeaders)
         const binCol: number = binC && binC.columnIndexes && binC.columnIndexes.length === 1 ? binC.columnIndexes[0] : -1
         const binLabels: string[] = binCol >= 0 ? cleanedRows.map((row: any) => String(row[binCol] === null || row[binCol] === undefined ? '' : row[binCol]).trim()) : []
@@ -292,13 +293,16 @@ export async function POST(req: NextRequest) {
             const bres = binaryCorrelation(gI, yI)
             binRows.push(bres ? { name: c.name, r: r3(bres.r), p: r3(bres.p), pOneTailed: r3(bres.pOneTailed), n: bres.n, df: bres.df } : { ...empty, n: gI.length })
           }
-          binaryOut = { name: binC.name, label0: binUniq[0], label1: binUniq[1], rows: binRows }
+          const oneBin: any = { name: binC.name, label0: binUniq[0], label1: binUniq[1], rows: binRows }
+          binariesOut.push(oneBin)
+          if (!binaryOut) binaryOut = oneBin
         }
       }
       // PHASE8D: item-level and item-total correlation (only when ticked), respondents matched
       let itemsOut: any = null
-      const itemId: string = session.correlation_config && session.correlation_config.itemOn === true && session.correlation_config.itemVarId ? String(session.correlation_config.itemVarId) : ''
-      if (itemId) {
+      const itemsListOut: any[] = []
+      const itemIds: string[] = Array.from(new Set<string>(session.correlation_config && session.correlation_config.itemOn === true ? (Array.isArray(session.correlation_config.itemVarIds) && session.correlation_config.itemVarIds.length > 0 ? session.correlation_config.itemVarIds.map(String) : (session.correlation_config.itemVarId ? [String(session.correlation_config.itemVarId)] : [])) : []))
+      for (const itemId of itemIds) { if (!itemId) continue
         const itC: any = allScaleConstructs.find((c: any) => String(c.id) === itemId)
         const itCols: number[] = itC && Array.isArray(itC.columnIndexes) ? itC.columnIndexes : []
         if (itC && itCols.length >= 2) {
@@ -319,11 +323,13 @@ export async function POST(req: NextRequest) {
           const ia = itemAnalysis(itCols.map((_: number, j: number) => itRows.map((r) => r[j])))
           if (ia) {
             const fx = (cell: any) => ({ r: cell.r === null ? null : r3(cell.r), p: cell.p === null ? null : r3(cell.p) })
-            itemsOut = { construct: itC.name, labels: itCols.map((ci: number) => columnHeaders[ci] || ('Item ' + ci)), n: ia.n, df: ia.df, matrix: ia.matrix.map((row: any[]) => row.map(fx)), itemTotal: ia.itemTotal.map(fx) }
+            const oneItems: any = { construct: itC.name, labels: itCols.map((ci: number) => columnHeaders[ci] || ('Item ' + ci)), n: ia.n, df: ia.df, matrix: ia.matrix.map((row: any[]) => row.map(fx)), itemTotal: ia.itemTotal.map(fx) }
+            itemsListOut.push(oneItems)
+            if (!itemsOut) itemsOut = oneItems
           }
         }
       }
-      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation, partial: partialOut || undefined, binary: binaryOut || undefined, items: itemsOut || undefined }
+      correlation = { labels: scaleConstructsList.map((c) => c.name), matrix, spearmanMatrix, skewFlags, recommendation, partial: partialOut || undefined, binary: binaryOut || undefined, binaries: binariesOut.length > 0 ? binariesOut : undefined, items: itemsOut || undefined, itemsList: itemsListOut.length > 0 ? itemsListOut : undefined }
     }
 
     const regIvIds: string[] = Array.isArray(session.correlation_config?.regIvIds) ? session.correlation_config.regIvIds.map(String) : []
