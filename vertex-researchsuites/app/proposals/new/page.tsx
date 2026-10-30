@@ -258,6 +258,7 @@ export default function NewProposal() {
       const { error } = await supabase.from("bunker_items").insert(
         docs.map((d) => ({
           user_id: userId,
+          item_type: "proposal",
           item_name: `${course} Proposal — ${d.title}`,
           content_reference: d.text,
         }))
@@ -339,6 +340,7 @@ export default function NewProposal() {
 
       const { error } = await supabase.from("bunker_items").insert({
         user_id: userId,
+        item_type: selectedTopic ? "proposal" : "research_topics",
         item_name: itemName,
         content_reference: content,
       });
