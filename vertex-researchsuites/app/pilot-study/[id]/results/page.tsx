@@ -5,6 +5,7 @@ import { pilotResultsToDocxBlob } from '@/lib/pilotDocx'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase';
 import { CITATION_STYLES, CitationStyleValue } from '@/lib/citationStyles'
+import BackToDashboard from '@/components/BackToDashboard'
 
 type ConstructResult = { name: string; k: number; n: number; alpha: number; error?: string }
 type CombinedResult = { k: number; n: number; alpha: number } | null
@@ -222,6 +223,7 @@ export default function PilotStudyResultsPage() {
 
   return (
     <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '24px 20px' }}>
+      <BackToDashboard />
       <h1 style={{ color: '#333333', fontSize: '20px', fontWeight: 700, marginBottom: '4px' }}>
         Pilot Study Results
       </h1>
