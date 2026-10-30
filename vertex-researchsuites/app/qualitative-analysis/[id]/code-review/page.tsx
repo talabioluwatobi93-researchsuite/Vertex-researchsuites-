@@ -57,7 +57,7 @@ export default function CodeReviewPage() {
         setProgress(batchCount > 1 ? 'Matching quotes to your themes... part ' + batch + ' of ' + batchCount : '')
         let data: any = null
         let ok = false
-        for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+        for (let attempt = 0; attempt < 3 && !ok; attempt++) {
           const res = await fetch('/api/qualitative-analysis/assign-quotes', {
             method: 'POST',
             headers,
@@ -69,7 +69,7 @@ export default function CodeReviewPage() {
         }
         if (!ok) {
           if (batch === 1) {
-            setErrorMsg(data?.error || 'Could not assign quotes to themes. Please try again.')
+            setErrorMsg(/abort|timeout|timed out/i.test(String(data?.error || '')) ? 'This is taking longer than usual. Please reload this page to try again.' : (data?.error || 'Could not assign quotes to themes. Please try again.'))
             setLoading(false)
             return
           }
