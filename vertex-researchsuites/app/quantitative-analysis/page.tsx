@@ -132,12 +132,18 @@ export default function QuantitativeAnalysisUploadPage() {
       {
         const { data: sessJ } = await supabase.auth.getSession()
         const tokJ = sessJ && sessJ.session ? sessJ.session.access_token : ''
-        const jr = await fetch('/api/quantitative-analysis/job', {
+        let jr = await fetch('/api/quantitative-analysis/job', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tokJ },
           body: JSON.stringify({ action: 'check' }),
         })
-        const jb = await jr.json().catch(() => null)
+        let jb: any = await jr.json().catch(() => null)
+        if (!jr.ok && jr.status !== 402) {
+          await supabase.auth.refreshSession()
+          const { data: sessR } = await supabase.auth.getSession()
+          jr = await fetch('/api/quantitative-analysis/job', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (sessR && sessR.session ? sessR.session.access_token : '') }, body: JSON.stringify({ action: 'check' }) })
+          jb = await jr.json().catch(() => null)
+        }
         if (!jr.ok || !jb || !jb.ok) {
           if (jr.status === 402) {
             const T = 'quantitative_analysis_sessions'
@@ -150,7 +156,7 @@ export default function QuantitativeAnalysisUploadPage() {
               return
             }
           }
-          setErrorMsg((jb && jb.error) || 'Please accept the package first.')
+          setErrorMsg((jb && jb.error) || (jr.status === 402 ? 'Please accept the package first.' : 'We could not confirm your purchase just now. Please press Continue again.'))
           setLoading(false)
           return
         }
