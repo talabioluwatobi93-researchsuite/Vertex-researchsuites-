@@ -30,7 +30,6 @@ export default function PilotStudyColumnsPage() {
   const [scaleMax, setScaleMax] = useState(5)
   const [newConstructName, setNewConstructName] = useState('')
   const [newConstructRole, setNewConstructRole] = useState<Construct['role']>('Scale')
-  const [includeDemographics, setIncludeDemographics] = useState(true)
   const [questionnairesShared, setQuestionnairesShared] = useState<number | ''>('')
   const [responsesReceived, setResponsesReceived] = useState<number | ''>('')
   const [citationStyle, setCitationStyle] = useState<CitationStyleValue | ''>('')
@@ -165,7 +164,7 @@ export default function PilotStudyColumnsPage() {
       .update({
         constructs: usedConstructs,
         cleaning_config: { scaleMin, scaleMax },
-        include_demographics: includeDemographics,
+        include_demographics: false,
       questionnaires_shared: questionnairesShared || null,
       responses_received: responsesReceived || null,
         citation_style: citationStyle,
@@ -199,6 +198,7 @@ export default function PilotStudyColumnsPage() {
       <p style={{ color: '#777777', fontSize: '13px', marginBottom: '20px' }}>
         Create your constructs, then assign each question column to one. Tag demographic columns as "Demographic" instead of leaving them unassigned.
       </p>
+      <p style={{ color: '#555555', fontSize: '13px', marginBottom: '20px' }}>For each question item in your construct, assign the appropriate construct under each question item.</p>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Scale used</p>
@@ -221,15 +221,6 @@ export default function PilotStudyColumnsPage() {
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #EEEEEE', marginBottom: '16px' }}>
             <p style={{ color: '#777777', fontSize: '12px', marginTop: '8px' }}>Your scale: {scaleMin} to {scaleMax} ({scaleMax - scaleMin + 1} points)</p>
-        <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Report settings</p>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <input
-            type="checkbox"
-            checked={includeDemographics}
-            onChange={(e) => setIncludeDemographics(e.target.checked)}
-          />
-          <span style={{ color: '#333333', fontSize: '13px' }}>Analyze demographics (uncheck to only collect, not analyze)</span>
-        </label>
         <p style={{ color: '#333333', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>APA style</p>
         <select
           value={citationStyle}

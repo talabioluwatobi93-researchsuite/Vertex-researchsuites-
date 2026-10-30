@@ -113,7 +113,7 @@ async function handleCalc(req: NextRequest): Promise<NextResponse> {
     const duplicateInfo: any = cleaningConfig.duplicates || { row_indexes: [], action: 'excluded' }
     const straightLining: any = cleaningConfig.straight_lining || { detected_row_indexes: [], action: 'excluded' }
     const citationStyle: string = session.citation_style || 'APA7'
-    const includeDemographics = session.include_demographics !== false
+    const includeDemographics = false // demographics are never analysed
 
     const scaleConstructs = constructs.filter((c: any) => c.role === 'Scale')
     const demoConstructs = constructs.filter((c: any) => c.role === 'Demographic')
