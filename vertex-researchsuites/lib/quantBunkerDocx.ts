@@ -249,10 +249,10 @@ export function makeTableStyled(
 }
 
 // tableNumber: sequential number across the whole Doc B (1, 2, 3, ...)
-export function tableTitleStyled(tableNumber: number, captionText: string, style: CitationStyle): Paragraph[] {
+export function tableTitleStyled(tableNumber: number | string, captionText: string, style: CitationStyle): Paragraph[] {
   const cfg = getStyleConfig(style);
   const label = cfg.titleCase === "romanCaps"
-    ? "TABLE " + toRoman(tableNumber)
+    ? "TABLE " + (typeof tableNumber === "number" ? toRoman(tableNumber) : String(tableNumber))
     : "Table " + String(tableNumber) + cfg.titleSuffix;
 
   if (cfg.captionBelowTitle) {

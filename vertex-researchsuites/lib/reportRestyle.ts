@@ -29,7 +29,7 @@ export type Node =
   | { kind: "heading"; id: number; level: number; text: string }
   | { kind: "body"; id: number; text: string }
   | { kind: "img"; index: number }
-  | { kind: "table"; id: number; number: number; captionFound: boolean; caption: string; rows: string[][] };
+  | { kind: "table"; id: number; number: number; captionFound: boolean; caption: string; rows: string[][]; label?: string; groups?: { text: string; span: number }[] };
 
 export interface RewriteItem {
   id: string;
@@ -191,7 +191,7 @@ export async function parseReport(buffer: Buffer): Promise<ParsedReport> {
 }
 
 // ---------------------------------------------------------------- structure analysis
-const CAPTION_NUM = /^\s*table\s+(\d+)\b[\s.:\u2013\u2014-]*([\s\S]*)$/i;
+const CAPTION_NUM = /^\s*table\s+(\d+(?:\.\d+)?)\b[\s.:\u2013\u2014-]*([\s\S]*)$/i;
 const CAPTION_ROMAN = /^\s*TABLE\s+([IVXLCDM]+)\b[\s.:\u2013\u2014-]*([\s\S]*)$/;
 
 function romanToInt(s: string): number {
@@ -205,10 +205,10 @@ function romanToInt(s: string): number {
   return total;
 }
 
-function parseCaption(text: string): { number: number; rest: string } | null {
+function parseCaption(text: string): { number: number; rest: string; label?: string } | null {
   const t = text.replace(/\s+/g, " ").trim();
   let m = CAPTION_NUM.exec(t);
-  if (m) return { number: parseInt(m[1], 10), rest: m[2].trim() };
+  if (m) return { number: parseInt(m[1], 10), rest: m[2].trim(), label: m[1] };
   m = CAPTION_ROMAN.exec(t);
   if (m) return { number: romanToInt(m[1]), rest: m[2].trim() };
   return null;
@@ -231,7 +231,7 @@ function looksLikeHeading(text: string): boolean {
 
 export function analyze(blocks: Block[]): Node[] {
   const consumed = new Set<number>();
-  const captionFor = new Map<number, { number: number | null; caption: string }>();
+  const captionFor = new Map<number, { number: number | null; caption: string; label?: string }>();
 
   for (let i = 0; i < blocks.length; i++) {
     if (blocks[i].kind !== "table") continue;
@@ -247,7 +247,7 @@ export function analyze(blocks: Block[]): Node[] {
       for (let k = found + 1; k < i; k++) parts.push((blocks[k] as any).text);
       for (let k = found; k < i; k++) consumed.add(k);
       captionFor.set(i, {
-        number: first.number,
+        number: first.number, label: first.label,
         caption: parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim(),
       });
     } else {
@@ -269,7 +269,7 @@ export function analyze(blocks: Block[]): Node[] {
       const c = captionFor.get(i)!;
       const number = c.number ?? lastNum + 1;
       lastNum = number;
-      nodes.push({ kind: "table", id: i, number, captionFound: c.number !== null, caption: c.caption, rows: b.rows });
+      nodes.push({ kind: "table", id: i, number, captionFound: c.number !== null, caption: c.caption, rows: b.rows, label: c.label });
     }
   });
   return nodes;
@@ -398,7 +398,7 @@ function apaNote(text: string): Paragraph {
   return new Paragraph({ spacing: { before: 60, after: 60 }, alignment: AlignmentType.LEFT, children: runs });
 }
 
-function buildApaTable(headers: string[], rows: string[][], style: CitationStyle, firstColLabel: boolean): Table {
+function buildApaTable(headers: string[], rows: string[][], style: CitationStyle, firstColLabel: boolean, groups?: { text: string; span: number }[]): Table {
   const n = headers.length;
   const spec = tableSpec(style);
   const hdrBorders = spec.rules === "grid" ? { top: apaRule(), bottom: apaRule(), left: apaRule(), right: apaRule() } : { bottom: apaRule() };
@@ -428,19 +428,37 @@ function buildApaTable(headers: string[], rows: string[][], style: CitationStyle
       ],
     });
   };
+  let gi = 0
+  const groupRow = groups && groups.length > 0 ? new TableRow({
+    tableHeader: true,
+    cantSplit: true,
+    children: groups.map((g) => {
+      let w = 0
+      for (let k = 0; k < g.span; k++) w += widths[gi + k] || widths[widths.length - 1]
+      gi += g.span
+      return new TableCell({
+        columnSpan: g.span,
+        width: { size: w, type: WidthType.DXA },
+        borders: g.text ? { bottom: apaRule() } : undefined,
+        margins: { top: 40, bottom: 40, left: 80, right: 80 },
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: g.text, size: 20 })] })],
+      })
+    }),
+  }) : null
   return new Table({
     width: { size: total, type: WidthType.DXA },
     columnWidths: widths,
     layout: TableLayoutType.FIXED,
     borders: spec.rules === "grid" ? { top: apaRule(), bottom: apaRule(), left: apaRule(), right: apaRule(), insideHorizontal: apaRule(), insideVertical: apaRule() } : { top: apaRule(), bottom: apaRule(), left: apaNone(), right: apaNone(), insideHorizontal: apaNone(), insideVertical: apaNone() },
     rows: [
+      ...(groupRow ? [groupRow] : []),
       new TableRow({ tableHeader: true, cantSplit: true, children: headers.map((h, ci) => cell(h, ci, true)) }),
       ...rows.map((r) => new TableRow({ cantSplit: true, children: r.map((c, ci) => cell(c, ci, false)) })),
     ],
   });
 }
 
-function apa6Title(num: number, caption: string): Paragraph[] {
+function apa6Title(num: number | string, caption: string): Paragraph[] {
   return [
     new Paragraph({ spacing: { before: 240, after: 60 }, children: [new TextRun({ text: "Table " + String(num) })] }),
     new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: caption, italics: true })] }),
@@ -476,6 +494,74 @@ function textParagraph(text: string): Paragraph {
   });
 }
 
+// ---- Rebuild lost table headings (spanner label + column headings) ----
+const HDR_TAIL_RE = /\s*(?:\b(Overall)\s+)?Items?\s+((?:\d{1,2}\s+)+)(M|Mean)\s+(SD)\s*(%)?\s*$/i
+
+function isIntCell(s: string): boolean {
+  return /^\d{1,2}$/.test(String(s || "").trim())
+}
+
+function isItemsRow(r: string[]): boolean {
+  return r.length >= 4 && /^items?$/i.test(String(r[0] || "").trim()) && isIntCell(r[1])
+}
+
+function isLabelRow(r: string[]): boolean {
+  const filled = r.filter((c) => String(c || "").trim() !== "")
+  return filled.length === 1 && String(r[0] || "").trim() !== ""
+}
+
+function buildGroups(header: string[], label: string, overall: string): { text: string; span: number }[] | undefined {
+  let k = 0
+  while (1 + k < header.length && isIntCell(header[1 + k])) k++
+  if (k === 0 || (!label && !overall)) return undefined
+  const out = [{ text: "", span: 1 }, { text: label, span: k }]
+  if (1 + k < header.length) out.push({ text: overall, span: header.length - 1 - k })
+  return out
+}
+
+export function repairTableHeaders(nodes: Node[]): Node[] {
+  const tables = nodes.filter((n) => n.kind === "table") as any[]
+  const templates: { at: number; header: string[] }[] = []
+  tables.forEach((t, at) => {
+    const rows: string[][] = t.rows
+    const width = Math.max(0, ...rows.map((r) => r.length))
+    if (rows.length < 2 || width < 4) return
+    if (isLabelRow(rows[0]) && isItemsRow(rows[1])) {
+      const header = rows[1].slice()
+      while (header.length < width) header.push("")
+      t.groups = buildGroups(header, String(rows[0][0]).trim(), "")
+      t.rows = [header, ...rows.slice(2)]
+      templates.push({ at, header })
+      return
+    }
+    if (isItemsRow(rows[0])) { templates.push({ at, header: rows[0] }); return }
+    const m = HDR_TAIL_RE.exec(String(t.caption || ""))
+    if (!m) return
+    const header = ["Items", ...m[2].trim().split(/\s+/), m[3], m[4], ...(m[5] ? [m[5]] : [])]
+    if (header.length !== width) return
+    const before = String(t.caption).slice(0, m.index).trim()
+    let title = before
+    let label = ""
+    const cut = before.toLowerCase().lastIndexOf("level of")
+    if (/\(%\)\s*$/.test(before) && cut > 0) { label = before.slice(cut).trim(); title = before.slice(0, cut).trim() }
+    t.caption = title
+    t.groups = buildGroups(header, label, m[1] ? "Overall" : "")
+    t.rows = [header, ...rows]
+    templates.push({ at, header })
+  })
+  tables.forEach((t, at) => {
+    const rows: string[][] = t.rows
+    const width = Math.max(0, ...rows.map((r) => r.length))
+    if (rows.length < 3 || width < 4 || t.groups || !isLabelRow(rows[0])) return
+    const cands = templates.filter((c) => c.header.length === width).sort((x, y) => (x.at < at ? 0 : 1) - (y.at < at ? 0 : 1) || Math.abs(x.at - at) - Math.abs(y.at - at))
+    if (cands.length === 0) return
+    const header = cands[0].header.slice()
+    t.groups = buildGroups(header, String(rows[0][0]).trim(), "")
+    t.rows = [header, ...rows.slice(1)]
+  })
+  return nodes
+}
+
 function normalizeRows(rows: string[][]): string[][] {
   const width = Math.max(...rows.map((r) => r.length));
   return rows.map((r) => (r.length === width ? r : [...r, ...Array(width - r.length).fill("")]));
@@ -492,7 +578,7 @@ export function buildRestyledDocument(
   style: CitationStyle,
   rewrites: Record<string, string>
 ): Document {
-  const nodes = analyze(parsed.blocks);
+  const nodes = repairTableHeaders(analyze(parsed.blocks));
   const apa = style === "APA6" || style === "APA7";
   const betaVals = collectBetaValues(nodes);
   const children: any[] = [];
@@ -530,9 +616,9 @@ export function buildRestyledDocument(
       const rows = normalizeRows(n.rows);
       const headers = rows[0];
       const body = rows.slice(1).map((r) => r.map((c, ci) => (apa ? apaCell(c, headers[ci] || "", n.caption) : c)));
-      if (style === "APA6") children.push(...apa6Title(n.number, n.caption));
-      else children.push(...tableTitleStyled(n.number, n.caption, style));
-      children.push(buildApaTable(headers, body, style, firstColumnIsLabel(body)));
+      if (style === "APA6") children.push(...apa6Title(n.label || n.number, n.caption));
+      else children.push(...tableTitleStyled(n.label || n.number, n.caption, style));
+      children.push(buildApaTable(headers, body, style, firstColumnIsLabel(body), n.groups));
       afterTable = true;
       pendingSpacer = true;
     }
