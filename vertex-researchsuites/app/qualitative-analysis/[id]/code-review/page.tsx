@@ -151,13 +151,16 @@ export default function CodeReviewPage() {
         <p style={{ color: '#777777', fontSize: '13px', marginBottom: '4px' }}>
           Step 4 of 10 &mdash; Every quote below was matched to a theme automatically.
         </p>
-        <p style={{ color: '#C0392B', fontSize: '12px', fontWeight: 600, marginBottom: '20px' }}>
+        <p style={{ color: '#555555', fontSize: '12px', fontWeight: 600, marginBottom: '20px' }}>
           Please review each one carefully &mdash; you can reassign or remove any quote that doesn't fit before continuing.
         </p>
 
         {errorMsg && (
-          <div style={{ backgroundColor: '#FDEDEC', borderRadius: '16px', padding: '14px', marginBottom: '16px' }}>
-            <p style={{ color: '#C0392B', fontSize: '13px', margin: 0 }}>{errorMsg}</p>
+          <div style={{ backgroundColor: '#F5F5F5', borderRadius: '16px', padding: '14px', marginBottom: '16px' }}>
+            <p style={{ color: '#555555', fontSize: '13px', margin: 0 }}>{errorMsg}</p>
+            {assignments.length === 0 && (
+              <button type="button" onClick={() => window.location.reload()} style={{ marginTop: '10px', backgroundColor: '#D4AF37', color: '#333333', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Try again</button>
+            )}
           </div>
         )}
 
