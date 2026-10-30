@@ -107,8 +107,14 @@ export default function AnalysisTypePage() {
   const [corrDvIds, setCorrDvIds] = useState<string[]>([])
   const corrVarIds: string[] = Array.from(new Set([...corrIvIds, ...corrDvIds]))
   const [regIvIds, setRegIvIds] = useState<string[]>([])
-  const [regDvId, setRegDvId] = useState('')
+  const [regDvIds, setRegDvIds] = useState<string[]>([])
   const [regRuns, setRegRuns] = useState<{ dvId: string; ivIds: string[]; same: boolean }[]>([])
+  const regReady = regDvIds.length > 0 && regIvIds.filter((x) => x !== regDvIds[0]).length > 0
+  const regPrimaryIvs = regReady ? regIvIds.filter((x) => x !== regDvIds[0]) : []
+  const regExtraRuns = regReady ? [
+    ...regDvIds.slice(1).map((d) => ({ dvId: d, ivIds: regIvIds.filter((x) => x !== d) })),
+    ...regRuns.filter((r) => r.dvId && (r.same ? regIvIds.length > 0 : r.ivIds.length > 0)).map((r) => ({ dvId: r.dvId, ivIds: r.same ? regIvIds : r.ivIds })),
+  ].filter((r) => r.ivIds.length > 0).slice(0, 4) : []
   const [chisquareColId, setChisquareColId] = useState('')
   const [includeSpearman, setIncludeSpearman] = useState(false)
   const [tailType, setTailType] = useState<'two' | 'one'>('two')
@@ -419,10 +425,6 @@ export default function AnalysisTypePage() {
       setErrorMsg('Please pick at least 2 variables for correlation, or untick them all to use every variable.')
       return
     }
-    if (selected.includes('regression') && (regDvId || regIvIds.length > 0) && (!regDvId || regIvIds.length < 1)) {
-      setErrorMsg('For regression, please choose one dependent variable and at least one independent variable, or leave both empty to use your earlier setup.')
-      return
-    }
 
     if (selected.includes('ttest')) {
       if (!ttestGroupId) {
@@ -539,7 +541,7 @@ export default function AnalysisTypePage() {
           ? { rowConstructId: chisquareRowId, colConstructId: chisquareColId }
           : null,
         correlation_config: (selected.includes('correlation') || selected.includes('regression'))
-            ? { includeSpearman, tailType, partialOn: selected.includes('correlation') && partialOn, partialControlIds: selected.includes('correlation') && partialOn ? partialCtlIds : [], binaryOn: selected.includes('correlation') && binaryOn && binaryVarIds.length > 0, binaryVarId: selected.includes('correlation') && binaryOn && binaryVarIds.length > 0 ? binaryVarIds[0] : '', binaryVarIds: selected.includes('correlation') && binaryOn ? binaryVarIds : [], itemOn: selected.includes('correlation') && itemOn && itemVarIds.length > 0, itemVarId: selected.includes('correlation') && itemOn && itemVarIds.length > 0 ? itemVarIds[0] : '', itemVarIds: selected.includes('correlation') && itemOn ? itemVarIds : [], corrVarIds: selected.includes('correlation') ? corrVarIds : [], regIvIds: selected.includes('regression') ? regIvIds : [], regDvId: selected.includes('regression') ? regDvId : '', regRunsMore: selected.includes('regression') ? regRuns.filter((r) => r.dvId && (r.same ? regIvIds.length > 0 : r.ivIds.length > 0)).slice(0, 4).map((r) => ({ dvId: r.dvId, ivIds: r.same ? regIvIds : r.ivIds })) : [] }
+            ? { includeSpearman, tailType, partialOn: selected.includes('correlation') && partialOn, partialControlIds: selected.includes('correlation') && partialOn ? partialCtlIds : [], binaryOn: selected.includes('correlation') && binaryOn && binaryVarIds.length > 0, binaryVarId: selected.includes('correlation') && binaryOn && binaryVarIds.length > 0 ? binaryVarIds[0] : '', binaryVarIds: selected.includes('correlation') && binaryOn ? binaryVarIds : [], itemOn: selected.includes('correlation') && itemOn && itemVarIds.length > 0, itemVarId: selected.includes('correlation') && itemOn && itemVarIds.length > 0 ? itemVarIds[0] : '', itemVarIds: selected.includes('correlation') && itemOn ? itemVarIds : [], corrVarIds: selected.includes('correlation') ? corrVarIds : [], regIvIds: selected.includes('regression') ? regPrimaryIvs : [], regDvId: selected.includes('regression') && regReady ? regDvIds[0] : '', regRunsMore: selected.includes('regression') ? regExtraRuns : [] }
             : null,
         paired_config: selected.includes('paired')
           ? { group1ConstructId: pairedGroup1Id, group2ConstructId: pairedGroup2Id }
@@ -738,7 +740,7 @@ export default function AnalysisTypePage() {
 
                   {type === 'regression' && isSelected && avail.available && (
               <div style={{ backgroundColor: '#F9F9F9', borderRadius: '10px', padding: '10px 12px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
-<p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Choose the variables for regression. Independent variables predict the dependent variable (pick one dependent). Leave both empty to use your earlier setup.</p>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 600, margin: '0 0 6px' }}>Tick the independent and dependent variables you want. Each dependent variable is run as its own regression (up to 5 runs in total). Leave both empty to use your earlier setup.</p>
 <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E5E5', borderRadius: '6px', padding: '8px 10px', margin: '0 0 8px 0' }}>
 <p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 4px 0' }}>How to choose</p>
 <p style={{ color: '#333333', fontSize: '12px', margin: '0 0 4px 0' }}><strong>Independent:</strong> what you think influences something. Example: Study Hours.</p>
@@ -751,21 +753,23 @@ export default function AnalysisTypePage() {
 <p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px' }}>Independent variables</p>
 {[...ivConstructs, ...dvConstructs].map((c) => (
 <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-<input type="checkbox" checked={regIvIds.includes(c.id)} disabled={c.id === regDvId} onChange={(e) => setRegIvIds(e.target.checked ? [...regIvIds, c.id] : regIvIds.filter((x) => x !== c.id))} />
+<input type="checkbox" checked={regIvIds.includes(c.id)} onChange={(e) => setRegIvIds(e.target.checked ? [...regIvIds, c.id] : regIvIds.filter((x) => x !== c.id))} />
 <span style={{ color: '#555555', fontSize: '12px' }}>{c.name}</span>
 </label>
 ))}
 </div>
 <div>
-<p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px' }}>Dependent variable (one)</p>
+<p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px' }}>Dependent variables</p>
 {[...ivConstructs, ...dvConstructs].map((c) => (
 <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-<input type="checkbox" checked={regDvId === c.id} onChange={(e) => { setRegDvId(e.target.checked ? c.id : ''); if (e.target.checked) setRegIvIds(regIvIds.filter((x) => x !== c.id)) }} />
+<input type="checkbox" checked={regDvIds.includes(c.id)} onChange={(e) => setRegDvIds(e.target.checked ? [...regDvIds, c.id] : regDvIds.filter((x) => x !== c.id))} />
 <span style={{ color: '#555555', fontSize: '12px' }}>{c.name}</span>
 </label>
 ))}
 </div>
 </div>
+{(regDvIds.length > 0 || regIvIds.length > 0) && !regReady && (<p style={{ color: '#777777', fontSize: '11px', margin: '4px 0 0 0' }}>Tick at least one independent and one dependent variable (a variable cannot be both in the same run), or your earlier setup will be used.</p>)}
+{Math.max(regDvIds.length - 1, 0) + regRuns.length > 4 && (<p style={{ color: '#777777', fontSize: '11px', margin: '4px 0 0 0' }}>A maximum of 5 regression runs is calculated, so the extra runs are skipped.</p>)}
 <div style={{ marginTop: '12px' }} onClick={(e) => e.stopPropagation()}>
 <p style={{ color: '#333333', fontSize: '12px', fontWeight: 700, margin: '0 0 6px 0' }}>More regression runs (optional, up to 5 in total)</p>
 <p style={{ color: '#333333', fontSize: '12px', margin: '0 0 6px 0' }}>Each extra run has its own dependent variable. For best results, a variable should be either dependent or independent within one run.</p>
@@ -789,7 +793,7 @@ export default function AnalysisTypePage() {
 <button type="button" onClick={() => setRegRuns(regRuns.filter((_, j) => j !== ri))} style={{ marginTop: '6px', fontSize: '12px', background: 'none', border: 'none', color: '#B00B00', cursor: 'pointer', padding: 0 }}>Remove this run</button>
 </div>
 ))}
-{regRuns.length < 4 && (
+{Math.max(regDvIds.length - 1, 0) + regRuns.length < 4 && (
 <button type="button" onClick={() => setRegRuns([...regRuns, { dvId: '', ivIds: [], same: true }])} style={{ fontSize: '12px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #D4AF37', background: '#FFFFFF', color: '#333333', cursor: 'pointer' }}>+ Add another regression run</button>
 )}
 </div>
