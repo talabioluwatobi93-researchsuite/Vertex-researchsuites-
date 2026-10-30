@@ -139,6 +139,17 @@ export default function QuantitativeAnalysisUploadPage() {
         })
         const jb = await jr.json().catch(() => null)
         if (!jr.ok || !jb || !jb.ok) {
+          if (jr.status === 402) {
+            const T = 'quantitative_analysis_sessions'
+            const prevA = await supabase.from(T).select('id').eq('user_id', user.id).eq('file_fingerprint', fileFingerprint).order('created_at', { ascending: false }).limit(1)
+            const prevRows = prevA.error ? (await supabase.from(T).select('id').eq('user_id', user.id).eq('file_fingerprint', fileFingerprint).limit(1)).data : prevA.data
+            const prevId = prevRows && prevRows.length > 0 ? (prevRows[0] as any).id : null
+            if (prevId) {
+              setLoading(false)
+              router.push(`/quantitative-analysis/${prevId}/response-rate`)
+              return
+            }
+          }
           setErrorMsg((jb && jb.error) || 'Please accept the package first.')
           setLoading(false)
           return
