@@ -103,12 +103,11 @@ let s = 'Inter-coder agreement. '
       s += ' Coder B could not check ' + failedN + (failedN === 1 ? ' part' : ' parts') + ' of the transcript; those parts are excluded from this figure.'
     }
   }
-  if (agreement.decision === 'proceed') s += ' The researcher reviewed this result and chose to proceed.'
   return s
 }
 
 export function quoteLines(a: Assignment): string[] {
-  const where = a.participantId ? '[' + a.participantId + (a.blockIndex ? ', paragraph ' + a.blockIndex : '') + ']' : ''
+  const where = a.participantId ? '[' + a.participantId + (a.blockIndex ? ', segment ' + a.blockIndex : '') + ']' : ''
   return ['> \u201C' + a.quote + '\u201D', '> \u2014 ' + participantLabel(a.participantId) + ' ' + where]
 }
 
@@ -155,15 +154,15 @@ export function assembleNarrative(input: {
       }
       qs.forEach((q, k) => {
         if (k === 0) {
-          out.push(participantLabel(q.participantId) + ' stated:')
+          out.push(participantLabel(q.participantId) + [' described it this way:', ' explained:', ' put it as follows:', ' noted:'][i % 4])
         } else if (q.participantId && q.participantId !== qs[0].participantId) {
-          out.push('This was corroborated by ' + participantLabel(q.participantId) + ':')
+          out.push(['This was echoed by ', 'A similar view came from ', 'This view was shared by '][i % 3] + participantLabel(q.participantId) + ':')
         } else {
-          out.push('A further excerpt from the same participant reads:')
+          out.push('The same participant added:')
         }
         out.push(...quoteLines({ ...q, quote: q.quote.replace(/\s+/g, ' ') }))
       })
-      if (p.synthesis) out.push('Analytical synthesis: ' + p.synthesis)
+      if (p.synthesis) out.push(p.synthesis)
     })
   }
   if (input.contentText) {

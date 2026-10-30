@@ -45,9 +45,9 @@ export async function buildReferenceBlock(o: { topic: string; style: string; nar
       shortfall = r.shortfall
       const extra = r.refs.filter((x) => !seen.has(String(x.doi || '').toLowerCase()))
       if (extra.length) {
-        lines.push('## Additional verified sources on this topic')
+        lines.push('## Suggested further reading (not cited in this chapter)')
         lines.push('These sources were found through CrossRef and OpenAlex and were published from ' + r.fromYear +
-          ' onward. They are listed for your reading and are not cited in the text above; cite them where they are relevant.')
+          ' onward, using your research topic. Their relevance to your study has not been checked, so read each one and cite only those that fit.')
         extra.forEach((x) => lines.push(formatReference(x, o.style)))
       }
       if (r.shortfall > 0) {
