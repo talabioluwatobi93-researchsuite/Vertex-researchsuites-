@@ -316,6 +316,32 @@ Return ONLY a raw JSON object, no markdown fences, no preamble, in exactly this 
     } catch (aiErr) {
       console.error('Pilot Study AI chain failed:', aiErr)
       // fall back to defaults set above
+      const fbRows: any[] = (constructResults as any[]).filter((c: any) => c && !c.error)
+      const fbWord = (a: number) => a >= 0.9 ? 'excellent' : a >= 0.8 ? 'good' : a >= 0.7 ? 'acceptable' : a >= 0.6 ? 'questionable' : 'poor'
+      const fbList = fbRows.map((c: any) => `${c.name} (${Number(c.alpha).toFixed(3)}, ${fbWord(Number(c.alpha))})`).join('; ')
+      const fbComb: any = combinedResult
+      let fbText = fbRows.length === 0
+        ? 'There was not enough valid data to calculate reliability for the constructs in this pilot study.'
+        : `Cronbach's alpha was calculated for ${fbRows.length} construct(s) using ${(results as any).sampleSize} respondents. By the standard thresholds (below 0.6 poor, 0.6 to 0.7 questionable, 0.7 to 0.8 acceptable, 0.8 to 0.9 good, above 0.9 excellent), the results are: ${fbList}.`
+      if (fbRows.length > 0 && fbComb && typeof fbComb.alpha === 'number') {
+        fbText += ` Across all scale sections combined, alpha was ${fbComb.alpha.toFixed(3)} (${fbWord(fbComb.alpha)}).`
+      }
+      interpretations = {
+        pilot_study_report: {
+          insufficient_data: null,
+          response_rate_summary: null,
+          reliability_overview: fbText,
+          construct_evaluations: fbRows.map((c: any) => ({
+            construct_name: String(c.name),
+            alpha_score: Number(c.alpha).toFixed(3),
+            status: Number(c.alpha) >= 0.7 ? 'Reliable' : 'Unreliable',
+            action_required: Number(c.alpha) >= 0.7 ? [] : ['Review the items in this construct and consider revising or removing weak items before the main study.'],
+          })),
+          validity_discussion: '',
+          defense_prep_questions: [],
+        },
+        ai_failed_reason: String((aiErr as any)?.message || aiErr).slice(0, 200),
+      }
     }
 
     const resultsReadyAt = new Date().toISOString()
