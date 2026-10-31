@@ -642,7 +642,7 @@ export function mannWhitneyU(group1: number[], group2: number[]): any {
     (n1 * n2 / 12) * ((n + 1) - tieCorrection / (n * (n - 1)))
   )
 
-  const continuityCorrection = 0.5
+  const continuityCorrection = 0 // no continuity correction (asymptotic z, as in SPSS)
   const zRaw = sigmaU > 0 ? (u - meanU + continuityCorrection) / sigmaU : 0
   const z = zRaw
   const pValue = 2 * (1 - normalCDF(Math.abs(z)))
@@ -710,7 +710,7 @@ export function wilcoxonSignedRank(before: number[], after: number[]): any {
     (nr * (nr + 1) * (2 * nr + 1)) / 24 - tieCorrection / 48
   )
 
-  const continuityCorrection = 0.5
+  const continuityCorrection = 0 // no continuity correction (asymptotic z, as in SPSS)
   const z = sigmaW > 0 ? (w - meanW + continuityCorrection) / sigmaW : 0
   const pValue = 2 * (1 - normalCDF(Math.abs(z)))
 
