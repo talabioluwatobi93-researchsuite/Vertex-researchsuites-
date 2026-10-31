@@ -31,6 +31,7 @@ Return ONLY a JSON object with two string fields:
 {"claim": "...", "synthesis": "..."}
 "claim": ONE sentence stating what the data show for this theme, using the numbers above exactly.
 "synthesis": 2 to 4 sentences interpreting the theme and tying it to the research questions.
+Interpret only what the theme and the numbers support; do not introduce claims about participants that are not in the theme definition.
 Rules: Do NOT quote participants and do not put any quotation marks around words from the data (quotes are added separately by the system). Do not invent numbers. No markdown, no headings.`;
 }
 
@@ -42,6 +43,7 @@ THEME FREQUENCY TABLE (counts of coded paragraphs):
 ${JSON.stringify(table, null, 2)}
 
 Discuss which themes were most and least prevalent and what that suggests.
+Differences of only a few coded paragraphs must be described as similar, not as a meaningful ranking. State only what the counts show; do not infer attitudes or behaviours the counts cannot show.
 Rules: Do not invent numbers. Do not quote participants. Maximum 8 lines. Plain text only, no markdown, no heading.`;
 }
 
