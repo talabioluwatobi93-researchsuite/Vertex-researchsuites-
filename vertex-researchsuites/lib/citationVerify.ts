@@ -142,12 +142,17 @@ function similarity(a: string, b: string): number {
   return n / (A.size + B.size - n);
 }
 
+// Generic words found in many unrelated titles; they do not count as topic matches.
+const GENERIC = new Set(tokens('study analysis effect impact role factor evidence review approach assessment perception influence relationship case using based toward nigeria nigerian africa african'));
+
 function relevant(topic: string, title: string): boolean {
   const T = new Set(tokens(topic).filter((w) => w.length > 3));
   if (!T.size) return true;
-  const need = Math.max(1, Math.ceil(T.size * 0.4));
+  const D = new Set(Array.from(T).filter((w) => !GENERIC.has(w)));
+  const core = D.size ? D : T;
+  const need = D.size ? Math.max(D.size >= 3 ? 2 : 1, Math.ceil(D.size * 0.5)) : Math.max(1, Math.ceil(T.size * 0.4));
   let n = 0;
-  new Set(tokens(title)).forEach((w) => { if (T.has(w)) n++; });
+  new Set(tokens(title)).forEach((w) => { if (core.has(w)) n++; });
   return n >= need;
 }
 
