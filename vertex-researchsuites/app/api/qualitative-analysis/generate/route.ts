@@ -9,6 +9,7 @@ import {
   Assignment, ThemeDef, ThemeProse, buildCodebookTable, mentionCounts,
   assembleNarrative, agreementStatement, cleanProse, fallbackClaim,
 } from '@/lib/qualReport';
+import { procedureStatement } from '@/lib/qualAuditTrail';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -182,6 +183,7 @@ export async function POST(req: NextRequest) {
       contentText: doContent ? parts.content || null : null,
       synthesisText: parts.synthesis || null,
       agreementText: agreementStatement(session.agreement),
+      procedureText: procedureStatement(themes),
     });
 
     const groupedQuotes: Record<string, string[]> = {};

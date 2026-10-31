@@ -140,8 +140,9 @@ export function assembleNarrative(input: {
   contentText?: string | null
   synthesisText?: string | null
   agreementText: string
+  procedureText?: string | null
 }): string {
-  const out: string[] = [FRAMEWORK_LINE, input.agreementText]
+  const out: string[] = [FRAMEWORK_LINE, ...(input.procedureText ? [input.procedureText] : []), input.agreementText]
   if (input.includeThematic) {
     input.themes.forEach((t, i) => {
       const row = input.rows[i]
