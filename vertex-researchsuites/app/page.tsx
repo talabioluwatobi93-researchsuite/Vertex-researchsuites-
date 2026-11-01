@@ -18,6 +18,9 @@ export default function Home() {
           <Link href="/terms" style={{ color: GOLD }}>Terms</Link> and{" "}
           <Link href="/privacy" style={{ color: GOLD }}>Privacy Policy</Link>.
         </p>
+        <p style={{ color: "#cfd8e6", fontSize: 13, margin: "0 0 14px" }}>
+          For the best experience and layout, please use a laptop or desktop computer.
+        </p>
         <Link href="/signup" style={{ display: "block", background: GOLD, color: "#333333", fontWeight: 700, padding: "14px", borderRadius: 10, textDecoration: "none", marginBottom: 12 }}>
           Accept and Sign up
         </Link>
