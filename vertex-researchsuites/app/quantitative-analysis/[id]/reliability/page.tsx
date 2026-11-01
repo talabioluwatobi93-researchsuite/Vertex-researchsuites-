@@ -128,7 +128,7 @@ export default function ReliabilityPage() {
             </div>
           ))}
           <p style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-            Conventionally, an Alpha of 0.70 or higher indicates acceptable reliability. Lower values will still be accepted and reported honestly in your discussion.
+            A score of 0.70 or higher is the usual minimum for a construct to be analysed. Tables are always produced. A written interpretation is given only for constructs that have a pilot-study score of 0.70 or higher. If a score is missing or below 0.70, the table is shown with a short note instead of an interpretation.
           </p>
         </div>
       )}
