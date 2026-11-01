@@ -19,6 +19,7 @@ export default function QuantPricingPage() {
         "4. All objectives",
         "5. Hypothesis",
         "(Note) Users must provide at least 2 of either number 3, 4 or 5.",
+        "Before you start: know what you want to analyse. Quantitative analysis works best when you already know what you are testing. Decide your construct (the idea you are measuring), your dependent variable (the outcome you want to explain) and your independent variables or predictors (the factors you think influence it). Choosing these correctly is your responsibility, because the analysis answers only the question you set. The platform then guides you step by step: pick your analysis type, select your variables, and receive your results with a plain-language explanation. You always see the fee before anything runs.",
       ]}
       featureKey="quant_new_analysis"
       nextHref="/quantitative-analysis"
