@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
 const labelStyle = { color: '#333333', fontWeight: 'bold' as const, display: 'block', marginBottom: '5px' }
@@ -12,6 +12,15 @@ export default function SignUp() {
   const [type, setType] = useState('')
   const [institution, setInstitution] = useState('')
   const [region, setRegion] = useState('')
+  const [continent, setContinent] = useState('')
+  const [countryRows, setCountryRows] = useState<{ continent: string; country: string }[]>([])
+  useEffect(() => {
+    supabase.from('countries').select('continent, country').order('country').then(({ data }) => {
+      if (data) setCountryRows(data)
+    })
+  }, [])
+  const continents = Array.from(new Set(countryRows.map(r => r.continent))).sort()
+  const countries = countryRows.filter(r => r.continent === continent).map(r => r.country)
   const [message, setMessage] = useState('')
   const [isError, setIsError] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -28,6 +37,11 @@ export default function SignUp() {
     if (password.length < 6) {
       setIsError(true)
       setMessage('Password must be at least 6 characters.')
+      return
+    }
+    if (countryRows.length > 0 && (!continent || !region)) {
+      setIsError(true)
+      setMessage('Please choose your continent and country.')
       return
     }
     setBusy(true)
@@ -71,8 +85,16 @@ export default function SignUp() {
         </select>
         <label style={labelStyle}>Institution / Organisation (optional)</label>
         <input value={institution} onChange={e => setInstitution(e.target.value)} placeholder="Where you study or work" style={inputStyle} />
-        <label style={labelStyle}>State / Country (optional)</label>
-        <input value={region} onChange={e => setRegion(e.target.value)} placeholder="Where you are based" style={{ ...inputStyle, marginBottom: '20px' }} />
+        <label style={labelStyle}>Continent</label>
+        <select value={continent} onChange={e => { setContinent(e.target.value); setRegion('') }} style={{ ...inputStyle, marginBottom: '20px' }}>
+          <option value="">Select continent</option>
+          {continents.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <label style={labelStyle}>Country</label>
+        <select value={region} onChange={e => setRegion(e.target.value)} disabled={!continent} style={{ ...inputStyle, marginBottom: '20px' }}>
+          <option value="">{continent ? 'Select country' : 'Choose a continent first'}</option>
+          {countries.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
         <button onClick={handleSignUp} disabled={busy} style={{ width: '100%', padding: '12px', background: '#D4AF37', color: '#333333', fontWeight: 'bold', border: 'none', borderRadius: '5px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
           {busy ? 'Creating account...' : 'Sign Up'}
         </button>
