@@ -1145,6 +1145,7 @@ export default function ResultsPage() {
                   <th style={thStyle}>Beta</th>
                   <th style={thStyle}>t</th>
                   <th style={thStyle}>Sig.</th>
+                  {reg.coefficients.some((x: any) => x.vif != null) && (<><th style={thStyle}>Tolerance</th><th style={thStyle}>VIF</th></>)}
                 </tr>
               </thead>
               <tbody>
@@ -1156,6 +1157,7 @@ export default function ResultsPage() {
                     <td style={tdStyle}>{c.beta !== null ? formatSpssValue(c.beta, 3) : '—'}</td>
                     <td style={tdStyle}>{c.t.toFixed(3)}</td>
                     <td style={tdStyle}>{formatSpssValue(c.p, 3)}</td>
+                    {reg.coefficients.some((x: any) => x.vif != null) && (<><td style={tdStyle}>{c.tolerance != null ? Number(c.tolerance).toFixed(3) : '—'}</td><td style={tdStyle}>{c.vif != null ? Number(c.vif).toFixed(3) : '—'}</td></>)}
                   </tr>
                 ))}
               </tbody>
