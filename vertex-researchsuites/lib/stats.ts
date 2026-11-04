@@ -1314,12 +1314,13 @@ export function moderationAnalysis(
   const tc = p7TCrit(dfRes, 0.05)
   const sdY = p7Sd(y)
   const cov = fit.inv.map((row) => row.map((v) => v * msRes))
+  const collin = computeCollinearity(X, p)
   const coefficients = names.map((name, j) => {
     const se = Math.sqrt(cov[j][j])
     const t = fit.b[j] / se
     const col = X.map((r) => r[j])
     const beta = kinds[j] === 'x' || kinds[j] === 'w' ? (fit.b[j] * p7Sd(col)) / sdY : null
-    return { name, B: fit.b[j], SE: se, beta, t, p: p7TwoSidedP(t, dfRes), ciLower: fit.b[j] - tc * se, ciUpper: fit.b[j] + tc * se }
+    return { name, B: fit.b[j], SE: se, beta, t, p: p7TwoSidedP(t, dfRes), ciLower: fit.b[j] - tc * se, ciUpper: fit.b[j] + tc * se, vif: j >= 1 ? (collin.vif[j - 1] ?? null) : null, tolerance: j >= 1 ? (collin.tolerance[j - 1] ?? null) : null }
   })
   // R-squared change for the interaction step
   const intIdx = kinds.map((k, j) => (k === 'int' ? j : -1)).filter((j) => j >= 0)
