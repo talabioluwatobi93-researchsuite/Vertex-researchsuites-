@@ -184,3 +184,29 @@ export async function buildItemDescriptivesTables(
   }));
   return groups;
 }
+
+// ---- Pilot study reliability table (scores typed by the researcher) ----
+export function buildPilotReliabilityTable(
+  reliabilityInfo: any,
+  tableNumber: number,
+  citationStyle?: CitationStyle
+): TableGroup[] {
+  const list: any[] = Array.isArray(reliabilityInfo?.constructs) ? reliabilityInfo.constructs : [];
+  const items = list.filter((c: any) => c && c.role !== "Demographic");
+  if (items.length === 0) return [];
+  const caption = "Pilot Study Reliability for Study Constructs";
+  const title = `Table ${tableNumber}. ${caption}`;
+  const headers = ["Construct", "Cronbach\u2019s Alpha (Pilot Study)"];
+  const rows = items.map((c: any) => {
+    const a = c.cronbach_alpha;
+    const ok = a !== null && a !== undefined && a !== "" && Number.isFinite(Number(a));
+    return [String(c.name ?? ""), ok ? Number(a).toFixed(3) : "Not reported"];
+  });
+  const titleBlocks: Paragraph[] = citationStyle ? tableTitleStyled(tableNumber, caption, citationStyle) : [tableTitle(title)];
+  const tableBlock: Table = citationStyle ? makeTableStyled(headers, rows, citationStyle, true) : makeTable(headers, rows, true);
+  const note = new Paragraph({
+    text: "Note. Scores were obtained from a pilot study and reported by the researcher. They were not calculated from the main dataset.",
+    spacing: { after: 200 },
+  });
+  return [{ title, blocks: [...titleBlocks, tableBlock, note, spacer()] }];
+}

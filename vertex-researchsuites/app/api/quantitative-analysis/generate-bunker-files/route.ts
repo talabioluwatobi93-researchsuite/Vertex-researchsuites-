@@ -12,6 +12,7 @@ import {
   buildDescriptivesTable,
   buildFrequencyTables,
   buildItemDescriptivesTables,
+  buildPilotReliabilityTable,
 } from "@/lib/quantBunkerTables";
 import {
   buildTTestTables,
@@ -37,7 +38,7 @@ const supabaseAdmin = createClient(
 );
 
 // ---- Build the full ordered list of TableGroups from session.results ----
-async function buildAllTableGroups(results: any, citationStyle?: CitationStyle): Promise<TableGroup[]> {
+async function buildAllTableGroups(results: any, citationStyle?: CitationStyle, reliabilityInfo?: any): Promise<TableGroup[]> {
   let groups: TableGroup[] = [];
   let n = 1;
 
@@ -79,6 +80,16 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle):
     }
   }
 
+  if (reliabilityInfo) {
+    try {
+      const pg = buildPilotReliabilityTable(reliabilityInfo, n, citationStyle);
+      groups = groups.concat(pg);
+      n += pg.length;
+    } catch (e: any) {
+      groups = groups.concat([errorGroup("pilotReliability", e)]);
+      n += 1;
+    }
+  }
   if (results.descriptives) {
     safeBuild("descriptives", () => buildDescriptivesTable(results.descriptives, n, citationStyle));
   }
@@ -205,12 +216,12 @@ export async function POST(req: Request) {
       tableInterpretations = savedTables && typeof savedTables === "object" ? savedTables : {};
     }
 
-    const tableGroupsA = await buildAllTableGroups(session.results);
+    const tableGroupsA = await buildAllTableGroups(session.results, undefined, session.reliability_info);
     const citationStyle = session.citation_style as CitationStyle | undefined;
     let tableGroupsB: TableGroup[];
     let tableGroupsBError: string | null = null;
     try {
-      tableGroupsB = await buildAllTableGroups(session.results, citationStyle);
+      tableGroupsB = await buildAllTableGroups(session.results, citationStyle, session.reliability_info);
     } catch (e: any) {
       tableGroupsBError = e?.message || String(e);
       tableGroupsB = [];
