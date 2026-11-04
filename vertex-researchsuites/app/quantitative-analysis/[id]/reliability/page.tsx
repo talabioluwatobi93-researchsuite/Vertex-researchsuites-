@@ -128,7 +128,7 @@ export default function ReliabilityPage() {
             </div>
           ))}
           <p style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-            A score of 0.70 or higher is the usual minimum for a construct to be analysed. Tables are always produced. The pilot-study score you enter for each construct is shown in the first table of your report. Results for a construct with a score below 0.70 should be read with caution.
+            Before you begin your Quantitative Analysis, please run a full pilot study in the Pilot Study feature. Then enter the reliability score (Cronbach’s alpha) you obtained for each construct. A score of 0.70 or higher is the usual minimum for a construct to be analysed. Tables are always produced. The pilot-study score you enter for each construct is shown in the first table of your report. Results for a construct with a score below 0.70 should be read with caution.
           </p>
         </div>
       )}
