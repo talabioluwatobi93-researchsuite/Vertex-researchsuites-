@@ -210,6 +210,18 @@ export default function ResultsPage() {
     lines.push(`Excluded Rows: ${results?.excludedRows ?? 0}`)
     lines.push('')
 
+    const pilotRows = (Array.isArray(gateInfo?.reliability_info?.constructs) ? gateInfo.reliability_info.constructs : []).filter((c: any) => c && c.role !== 'Demographic')
+    if (pilotRows.length > 0) {
+      lines.push('PILOT STUDY RELIABILITY FOR STUDY CONSTRUCTS')
+      pilotRows.forEach((c: any) => {
+        const a = c.cronbach_alpha
+        const ok = a !== null && a !== undefined && a !== '' && Number.isFinite(Number(a))
+        lines.push(`${c.name}: Cronbach's alpha (pilot study) = ${ok ? Number(a).toFixed(3) : 'Not reported'}`)
+      })
+      lines.push('Note. Scores were obtained from a pilot study and reported by the researcher. They were not calculated from the main dataset.')
+      lines.push('')
+    }
+
     if (results?.descriptives?.length > 0) {
       lines.push('DESCRIPTIVE STATISTICS')
       results.descriptives.forEach((d: any) => {
