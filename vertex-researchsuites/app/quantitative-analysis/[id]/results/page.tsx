@@ -714,6 +714,37 @@ export default function ResultsPage() {
           </button>
         </div>
       )}
+      {(() => {
+        const pilotRows = (Array.isArray(gateInfo?.reliability_info?.constructs) ? gateInfo.reliability_info.constructs : []).filter((c: any) => c && c.role !== 'Demographic')
+        if (pilotRows.length === 0) return null
+        return (
+          <div style={tableWrap}>
+            <p style={tableTitle}>Table {nextTable()}. Pilot Study Reliability for Study Constructs</p>
+            <table style={table}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Construct</th>
+                  <th style={thStyle}>Cronbach&rsquo;s alpha (pilot study)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pilotRows.map((c: any, i: number) => {
+                  const a = c.cronbach_alpha
+                  const ok = a !== null && a !== undefined && a !== '' && Number.isFinite(Number(a))
+                  return (
+                    <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#F7F7F5' : 'transparent' }}>
+                      <td style={tdStyle}>{c.name}</td>
+                      <td style={tdStyle}>{ok ? Number(a).toFixed(3) : 'Not reported'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            <p style={noteStyle}>Note. Scores were obtained from a pilot study and reported by the researcher. They were not calculated from the main dataset.</p>
+          </div>
+        )
+      })()}
+
       {results.descriptives?.length > 0 && (
         <div style={tableWrap}>
           <p style={tableTitle}>Table {nextTable()}. Descriptive Statistics for Study Variables</p>
