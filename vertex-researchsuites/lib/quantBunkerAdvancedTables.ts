@@ -181,8 +181,8 @@ export function buildModerationTables(mod: any, tableNumber: number, citationSty
       blocks: [
         tableTitle(coefTitle),
         makeTable(
-          ["Term", "B", "SE", "Beta", "t", "p"],
-          mod.coefficients.map((c: any) => [c.name, fmt(c.B), fmt(c.SE), fmt(c.beta), fmt(c.t), fmtP(c.p)]),
+          ["Term", "B", "SE", "Beta", "t", "p", ...(mod.coefficients.some((x: any) => x.vif != null) ? ["Tolerance", "VIF"] : [])],
+          mod.coefficients.map((c: any) => [c.name, fmt(c.B), fmt(c.SE), fmt(c.beta), fmt(c.t), fmtP(c.p), ...(mod.coefficients.some((x: any) => x.vif != null) ? [c.tolerance != null ? fmt(c.tolerance, 3) : "—", c.vif != null ? fmt(c.vif, 3) : "—"] : [])]),
           true
         ),
         spacer(),

@@ -2234,7 +2234,8 @@ export default function ResultsPage() {
                 <th style={thStyle}>Beta</th>
                 <th style={thStyle}>t</th>
                 <th style={thStyle}>Sig.</th>
-              </tr>
+              {results.moderation.coefficients.some((x: any) => x.vif != null) && (<><th style={thStyle}>Tolerance</th><th style={thStyle}>VIF</th></>)}
+</tr>
             </thead>
             <tbody>
               {results.moderation.coefficients.map((c: any, i: number) => (
@@ -2245,7 +2246,8 @@ export default function ResultsPage() {
                   <td style={tdStyle}>{c.beta !== null ? c.beta.toFixed(3) : '-'}</td>
                   <td style={tdStyle}>{c.t.toFixed(3)}</td>
                   <td style={tdStyle}>{formatSpssValue(c.p, 3)}</td>
-                </tr>
+                {results.moderation.coefficients.some((x: any) => x.vif != null) && (<><td style={tdStyle}>{c.tolerance != null ? Number(c.tolerance).toFixed(3) : '—'}</td><td style={tdStyle}>{c.vif != null ? Number(c.vif).toFixed(3) : '—'}</td></>)}
+</tr>
               ))}
             </tbody>
           </table>
@@ -2358,7 +2360,8 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <table style={{ ...table, marginTop: '16px' }}>
-              <thead><tr><th style={thStyle}>Term</th><th style={thStyle}>B</th><th style={thStyle}>SE</th><th style={thStyle}>Beta</th><th style={thStyle}>t</th><th style={thStyle}>Sig.</th><th style={thStyle}>95% CI</th></tr></thead>
+              <thead><tr><th style={thStyle}>Term</th><th style={thStyle}>B</th><th style={thStyle}>SE</th><th style={thStyle}>Beta</th><th style={thStyle}>t</th><th style={thStyle}>Sig.</th><th style={thStyle}>95% CI</th>{mr.coefficients.some((x: any) => x.vif != null) && (<><th style={thStyle}>Tolerance</th><th style={thStyle}>VIF</th></>)}
+</tr></thead>
               <tbody>
                 {mr.coefficients.map((c: any, i: number) => (
                   <tr key={i}>
@@ -2369,7 +2372,8 @@ export default function ResultsPage() {
                     <td style={tdStyle}>{Number(c.t).toFixed(3)}</td>
                     <td style={tdStyle}>{formatSpssValue(c.p, 3)}</td>
                     <td style={tdStyle}>[{Number(c.ciLower).toFixed(3)}, {Number(c.ciUpper).toFixed(3)}]</td>
-                  </tr>
+                  {mr.coefficients.some((x: any) => x.vif != null) && (<><td style={tdStyle}>{c.tolerance != null ? Number(c.tolerance).toFixed(3) : '—'}</td><td style={tdStyle}>{c.vif != null ? Number(c.vif).toFixed(3) : '—'}</td></>)}
+</tr>
                 ))}
               </tbody>
             </table>
