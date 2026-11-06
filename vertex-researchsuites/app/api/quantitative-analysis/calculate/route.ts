@@ -359,6 +359,7 @@ export async function POST(req: NextRequest) {
           dvName: dv.name,
           ivNames,
           variablesEntered: { entered: ivNames, removed: [], method: 'Enter' },
+          pickedNotUsed: regPicked ? Array.from(new Set([...regIvIds, regDvId])).filter((id) => !regIvs.some((c: any) => String(c.id) === id) && String(dv.id) !== id).map((id) => String((constructs.find((c: any) => String(c.id) === id) || {}).name || 'Unknown variable')) : [],
           modelSummary: {
             r: r3(reg.multipleR),
             rSquared: r3(reg.rSquared),
