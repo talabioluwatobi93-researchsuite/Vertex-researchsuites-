@@ -1,5 +1,6 @@
 import { awardFirstDepositCommission } from "@/lib/referral";
 import { adminDb } from "@/lib/referralServer";
+import { creditTopup } from "@/lib/walletCredit";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -30,33 +31,9 @@ export async function POST(req: NextRequest) {
     const amountInNaira = amount / 100;
 
     if (userId) {
-      const { data: existing } = await supabase
-        .from("wallet_transactions")
-        .select("id")
-        .eq("reference", reference)
-        .maybeSingle();
-
-      if (!existing) {
-        const { data: wallet } = await supabase
-          .from("wallets")
-          .select("balance")
-          .eq("id", userId)
-          .single();
-
-        if (wallet) {
-          await supabase
-            .from("wallets")
-            .update({ balance: Number(wallet.balance) + amountInNaira })
-            .eq("id", userId);
-
-          await awardFirstDepositCommission(adminDb(), userId, reference, amountInNaira);
-      await supabase.from("wallet_transactions").insert({
-            user_id: userId,
-            reference,
-            amount: amountInNaira,
-            status: "success",
-          });
-        }
+      const r = await creditTopup(userId, reference, amountInNaira);
+      if (r.status === "error") {
+        return NextResponse.json({ error: "Credit failed" }, { status: 500 });
       }
     }
   }

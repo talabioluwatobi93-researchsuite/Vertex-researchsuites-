@@ -1,5 +1,6 @@
 import { awardFirstDepositCommission } from "@/lib/referral";
 import { adminDb } from "@/lib/referralServer";
+import { creditTopup } from "@/lib/walletCredit";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -28,46 +29,23 @@ export async function POST(req: NextRequest) {
 
     const amountInNaira = data.data.amount / 100;
 
-    const { data: existing } = await supabase
-      .from("wallet_transactions")
-      .select("id")
-      .eq("reference", reference)
-      .maybeSingle();
+    const metaUserId = data.data && data.data.metadata ? data.data.metadata.userId : null;
+    if (metaUserId && metaUserId !== userId) {
+      return NextResponse.json({ error: "Payment does not belong to this user" }, { status: 403 });
+    }
 
-    if (existing) {
+    const result = await creditTopup(userId, reference, amountInNaira);
+    if (result.status === "already_credited") {
       return NextResponse.json({ message: "Already credited", amount: amountInNaira });
     }
-
-    const { data: wallet, error: fetchError } = await supabase
-      .from("wallets")
-      .select("balance")
-      .eq("id", userId)
-      .single();
-
-    if (fetchError || !wallet) {
+    if (result.status === "wallet_not_found") {
       return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
     }
-
-    const newBalance = Number(wallet.balance) + amountInNaira;
-
-    const { error: updateError } = await supabase
-      .from("wallets")
-      .update({ balance: newBalance })
-      .eq("id", userId);
-
-    if (updateError) {
-      return NextResponse.json({ error: "Failed to update balance" }, { status: 500 });
+    if (result.status !== "credited") {
+      return NextResponse.json({ error: "Failed to credit wallet" }, { status: 500 });
     }
 
-    await awardFirstDepositCommission(adminDb(), userId, reference, amountInNaira);
-      await supabase.from("wallet_transactions").insert({
-      user_id: userId,
-      reference,
-      amount: amountInNaira,
-      status: "success",
-    });
-
-    return NextResponse.json({ message: "Wallet credited", newBalance });
+    return NextResponse.json({ message: "Wallet credited", newBalance: result.balanceAfter });
   } catch (err) {
     console.error("Verify error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
