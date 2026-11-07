@@ -12,6 +12,7 @@ export default function TopUpButton() {
   const handleTopUp = async () => {
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount <= 0) return;
+    if (numAmount < 1000) { alert("Minimum deposit is \u20A61,000"); return; }
 
     setLoading(true);
     try {
@@ -113,6 +114,7 @@ export default function TopUpButton() {
                 color: "#333333",
               }}
             />
+            <p style={{ fontSize: 12, color: "#777777", margin: "0 0 12px" }}>Minimum deposit: {"\u20A6"}1,000</p>
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => setOpen(false)}
@@ -130,7 +132,7 @@ export default function TopUpButton() {
               </button>
               <button
                 onClick={handleTopUp}
-                disabled={loading}
+                disabled={loading || !(parseFloat(amount) >= 1000)}
                 style={{
                   flex: 1,
                   padding: 10,
