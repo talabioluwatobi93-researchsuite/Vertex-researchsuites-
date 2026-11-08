@@ -3,7 +3,7 @@ export const voice: Feature = {
   slug: "voice-transcription",
   title: "Voice Transcription & Analysis",
   tagline: "Never type out an interview again, even when it is in Yoruba, Hausa, Igbo or Pidgin.",
-  summary: "Transcripts for African and global languages, with code-switching and speaker separation.",
+  summary: "Transcripts for African and global languages, with code-switching and speaker labels where available.",
   button: "Transcribe my audio",
   prices: [
     { label: "African languages", key: "voice_african_per_min", per: "per minute" },
@@ -18,17 +18,16 @@ export const voice: Feature = {
       "Tell Vertex what your speakers mix, for example 'Nigerian Pidgin mixed with Yoruba and English', and the transcript follows the switches. For global languages, you can leave the language on auto-detect.",
     ] },
     { heading: "What you get", bullets: [
-      "A downloadable transcript with detailed documentation",
-      "Speaker separation, so you know who said what",
-      "A publication-ready document with corrected diacritics and tone marks where the context makes them clear",
+      "A downloadable transcript with interpretive notes",
+      "Speaker labels where available, so you can follow who said what",
       "Local terms and mixed phrases shown as Original Text [Translation/Meaning]",
       "More than 65 global languages, from English, French and Spanish to Mandarin, Hindi and Japanese",
     ] },
     { heading: "Upload guide", bullets: [
-      "African languages: for best results keep each upload under 20 minutes.",
-      "Global languages, one speaker: up to about 1 hour per upload.",
-      "More than one speaker: up to about 30 minutes per upload.",
-      "Longer interview? Split it and upload the parts. You pay per minute, so splitting costs the same.",
+      "African languages: up to 3 minutes per upload.",
+      "Global languages: up to 5 minutes per upload, one speaker or more.",
+      "Upload one audio file at a time.",
+      "Need more minutes? Do not worry, a bigger upgrade is coming soon.",
     ] },
     { heading: "Record it right, and the transcript will be right", bullets: [
       "Record in a quiet room. Close windows, switch off fans and TVs, and avoid markets and traffic.",
