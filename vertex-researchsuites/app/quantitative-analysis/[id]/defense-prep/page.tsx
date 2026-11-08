@@ -141,6 +141,7 @@ export default function DefensePrepPage() {
         setProcessing(false)
         return
       }
+      if (Number(price) > 0) alert("Purchase successful. Please visit the Purchase History feature to access your receipt.");
     }
 
     setStage('generating')

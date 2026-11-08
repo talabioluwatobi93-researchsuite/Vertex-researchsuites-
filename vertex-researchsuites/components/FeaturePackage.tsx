@@ -89,6 +89,7 @@ export default function FeaturePackage({ title, intro, items, featureKey, nextHr
         return;
       }
       const jid = d.job_id;
+      if (Number(price) > 0) alert("Purchase successful. Please visit the Purchase History feature to access your receipt.");
       router.replace(jid ? nextHref + "?job=" + encodeURIComponent(String(jid)) : nextHref);
     } catch {
       setError("Something went wrong. Please try again.");

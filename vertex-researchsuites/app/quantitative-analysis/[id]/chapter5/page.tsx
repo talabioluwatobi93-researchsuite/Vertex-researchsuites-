@@ -174,6 +174,7 @@ export default function Chapter5Page() {
         setProcessing(false)
         return
       }
+      if (Number(price) > 0) alert("Purchase successful. Please visit the Purchase History feature to access your receipt.");
     }
 
     const chapter5_inputs = { problemStatement, methodology, limitations }

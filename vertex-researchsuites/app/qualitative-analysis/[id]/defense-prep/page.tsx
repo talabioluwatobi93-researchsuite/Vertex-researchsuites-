@@ -85,6 +85,7 @@ export default function QualDefensePrepPage() {
       const chargeOut: any = Number(price) > 0 ? await supabase.rpc('charge_feature', { p_description: 'Qualitative Defense Prep', p_amount: price }) : { data: { ok: true }, error: null }
     const deductError = (chargeOut.error || !chargeOut.data || chargeOut.data.error) ? true : null
       if (deductError) { setErrorMsg('Something went wrong deducting from your wallet.'); setProcessing(false); return }
+      if (Number(price) > 0) alert("Purchase successful. Please visit the Purchase History feature to access your receipt.");
     }
     setStage('generating')
     try {

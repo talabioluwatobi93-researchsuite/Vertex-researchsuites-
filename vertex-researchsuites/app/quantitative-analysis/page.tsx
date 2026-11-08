@@ -204,6 +204,7 @@ export default function QuantitativeAnalysisUploadPage() {
           body: JSON.stringify({ action: 'done' }),
         })
       } catch {}
+      if (Number(qPrice) > 0) alert("Purchase successful. Please visit the Purchase History feature to access your receipt.");
       router.push(`/quantitative-analysis/${session.id}/response-rate`)
     } catch (err) {
       setErrorMsg('This file could not be read. Please check the format and try again.')

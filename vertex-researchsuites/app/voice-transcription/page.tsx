@@ -368,6 +368,7 @@ export default function VoiceTranscription() {
         setPaying(false);
         return;
       }
+      if (Number(price) > 0) alert("Purchase successful. Please visit the Purchase History feature to access your receipt.");
       setStage("upload");
     } catch {
       setErrorMsg("Something went wrong. Please try again.");

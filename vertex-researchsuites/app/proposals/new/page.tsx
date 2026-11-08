@@ -155,6 +155,7 @@ export default function NewProposal() {
         setPayingFee(false);
         return;
       }
+      if (Number(previewPrice) > 0) alert("Purchase successful. Please visit the Purchase History feature to access your receipt.");
 
       setStage("select-type");
     } catch {
@@ -233,6 +234,7 @@ export default function NewProposal() {
         setGeneratingFull(false);
         return;
       }
+      if (Number(fullPrice) > 0) alert("Purchase successful. Please visit the Purchase History feature to access your receipt.");
 
       await handleGenerateFullProposal(selectedTopic);
     } catch {
