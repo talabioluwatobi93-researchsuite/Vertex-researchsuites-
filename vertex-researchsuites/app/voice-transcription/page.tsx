@@ -100,7 +100,8 @@ export default function VoiceTranscription() {
   }, []);
 
   // ---- African languages (Intron). First version: one clip of up to 2 minutes. ----
-  const INTRON_MAX_AUDIO_SECONDS = 3600;
+  const INTRON_MAX_AUDIO_SECONDS = 180;
+  const GLOBAL_MAX_AUDIO_SECONDS = 300;
   const INTRON_MAX_FILE_BYTES = 50 * 1024 * 1024;
   const INTRON_ALLOWED_EXT = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm", "aac", "aif", "aiff", "amr", "3gp", "3ga", "wma"];
   const [intronFile, setIntronFile] = useState<File | null>(null);
@@ -203,7 +204,7 @@ export default function VoiceTranscription() {
         throw new Error("We could not read the length of this audio file. Please try another file (mp3, m4a or wav).");
       }
       if (probeData.durationSeconds > INTRON_MAX_AUDIO_SECONDS) {
-        throw new Error("This recording is longer than 1 hour. Please cut it into shorter files. Cut at a pause and repeat about 15 seconds at the start of the next file.");
+        throw new Error("This recording is longer than 3 minutes. Please cut it into shorter files. Cut at a pause and repeat about 15 seconds at the start of the next file.");
       }
 
       await voiceCharge(session.id, "voice_african", intronFile.name + "|" + intronFile.size);
@@ -517,6 +518,9 @@ export default function VoiceTranscription() {
       let finalTranscript = "";
 
       if (probeRes.ok && typeof probeData.durationSeconds === "number" && probeData.durationSeconds > 0) {
+        if (probeData.durationSeconds > GLOBAL_MAX_AUDIO_SECONDS) {
+          throw new Error("This recording is longer than 5 minutes. Please upload a shorter file (maximum 5 minutes).");
+        }
         await voiceCharge(session.id, "voice_global", file.name + "|" + file.size);
         finalTranscript = await runChunkedTranscription(path, probeData.durationSeconds, language);
       } else {
@@ -655,6 +659,7 @@ export default function VoiceTranscription() {
               style={{ display: "none" }}
             />
           </label>
+          <p style={{ color: "#888888", fontSize: 12, marginTop: 6, marginBottom: 12 }}>Up to 3 minutes per upload. Need more minutes? Do not worry, a bigger upgrade is coming soon.</p>
           <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#333333", marginBottom: "6px" }}>Language spoken</label>
           <select
             value={intronLanguage}
@@ -724,6 +729,7 @@ export default function VoiceTranscription() {
               setFile(selected)
             }} style={{ display: "none" }} />
           </label>
+          <p style={{ color: "#888888", fontSize: 12, marginTop: 6, marginBottom: 12 }}>Up to 5 minutes per upload. Need more minutes? Do not worry, a bigger upgrade is coming soon.</p>
             <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#333333", marginBottom: "6px" }}>Audio language</label>
             <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ width: "100%", padding: "10px 12px", fontSize: "14px", borderRadius: "10px", border: "1px solid #CCCCCC", color: "#333333", marginBottom: "12px" }}>
                 <option value="auto">Auto-detect</option>
@@ -799,17 +805,6 @@ export default function VoiceTranscription() {
           </button>
           {savedMsg && <p style={{ color: savedMsg.includes("successfully") ? "#1D8A4C" : "#C0392B", fontSize: "13px", fontWeight: 600, marginTop: "12px", textAlign: "center" }}>{savedMsg}</p>}
 
-            <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}`, marginTop: "16px" }}>
-              <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "6px" }}>Full Academic Document</p>
-              <p style={{ color: MUTED, fontSize: 13, marginBottom: "12px" }}>Generate a publication-ready document with corrected diacritics, translated code-switched terms, and a glossary — built from your transcript and language hint.</p>
-              <button onClick={handleGenerateDocument} disabled={generatingDocument || !transcript.trim()} style={{ width: "100%", backgroundColor: GOLD, color: DARK, border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
-                {generatingDocument ? "Generating document..." : "Generate Full Document"}
-              </button>
-              {documentError && <p style={{ color: "#C0392B", fontSize: "13px", marginTop: "12px" }}>{documentError}</p>}
-              {fullDocument && (
-                <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "13px", color: DARK, lineHeight: "1.6", margin: "16px 0 0 0", padding: "16px", backgroundColor: "#FAFAFA", borderRadius: "10px", border: `1px solid ${BORDER}` }}>{(fullDocument || '').replace(/^#{1,6}\s*/gm, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/^-{3,}$/gm, '')}</pre>
-              )}
-            </div>
         </div>
       )}
     </div>
