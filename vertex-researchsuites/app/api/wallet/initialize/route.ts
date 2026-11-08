@@ -13,9 +13,9 @@ export async function POST(req: NextRequest) {
     if (!amount || amount <= 0) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
-    const MIN_DEPOSIT = 1000;
+    const MIN_DEPOSIT = 500;
     if (!(Number(amount) >= MIN_DEPOSIT)) {
-      return NextResponse.json({ error: "Minimum deposit is \u20A61,000" }, { status: 400 });
+      return NextResponse.json({ error: "Minimum deposit is \u20A6500" }, { status: 400 });
     }
     if (!userId || !email) {
       return NextResponse.json({ error: "Missing user info" }, { status: 400 });
