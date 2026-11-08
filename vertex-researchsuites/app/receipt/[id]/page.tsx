@@ -121,7 +121,7 @@ export default function ReceiptPage() {
             <div>
               <div style={{ color: GOLD, fontSize: 24, fontWeight: 800 }}>Vertex</div>
               <div style={{ color: GOLD, fontSize: 15, fontWeight: 600 }}>Researchsuite</div>
-              <div style={{ color: "#BBBBBB", fontSize: 11, marginTop: 6 }}>Smarter Research. Better Decisions.</div>
+              <div style={{ color: "#BBBBBB", fontSize: 11, marginTop: 6 }}>Smarter Research. Better Decisions. Primed for Excellence.</div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ color: "#FFFFFF", fontSize: 14, fontWeight: 700, letterSpacing: 2 }}>RECEIPT</div>
@@ -174,7 +174,9 @@ export default function ReceiptPage() {
           </div>
 
           <div style={{ background: BLACK, padding: "12px 22px", color: GOLD, fontSize: 12, textAlign: "center" }}>
-            Vertex Researchsuite
+            <div style={{ fontWeight: 700 }}>Vertex Data Labs</div>
+            <div>Registration No. 9986884</div>
+            <div>support@vertex-researchsuite.com</div>
           </div>
         </div>
 
