@@ -338,7 +338,6 @@ export default function Dashboard() {
 
       <div style={{ padding: '0 20px 40px' }}>
         {featureCard('📚', 'Get Research Topics & Proposals', 'Tailored to your course and institution', () => router.push('/proposals/pricing'), flags['proposals'] === false)}
-        {featureCard('✍️', 'Writing Check & Polish', 'Check your writing for originality and clarity', () => router.push('/writing-check'), flags['writing-check'] === false)}
             {featureCard('📊', 'Pilot Study & Reliability Test', 'Check how reliable your pilot survey results are', () => router.push('/pilot-study/pricing'), flags['pilot-study'] === false)}
                 {featureCard('📈', 'Quantitative Data Analysis', 'Turn your survey data into APA-styled results', () => router.push('/quantitative-analysis/pricing'), flags['quantitative-analysis'] === false)}
                 {featureCard('🔢', 'Quantitative Data Cleaning', 'Turn word answers into numbers for analysis', () => router.push('/data-cleaning/pricing'), false, 0, flags['data-cleaning'] === false)}
