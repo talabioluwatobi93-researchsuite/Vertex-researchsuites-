@@ -519,6 +519,17 @@ function buildGroups(header: string[], label: string, overall: string): { text: 
   return out
 }
 
+function fixCaptionParts(label: string | number | undefined, caption: string): { label: string; caption: string } {
+  let l = String(label == null ? "" : label).trim()
+  let c = String(caption || "").trim()
+  const m = /^(\d{1,2})(?:\s*[.:]\s*|\s+)(?=[A-Za-z\u201c\u2018"'(])/.exec(c)
+  if (m && /^\d{1,3}$/.test(l)) {
+    l = l + "." + m[1]
+    c = c.slice(m[0].length).trim()
+  }
+  return { label: l, caption: c }
+}
+
 export function repairTableHeaders(nodes: Node[]): Node[] {
   const tables = nodes.filter((n) => n.kind === "table") as any[]
   const templates: { at: number; header: string[] }[] = []
@@ -616,8 +627,9 @@ export function buildRestyledDocument(
       const rows = normalizeRows(n.rows);
       const headers = rows[0];
       const body = rows.slice(1).map((r) => r.map((c, ci) => (apa ? apaCell(c, headers[ci] || "", n.caption) : c)));
-      if (style === "APA6") children.push(...apa6Title(n.label || n.number, n.caption));
-      else children.push(...tableTitleStyled(n.label || n.number, n.caption, style));
+      const fx = fixCaptionParts(n.label, n.caption);
+      if (style === "APA6") children.push(...apa6Title(fx.label || n.number, fx.caption));
+      else children.push(...tableTitleStyled(fx.label || n.number, fx.caption, style));
       children.push(buildApaTable(headers, body, style, firstColumnIsLabel(body), n.groups));
       afterTable = true;
       pendingSpacer = true;
