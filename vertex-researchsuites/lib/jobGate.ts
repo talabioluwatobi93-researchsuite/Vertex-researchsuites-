@@ -1,6 +1,6 @@
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export type Gate = { ok: true; jobId: string | null } | { ok: false; error: string; status: number };
+export type Gate = { ok: true; jobId: string | null; delivered?: boolean } | { ok: false; error: string; status: number };
 
 export async function checkJob(req: Request, db: any, userId: string, feature: string): Promise<Gate> {
   const { data: p, error: pe } = await db.from("feature_pricing").select("price").eq("feature_name", feature).maybeSingle();
@@ -10,12 +10,12 @@ export async function checkJob(req: Request, db: any, userId: string, feature: s
   const jobId = (req.headers.get("x-job-id") || "").trim();
   if (!jobId) return { ok: false, error: "Please accept the package first.", status: 402 };
   if (!UUID_RE.test(jobId)) return { ok: false, error: "This purchase was not found.", status: 403 };
-  const { data: j, error: je } = await db.from("feature_jobs").select("id,user_id,feature,status,deadline_at").eq("id", jobId).maybeSingle();
+  const { data: j, error: je } = await db.from("feature_jobs").select("id,user_id,feature,status,deadline_at,delivered").eq("id", jobId).maybeSingle();
   if (je) return { ok: false, error: "Could not check your purchase. Please try again.", status: 500 };
   if (!j || j.user_id !== userId || j.feature !== feature) return { ok: false, error: "This purchase was not found.", status: 403 };
   if (j.status !== "open") return { ok: false, error: "This purchase is already used. Please buy again.", status: 402 };
   if (new Date(j.deadline_at).getTime() <= Date.now()) return { ok: false, error: "This purchase has expired. Please buy again.", status: 402 };
-  return { ok: true, jobId };
+  return { ok: true, jobId, delivered: !!(j as any).delivered };
 }
 
 export async function markJob(db: any, userId: string, jobId: string | null, event: string, err?: string) {

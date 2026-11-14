@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ topics: 'Please log in to continue.', error: 'Please log in to continue.' }, { status: 401 });
   const gate = await checkJob(req, db, user.id, 'research_topics');
   if (!gate.ok) return NextResponse.json({ topics: gate.error, error: gate.error }, { status: gate.status });
+  if (gate.delivered) return NextResponse.json({ topics: 'Your topics were already generated for this purchase. Please choose from the topics you received to get your proposal.', error: 'Your topics were already generated for this purchase. Please choose from the topics you received to get your proposal.' }, { status: 409 });
   const res = await handleTopics(req);
   if (res.status >= 500) await markJob(db, user.id, gate.jobId, 'failed', 'http ' + res.status);
   else if (res.ok) await markJob(db, user.id, gate.jobId, 'delivered');
