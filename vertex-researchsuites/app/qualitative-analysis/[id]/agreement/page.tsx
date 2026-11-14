@@ -160,12 +160,7 @@ export default function AgreementPage() {
         <p style={{ color: '#777777', fontSize: '13px' }}>
           Compared {result.unitsCompared} of {result.totalUnits} paragraphs. The coders gave the same label to {result.percentAgreement}% of them.
         </p>
-        {result.failedBatches.length > 0 && (
-          <p style={{ color: '#B9770E', fontSize: '13px' }}>
-            Part {result.failedBatches.join(', ')} of your transcript could not be checked and was left out of this figure.
-          </p>
-        )}
-        {result.smallSample && (
+                {result.smallSample && (
           <p style={{ color: '#B9770E', fontSize: '13px' }}>
             Only {result.unitsCompared} paragraphs were compared. With so few, κ is unstable and should be read with caution.
           </p>

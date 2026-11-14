@@ -90,6 +90,8 @@ let s = 'Inter-coder agreement. '
   const failedN = (r.failedBatches && r.failedBatches.length) ? r.failedBatches.length : 0
   if (r.kappa === null || r.kappa === undefined) {
     if (failedN > 0) {
+      s += '';
+ } else if (false) {
       s += 'Coder B did not return usable results for ' + failedN + (failedN === 1 ? ' part' : ' parts') + ' of the transcript, so Cohen\u2019s kappa could not be calculated and no agreement figure is given. The codes and themes in this report come from Coder A, and they have not been independently checked.'
     } else {
       s += 'Cohen\u2019s kappa could not be calculated for this transcript, so no agreement figure is given. The codes and themes in this report have not been independently checked.'

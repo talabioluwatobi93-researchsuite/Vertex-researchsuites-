@@ -188,7 +188,7 @@ export default function PilotStudyResultsPage() {
     return (
       <div style={{ backgroundColor: '#F9F9F9', minHeight: '100vh', padding: '24px 20px', textAlign: 'center' }}>
         <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#333333', marginBottom: '8px' }}>Finalizing your Pilot Study results...</h1>
-        <p style={{ color: '#777777', fontSize: '14px', marginBottom: '4px' }}>Please be patient, feel free to leave this page.</p>
+        <p style={{ color: '#777777', fontSize: '14px', marginBottom: '4px' }}>Please stay on this page and kindly wait for your results.</p>
         <p style={{ color: '#777777', fontSize: '13px' }}>Ready in {holdSecondsLeft}s</p>
       </div>
     )

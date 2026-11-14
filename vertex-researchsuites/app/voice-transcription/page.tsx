@@ -636,7 +636,7 @@ export default function VoiceTranscription() {
         <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "20px", border: `1px solid ${BORDER}`, marginBottom: "16px" }}>
           <p style={{ color: DARK, fontSize: 15, fontWeight: 700, marginBottom: "6px" }}>African languages</p>
           <p style={{ color: MUTED, fontSize: 13, marginBottom: "14px" }}>
-            For Yoruba, Igbo, Hausa, Pidgin and other African languages, including speech mixed with English. Up to 1 hour and 50 MB per file. Long recordings are processed in parts and joined automatically.
+            For Yoruba, Igbo, Hausa, Pidgin and other African languages, including speech mixed with English.
           </p>
           <label style={{ display: "block", width: "100%", padding: "14px", marginBottom: "16px", backgroundColor: "#F5F5F5", border: "2px dashed #CCCCCC", borderRadius: "10px", textAlign: "center", fontSize: "14px", color: "#333333", fontWeight: 600, cursor: "pointer" }}>
             {intronFile ? intronFile.name : "Tap here to choose an audio file"}

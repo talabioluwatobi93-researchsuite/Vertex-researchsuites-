@@ -431,7 +431,7 @@ export default function NewProposal() {
           <input style={inputStyle} value={sequence} onChange={(e) => setSequence(e.target.value)} placeholder="e.g. Artificial Intelligence, Renewable Energy" />
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           {citationSelect}
-            <button onClick={handleGenerateTopics} disabled={loading || !canGeneratePure} style={{ width: "100%", backgroundColor: GOLD, color: "#333333", border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "8px" }}>
+            <button onClick={handleGenerateTopics} disabled={loading || topics.length > 0 || !canGeneratePure} style={{ width: "100%", backgroundColor: GOLD, color: "#333333", border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "8px" }}>
             {loading ? "Generating your topics..." : "Generate 5 Topics"}
           </button>
         </div>
@@ -449,7 +449,7 @@ export default function NewProposal() {
           <textarea style={{ ...inputStyle, minHeight: "90px", resize: "vertical" as const }} value={problemStatement} onChange={(e) => setProblemStatement(e.target.value)} placeholder="Describe the specific problem or challenge you want your research to address" />
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginBottom: "12px" }}>{errorMsg}</p>}
           {citationSelect}
-            <button onClick={handleGenerateTopics} disabled={loading || !canGenerateApplied} style={{ width: "100%", backgroundColor: GOLD, color: "#333333", border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "8px" }}>
+            <button onClick={handleGenerateTopics} disabled={loading || topics.length > 0 || !canGenerateApplied} style={{ width: "100%", backgroundColor: GOLD, color: "#333333", border: "none", borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "8px" }}>
             {loading ? "Generating your topics..." : "Generate 5 Topics"}
           </button>
         </div>

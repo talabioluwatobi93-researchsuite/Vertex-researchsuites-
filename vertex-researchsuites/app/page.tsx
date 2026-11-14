@@ -34,7 +34,7 @@ export default function Home() {
           <Link href="/privacy" style={{ color: GOLD }}>Privacy Policy</Link>.
         </p>
         <p style={{ color: "#cfd8e6", fontSize: 13, margin: "0 0 14px" }}>
-          For the best experience and layout, please use a laptop or desktop computer.
+          Best used on desktops &amp; laptops, and compatible with all devices. On mobile phones, please switch to the desktop site for a better experience.
         </p>
         <Link href="/signup" style={{ display: "block", background: GOLD, color: "#333333", fontWeight: 700, padding: "14px", borderRadius: 10, textDecoration: "none", marginBottom: 12 }}>
           Accept and Sign up
@@ -44,13 +44,13 @@ export default function Home() {
         </Link>
         <Link href="/login" style={{ color: "#cfd8e6", fontSize: 14 }}>Already have an account? Login</Link>
         <div style={{ marginTop: 28, textAlign: "left" }}>
-          <h2 style={{ color: GOLD, fontSize: 18, margin: "0 0 12px", textAlign: "center" }}>Frequently asked questions</h2>
+          <details style={{ background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "12px 14px" }}><summary style={{ color: GOLD, fontSize: 18, fontWeight: 700, cursor: "pointer", textAlign: "center" }}>Frequently Asked Questions</summary><div style={{ marginTop: 12 }}>
           {FAQ_ITEMS.map((item) => (
             <details key={item.q} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "12px 14px", marginBottom: 8 }}>
               <summary style={{ color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{item.q}</summary>
               <p style={{ color: "#e6ecf5", fontSize: 13, lineHeight: 1.6, margin: "8px 0 0" }}>{item.a}</p>
             </details>
-          ))}
+          ))}</div></details>
         </div>
         <div style={{ marginTop: 24, fontSize: 11, lineHeight: 1.6, color: "#8a97ab", textAlign: "center" }}>
           <p style={{ margin: "0 0 4px" }}>© 2026 Vertex Data Labs. All rights reserved.</p>

@@ -207,14 +207,14 @@ export default function PilotStudyColumnsPage() {
             type="number"
             value={scaleMin}
             onChange={(e) => setScaleMin(Number(e.target.value))}
-            style={{ width: '60px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE' }}
+            style={{ width: '70px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #999999', color: '#222222', backgroundColor: '#ffffff', fontSize: '14px' }}
           />
           <span style={{ color: '#777777', fontSize: '13px' }}>to</span>
           <input
             type="number"
             value={scaleMax}
             onChange={(e) => setScaleMax(Number(e.target.value))}
-            style={{ width: '60px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #EEEEEE' }}
+            style={{ width: '70px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #999999', color: '#222222', backgroundColor: '#ffffff', fontSize: '14px' }}
           />
         </div>
       </div>
