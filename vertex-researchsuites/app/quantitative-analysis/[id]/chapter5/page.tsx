@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import BackToDashboard from '@/components/BackToDashboard'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase';
 import { mergeAndDownload } from '@/lib/chapter5Docx'
@@ -356,6 +357,7 @@ export default function Chapter5Page() {
           </div>
         </div>
       )}
+      {stage === 'done' && (<BackToDashboard />)}
     </div>
   )
 }

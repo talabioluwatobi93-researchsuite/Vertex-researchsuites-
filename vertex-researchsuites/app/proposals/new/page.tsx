@@ -471,9 +471,7 @@ export default function NewProposal() {
             </div>
           )}
           {errorMsg && <p style={{ color: "#C0392B", fontSize: 13, marginTop: "8px" }}>{errorMsg}</p>}
-          <button onClick={() => { setTopics([]); setStage(researchType === "applied" ? "applied-form" : "pure-form"); setErrorMsg(""); }} style={{ marginTop: "8px", backgroundColor: "transparent", color: "#333333", border: "1px solid #DDDDDD", borderRadius: "10px", padding: "12px 18px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
-            Generate Again
-          </button>
+          
         </div>
       )}
 
