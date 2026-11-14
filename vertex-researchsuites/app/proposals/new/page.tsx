@@ -462,6 +462,7 @@ export default function NewProposal() {
         <div>
           {topics.length > 0 && (
             <div style={{ marginTop: "16px" }}>
+          <p style={{ color: "#C0392B", fontSize: "13px", fontWeight: 700, marginBottom: "12px" }}>Please do not refresh or leave this page. Your topics are shown only once for this purchase and will be lost if you refresh. Choose one of the topics below to get your proposal.</p>
               {topics.map((topic, i) => (
                 <div key={i} style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "18px", border: `1px solid ${BORDER}`, marginBottom: "12px" }}>
                   <p style={{ fontSize: "15px", fontWeight: 700, color: "#333333", marginBottom: "8px" }}>{topic.title}</p>
