@@ -71,7 +71,7 @@ export default function AgreementPage() {
       setProgress(batchCount > 1 ? RUNNING_TEXT + ' part ' + batch + ' of ' + batchCount : RUNNING_TEXT)
       let ok = false
       let data: any = {}
-      for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+      for (let attempt = 0; attempt < 4 && !(ok && data?.aOk && data?.bOk); attempt++) {
         try {
           const r = await call({ action: 'batch', batch })
           ok = r.res.ok

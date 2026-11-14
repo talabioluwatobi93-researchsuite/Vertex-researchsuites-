@@ -14,7 +14,7 @@ const supabase = createClient(
 
 const BATCH_CHARS = 14000
 const MIN_UNITS_FOR_KAPPA = 30 // below this, kappa is unstable
-const MIN_COVERAGE = 0.9 // a coder must label at least 90% of a batch's paragraphs
+const MIN_COVERAGE = 1 // a coder must label every paragraph of a batch
 
 type Settled = { ok: true; value: { content: string; providerUsed: string } } | { ok: false; reason: any }
 function settle(p: Promise<{ content: string; providerUsed: string }>): Promise<Settled> {
@@ -179,7 +179,7 @@ Respond with ONLY a valid JSON array with one entry per paragraph, no other text
     await save({
       labelsA: { ...(base.labelsA || {}), ...(la || {}) },
       labelsB: { ...(base.labelsB || {}), ...(lb || {}) },
-      batches: { ...(base.batches || {}), [String(batchNo)]: { a: !!la, b: !!lb } },
+      batches: { ...(base.batches || {}), [String(batchNo)]: { a: !!la || !!(base.batches || {})[String(batchNo)]?.a, b: !!lb || !!(base.batches || {})[String(batchNo)]?.b } },
       providerA: ra.ok ? ra.value.providerUsed : base.providerA || null,
       providerB: rb.ok ? rb.value.providerUsed : base.providerB || null,
     })

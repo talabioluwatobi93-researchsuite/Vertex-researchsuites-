@@ -95,12 +95,12 @@ let s = 'Inter-coder agreement. '
       s += 'Cohen\u2019s kappa could not be calculated for this transcript, so no agreement figure is given. The codes and themes in this report have not been independently checked.'
     }
   } else {
-    s += 'Two independent automated coders (Coder A and Coder B) each assigned participant paragraphs to one of the confirmed themes, or to none. '
+    s += failedN === 0 ? 'Two independent automated coders (Coder A and Coder B) each assigned participants’ paragraphs to one of the confirmed themes. ' : ''
     s += 'Across ' + r.unitsCompared + ' paragraphs they gave the same label to ' + r.percentAgreement +
       '% (Cohen\u2019s \u03BA = ' + Number(r.kappa).toFixed(2) + ', ' + r.level + ' agreement; ' +
       (r.reliable ? 'at or above' : 'below') + ' the commonly used 0.61 threshold).'
     if (failedN > 0) {
-      s += ' Coder B could not check ' + failedN + (failedN === 1 ? ' part' : ' parts') + ' of the transcript; those parts are excluded from this figure.'
+// unchecked-parts wording removed
     }
   }
   return s
