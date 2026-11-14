@@ -327,6 +327,9 @@ export default function NewProposal() {
       setFullProposal(done.map((d) => d.text).join("\n\n----------\n\n"));
       if (failed > 0) setErrorMsg(`${failed} of ${list.length} proposals could not be generated.`);
       await saveProposalsToBunker(done);
+      if (failed === 0) {
+        try { await jobFetch("/api/generate-proposal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "finish" }) }); } catch {}
+      }
     }
     setGeneratingFull(false);
   };

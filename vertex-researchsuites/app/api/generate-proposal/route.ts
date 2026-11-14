@@ -98,6 +98,13 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ proposal: 'Please log in to continue.', error: 'Please log in to continue.' }, { status: 401 });
   const gate = await checkJob(req, db, user.id, 'research_topics');
   if (!gate.ok) return NextResponse.json({ proposal: gate.error, error: gate.error }, { status: gate.status });
+  let act = '';
+  try { const b: any = await req.clone().json(); act = String((b && b.action) || ''); } catch {}
+  if (act === 'finish') {
+    await markJob(db, user.id, gate.jobId, 'delivered');
+    await markJob(db, user.id, gate.jobId, 'done');
+    return NextResponse.json({ ok: true });
+  }
   const res = await handleProposal(req);
   if (res.status >= 500) await markJob(db, user.id, gate.jobId, 'failed', 'http ' + res.status);
   else if (res.ok) await markJob(db, user.id, gate.jobId, 'delivered');
