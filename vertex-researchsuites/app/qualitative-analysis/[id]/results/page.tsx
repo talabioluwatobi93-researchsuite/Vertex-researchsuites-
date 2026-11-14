@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import BackToDashboard from '@/components/BackToDashboard'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase';
 import { qualAuthHeaders } from '@/lib/qualAuth'
@@ -318,6 +319,7 @@ export default function QualResultsPage() {
       </div>
 
       
-    </div>
+    <BackToDashboard />
+</div>
   )
 }

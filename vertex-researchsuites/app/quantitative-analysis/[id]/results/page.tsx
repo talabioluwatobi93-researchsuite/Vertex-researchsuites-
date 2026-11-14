@@ -1,5 +1,6 @@
 'use client'
 import { useMemo, useEffect, useState } from 'react'
+import BackToDashboard from '@/components/BackToDashboard'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase';
 import { checkFeatureAccess } from '@/lib/checkFeatureAccess'
@@ -2540,7 +2541,8 @@ export default function ResultsPage() {
           </a>
         </div>
       )}
-    </div>
+    <BackToDashboard />
+</div>
   )
 }
 
