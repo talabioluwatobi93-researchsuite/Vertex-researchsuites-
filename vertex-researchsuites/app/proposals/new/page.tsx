@@ -166,6 +166,27 @@ export default function NewProposal() {
 
   const handleRejectFee = () => router.push("/dashboard");
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        const uid = u && u.user ? u.user.id : null;
+        if (!uid) return;
+        const since = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+        const { data: rows } = await supabase.from("bunker_items").select("content_reference").eq("user_id", uid).eq("item_type", "research_topics").like("item_name", "[Auto-saved]%").gte("created_at", since).order("created_at", { ascending: false }).limit(1);
+        const raw = rows && rows[0] ? (rows[0] as any).content_reference : null;
+        if (!raw) return;
+        const d: any = JSON.parse(raw);
+        if (!d || !d.topics) return;
+        const t = parseTopics(d.topics);
+        if (!t.length) return;
+        setInstitution((d.institution || "") as any); setCourse((d.course || "") as any); setDepartment((d.department || "") as any); setInterest((d.interest || "") as any); setSequence((d.sequence || "") as any); setResearchType((d.researchType || "") as any); setProblemStatement((d.problemStatement || "") as any); setUserCategory((d.userCategory || "") as any);
+        setTopics(t);
+        setStage("results");
+      } catch {}
+    })();
+  }, []);
+
   const handleSelectPure = () => { setResearchType("pure"); setStage("pure-form"); };
   const handleSelectApplied = () => { setResearchType("applied"); setStage("applied-form"); };
 
@@ -193,6 +214,7 @@ export default function NewProposal() {
         return;
       }
       setTopics(parseTopics(data.topics));
+      void (async () => { try { await supabase.from("bunker_items").insert({ user_id: userId, item_type: "research_topics", item_name: "[Auto-saved] Research topics", content_reference: JSON.stringify({ topics: data.topics, institution: institution, course: course, department: department, interest: interest, sequence: sequence, researchType: researchType, problemStatement: problemStatement, userCategory: userCategory }) }); } catch {} })();
       setStage("results");
     } catch {
       setErrorMsg("Something went wrong. Please try again.");
