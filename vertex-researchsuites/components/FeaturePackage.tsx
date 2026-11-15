@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase } from '@/lib/supabase';
 
@@ -25,6 +25,15 @@ type Props = {
 export default function FeaturePackage({ title, intro, items, featureKey, nextHref, chargeFeature, chargeDescription, rates }: Props) {
   const [paying, setPaying] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const MANUALS: Record<string, string> = {
+    "/proposals/pricing": "research-topics-proposals.pdf",
+    "/pilot-study/pricing": "Pilot_Study_Reliability_Test_User_Manual_SHORT.pdf",
+    "/report-restyle/pricing": "Restyle_Your_Report_User_Manual.pdf",
+    "/data-cleaning/pricing": "Quantitative_Data_Cleaning_User_Manual.pdf",
+    "/qualitative-analysis/pricing": "Qualitative_Data_Analysis_User_Manual.pdf",
+  };
+  const manual = MANUALS[pathname || ""] ? "/manuals/" + MANUALS[pathname || ""] : null;
   const [price, setPrice] = useState<number | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -152,6 +161,9 @@ export default function FeaturePackage({ title, intro, items, featureKey, nextHr
           >
             {paying ? "Please wait..." : "Accept and continue"}
           </button>
+          {manual ? (
+            <a href={manual} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", marginTop: 12, padding: "12px 0", borderRadius: 10, border: "1px solid " + GOLD, color: DARK, fontSize: 14, fontWeight: 700, textDecoration: "none" }}>How to use this feature (PDF)</a>
+          ) : null}
         </div>
       </div>
     </div>
