@@ -62,6 +62,7 @@ export default function Home() {
               ))}
             </div></details>
           )}
+          <Link href="/about-vertex" style={{ display: "block", background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "12px 14px", marginTop: 12, color: GOLD, fontSize: 18, fontWeight: 700, textAlign: "center", textDecoration: "none" }}>About Vertex ResearchSuite</Link>
         </div>
         <div style={{ marginTop: 24, fontSize: 11, lineHeight: 1.6, color: "#8a97ab", textAlign: "center" }}>
           <p style={{ margin: "0 0 4px" }}>© 2026 Vertex Data Labs. All rights reserved.</p>
