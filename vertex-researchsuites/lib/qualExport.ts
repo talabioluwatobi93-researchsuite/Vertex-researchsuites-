@@ -6,7 +6,7 @@ import { splitTranscript } from '@/lib/qualBlocks'
 
 export type QualExportInput = {
   results: any
-  themes: { name: string; description?: string }[]
+  themes: { name: string; description?: string; subthemes?: { name: string; description?: string }[] }[]
   assignments: any[]
   agreement: any
   framework: any
@@ -127,10 +127,10 @@ export function buildQualExcelBlob(input: QualExportInput): Blob {
     ])
   })
   const cb: any[] = Array.isArray(input.results?.codebookTable) ? input.results.codebookTable : []
-  const book: any[][] = [['Code', 'Theme', 'Definition', 'N', '%']]
+  const book: any[][] = [['Code', 'Theme', 'Definition', 'N', '%', 'Sub-themes']]
   input.themes.forEach((t, i) => {
     const r = cb.find((x) => x.theme === t.name)
-    book.push(['T' + (i + 1), t.name, t.description || '', r ? r.mentions : '', r ? Number(r.percent) : ''])
+    book.push(['T' + (i + 1), t.name, t.description || '', r ? r.mentions : '', r ? Number(r.percent) : '', (t.subthemes || []).map((s) => s.name).join('; ')])
   })
   const res = input.agreement?.result
   const agree: any[][] = [['Measure', 'Value']]

@@ -9,7 +9,7 @@ export type Assignment = {
   participantId?: string
   speaker?: string | null
 }
-export type ThemeDef = { name: string; description?: string }
+export type ThemeDef = { name: string; description?: string; subthemes?: { name: string; description?: string }[] }
 export type CodebookRow = { theme: string; definition: string; mentions: number; percent: number }
 
 export const FRAMEWORK_LINE =
@@ -151,6 +151,7 @@ export function assembleNarrative(input: {
       const p = input.prose[t.name] || { claim: null, synthesis: null }
       out.push('## Theme ' + (i + 1) + ': ' + t.name)
       out.push(p.claim || fallbackClaim(t.name, row ? row.mentions : 0, row ? row.percent : 0))
+      if (t.subthemes && t.subthemes.length) out.push('Sub-themes within this theme: ' + t.subthemes.map((s) => s.name).join('; ') + '.')
       const qs = pickQuotes(input.assignments, t.name, 2)
       if (qs.length === 0) {
         out.push('No confirmed quotes were retained for this theme.')

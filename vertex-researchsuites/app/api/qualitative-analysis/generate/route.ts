@@ -25,7 +25,7 @@ RESEARCH TOPIC: ${fw.topic || 'N/A'}
 RESEARCH QUESTIONS: ${JSON.stringify(fw.researchQuestions || [])}
 
 THEME: "${theme.name}"
-DEFINITION: ${theme.description || ''}
+DEFINITION: ${theme.description || ''}${theme.subthemes && theme.subthemes.length ? '\nSUB-THEMES (confirmed by the researcher; they are not counted separately, so give no numbers for them; mention them briefly in the synthesis only where relevant): ' + theme.subthemes.map((s) => s.name + (s.description ? ' (' + s.description + ')' : '')).join('; ') : ''}
 PARAGRAPHS CODED TO THIS THEME: ${mentions} (${percent}% of all theme mentions)
 
 Return ONLY a JSON object with two string fields:
