@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { REVIEWS } from "@/lib/reviews";
 
 const NAVY = "#0b1f3a";
 const GOLD = "#D4AF37";
@@ -51,6 +52,16 @@ export default function Home() {
               <p style={{ color: "#e6ecf5", fontSize: 13, lineHeight: 1.6, margin: "8px 0 0" }}>{item.a}</p>
             </details>
           ))}</div></details>
+          {REVIEWS.length > 0 && (
+            <details style={{ background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "12px 14px", marginTop: 12 }}><summary style={{ color: GOLD, fontSize: 18, fontWeight: 700, cursor: "pointer", textAlign: "center" }}>Reviews</summary><div style={{ marginTop: 12 }}>
+              {REVIEWS.map((r, i) => (
+                <div key={i} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "12px 14px", marginBottom: 8 }}>
+                  <p style={{ color: "#e6ecf5", fontSize: 13, lineHeight: 1.6, margin: 0 }}>{r.text}</p>
+                  <p style={{ color: GOLD, fontSize: 12, fontWeight: 700, margin: "8px 0 0 0" }}>{r.showName && r.name ? r.name : "Verified user"}</p>
+                </div>
+              ))}
+            </div></details>
+          )}
         </div>
         <div style={{ marginTop: 24, fontSize: 11, lineHeight: 1.6, color: "#8a97ab", textAlign: "center" }}>
           <p style={{ margin: "0 0 4px" }}>© 2026 Vertex Data Labs. All rights reserved.</p>
