@@ -47,7 +47,7 @@ export default function AboutVertex() {
         </div>
 
         <p style={{ color: "#e6ecf5", fontSize: 14, lineHeight: 1.7, marginTop: 20 }}>
-          Vertex ResearchSuite is a flagship product of Vertex Data Labs, a business registered with the Corporate Affairs Commission (CAC), Nigeria.
+          Vertex ResearchSuite is a flagship product of Vertex Data Labs, a Nigerian software business registered with the Corporate Affairs Commission (CAC). More products are coming soon.
         </p>
         <p style={{ color: GOLD, fontSize: 14, fontWeight: 700, fontStyle: "italic", textAlign: "center", margin: "16px 0 24px 0" }}>
           Smarter Research. Better Decisions. Primed for Excellence.

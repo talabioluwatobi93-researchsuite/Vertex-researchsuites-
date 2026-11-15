@@ -66,7 +66,7 @@ export default function Home() {
         </div>
         <div style={{ marginTop: 24, fontSize: 11, lineHeight: 1.6, color: "#8a97ab", textAlign: "center" }}>
           <p style={{ margin: "0 0 4px" }}>© 2026 Vertex Data Labs. All rights reserved.</p>
-          <p style={{ margin: 0 }}>Vertex ResearchSuite is a product of Vertex Data Labs, a business registered with the Corporate Affairs Commission (CAC), Nigeria. Registration No. 9986884.</p>
+          <p style={{ margin: 0 }}>Vertex ResearchSuite is a product of Vertex Data Labs, a Nigerian software business registered with the Corporate Affairs Commission (CAC). Registration No. 9986884.</p>
         </div>
       </div>
     </div>
