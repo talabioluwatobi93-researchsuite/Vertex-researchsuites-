@@ -2,4 +2,24 @@
 // showName: true only if the person agreed to show their name.
 export type Review = { text: string; name: string; showName: boolean }
 
-export const REVIEWS: Review[] = []
+export const REVIEWS: Review[] = [
+  { name: "Jimoh Ibrahim", showName: false, text: "I had 425 rows and 45 columns in my spreadsheet dataset which I needed for cleaning and then analysis. It took me about 15 minutes in total to get everything done after reading the manual, then I used the Restyle your report to change the tables, and my supervisor approved my analysis after checking them. I only spent ₦13,000. This web app is literally saving time, cost and still providing excellent value, and I still got a receipt for every feature I used. This is outstanding from the founder 👌" },
+  { name: "Daniel Buchi", showName: false, text: "This app is unbelievable, I still can't believe it was built by a Nigerian." },
+  { name: "Thomas Adeshola", showName: false, text: "Vertex-researchsuite works like magic, all its features are exceptional." },
+  { name: "Abolaji Ireoluwa", showName: false, text: "My sister told me about this web app, and so far I have only tested its research topics and proposals and its pilot testing and reliability study. All I can say is, this web app will go a long way for African scholars and for every individual who desires authentic results. So far both features I tested are 100✅." },
+  { name: "Chizoba Obunike", showName: false, text: "I spoke my dialect, Igbo, into the voice transcription for the African session and it gave me everything I said in written text with interpretative notes about it. This is wonderful, I am just waiting for the bigger upgrade they promised." },
+  { name: "Adewale Joseph", showName: false, text: "I tried accessing voice transcription for my particular interview research I was working on years ago, around 2024. The Western app charged me on a dollar card and still struggled in switching between Yoruba and English when my respondent was speaking both. Now I tested this today, Tuesday 10 of November, and wondered why this app wasn't available then. Anyway, this is a brilliant work by the founder." },
+  { name: "Obafemi Sarah", showName: false, text: "I have been doing data analysis for several clients and have seen several Western apps that perform quantitative data analysis. Vertex-researchsuite is different and exceptional, performing 10+ different analyses with interpretation. Honestly this is something great and I am delighted about it. I am going to use this to speed up my data analysis process. I am giving the Quantitative data analysis and the Quantitative data cleaning features a rating of 97.3% and 99.9%." },
+  { name: "Oluwole Bamishaye", showName: false, text: "Honestly, I am proud that a Nigerian can build something not just solid as this but explicitly exceptional and outstanding. Mr. Talabi, you have my respect 🙇." },
+  { name: "Dr.Mrs. Olabanji Ejire", showName: false, text: "Mr. Talabi Oluwatobi, I tested your pilot testing and reliability study, your voice transcription, precisely the African languages, about 4 different times, and the qualitative analysis. I also like how you ensure there are no subscriptions and people pay for exactly what they need in naira via Paystack. I am proud of you and your alma mater. Well done." },
+  { name: "Aina Zainab", showName: false, text: "Voice transcription in Kanuri and Hausa language, inclusive of code-switching. This is an amazing app. Well done, Mr." },
+  { name: "Philips Amaka", showName: false, text: "The only issue I had was with my internet connection when using the app. I hope you can help with modifying the app in a way where it still performs greatly under a poor internet connection. Thank you." },
+  { name: "Mr. Yusuf Adul-lateef", showName: false, text: "An excellent work so far." },
+  { name: "Dr. Bello Ahmad", showName: false, text: "I am delighted and satisfied, but I anticipate greater features from the founder in his 2.0 version." },
+  { name: "Ejike Promise", showName: false, text: "Please bring in the bigger upgrade on the voice transcription feature, especially for the African languages. The voice transcription I tested so far, 100✅." },
+  { name: "Lotanna soluna", showName: false, text: "A solid web app project with no dollar card and no monthly subscription, this is a dream come true. We need more features please." },
+  { name: "Lawrence Charles", showName: false, text: "I would love to have a conversation with the founder: how does the app intelligently perform a Cronbach's alpha test correctly, and quantitative and qualitative analysis accurately? Well, this is a good project so far." },
+  { name: "Albert Nneka", showName: false, text: "I think this app was specially designed for us, the undergraduates, especially the final year students." },
+  { name: "Bankole Omolewa", showName: false, text: "Na una voice transcription for African languages still dey amaze me, Yoruba with annotations 😭😭" },
+  { name: "Abiodun Justina", showName: false, text: "I commend the founder for this outstanding project, they are full of quality and yet still affordable." },
+]
