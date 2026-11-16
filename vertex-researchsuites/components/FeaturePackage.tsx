@@ -32,6 +32,8 @@ export default function FeaturePackage({ title, intro, items, featureKey, nextHr
     "/report-restyle/pricing": "Restyle_Your_Report_User_Manual.pdf",
     "/data-cleaning/pricing": "Quantitative_Data_Cleaning_User_Manual.pdf",
     "/qualitative-analysis/pricing": "Qualitative_Data_Analysis_User_Manual.pdf",
+    "/quantitative-analysis/pricing": "Quantitative_Data_Analysis_User_Manual.pdf",
+    "/voice-transcription/pricing": "Voice_Transcription_Analysis_User_Manual.pdf",
   };
   const manual = MANUALS[pathname || ""] ? "/manuals/" + MANUALS[pathname || ""] : null;
   const [price, setPrice] = useState<number | null>(null);
