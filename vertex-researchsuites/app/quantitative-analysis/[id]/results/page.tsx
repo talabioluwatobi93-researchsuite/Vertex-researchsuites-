@@ -1060,7 +1060,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
                 <p style={noteStyle}>a. Dependent Variable: {reg.dvName}.</p>
-            {viewMode === 'fullDocument' && regIdx === 0 && p7InterpBox(tableInterpretations, { eq: ['variables entered/removed'], starts: ['variables entered'] })}
+            {viewMode === 'fullDocument' && p7InterpBox(regIdx === 0 ? tableInterpretations : p8RunInterps(tableInterpretations, reg.run), { eq: ['variables entered/removed'], starts: ['variables entered'] })}
                 <p style={noteStyle}>b. All requested variables entered.</p>
           </div>
 
@@ -1099,7 +1099,7 @@ export default function ResultsPage() {
                     </tr>
                   </tbody>
                 </table>
-            {viewMode === 'fullDocument' && regIdx === 0 && p7InterpBox(tableInterpretations, { eq: ['model summary'], starts: ['regression model summary'] })}
+            {viewMode === 'fullDocument' && p7InterpBox(regIdx === 0 ? tableInterpretations : p8RunInterps(tableInterpretations, reg.run), { eq: ['model summary'], starts: ['regression model summary'] })}
           </div>
 
           <div style={tableWrap}>
@@ -1143,7 +1143,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
                 <p style={noteStyle}>a. Dependent Variable: {reg.dvName}.</p>
-            {viewMode === 'fullDocument' && regIdx === 0 && p7InterpBox(tableInterpretations, { eq: ['anova'], starts: ['regression anova'] })}
+            {viewMode === 'fullDocument' && p7InterpBox(regIdx === 0 ? tableInterpretations : p8RunInterps(tableInterpretations, reg.run), { eq: ['anova'], starts: ['regression anova'] })}
                 <><p style={noteStyle}>b. Predictors: (Constant), {reg.variablesEntered.entered.join(', ')}.</p>{reg.pickedNotUsed && reg.pickedNotUsed.length > 0 && (<div style={{ backgroundColor: '#FFF4E5', border: '1px solid #F5A623', borderRadius: '8px', padding: '12px 16px', margin: '10px 0', fontSize: '13px', color: '#7A4B00' }}><strong>Please check your variables.</strong> You selected {reg.pickedNotUsed.join(', ')}, but {reg.pickedNotUsed.length === 1 ? 'it was' : 'they were'} left out of this regression. A variable is left out when it is not marked as an Independent or Dependent variable. Please check its role on the Variables step.</div>)}</>
           </div>
 
@@ -1176,7 +1176,7 @@ export default function ResultsPage() {
               </tbody>
             </table>
             <p style={noteStyle}>Note. Dependent Variable: {reg.dvName}.</p>
-            {viewMode === 'fullDocument' && regIdx === 0 && p7InterpBox(tableInterpretations, { eq: ['coefficients'], starts: ['regression coefficients'] })}
+            {viewMode === 'fullDocument' && p7InterpBox(regIdx === 0 ? tableInterpretations : p8RunInterps(tableInterpretations, reg.run), { eq: ['coefficients'], starts: ['regression coefficients'] })}
           </div>
         </div>
       ))}

@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       const resultsSlice: any = {}
       keysThisBatch.forEach((k: string) => {
         // PHASE8F3: batch 'ttest#2' etc. = that run's data, given to the generator under the normal key
-        if (/^(ttest|mannwhitney|anova|kruskalwallis)#/.test(k)) {
+        if (/^(ttest|mannwhitney|anova|kruskalwallis|regression)#/.test(k)) {
           const base8 = k.split('#')[0]
           const rn8 = Number(k.split('#')[1])
           const found8 = ((session.results && session.results[base8 + '_runs']) || []).find((x: any) => x.run === rn8)

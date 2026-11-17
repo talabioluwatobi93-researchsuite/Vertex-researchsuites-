@@ -244,7 +244,7 @@ export function getPresentAnalysisBatches(results: any): string[][] {
     })
   }
   // PHASE8F3: extra runs of t-test, Mann-Whitney, ANOVA and Kruskal-Wallis, each interpreted in its own batch
-  for (const rk of ['ttest', 'mannwhitney', 'anova', 'kruskalwallis']) {
+  for (const rk of ['ttest', 'mannwhitney', 'anova', 'kruskalwallis', 'regression']) {
     const runs8 = results && results[rk + '_runs']
     if (Array.isArray(runs8)) runs8.forEach((r8: any) => { if (r8 && typeof r8.run === 'number') batches.push([rk + '#' + r8.run]) })
   }
