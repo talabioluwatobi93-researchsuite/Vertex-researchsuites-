@@ -353,6 +353,7 @@ I. Describe skew, majority or direction only if the percentages in the table sup
 J. Call a predictor significant or contributing only if its p-value is below the alpha level. A p-value above alpha is not significant.
 K. Do not comment on the limits of the scale, such as a maximum equal to the top of the scale.
 L. A model or ANOVA paragraph covers the model only (F, df, p, R-squared). Report predictor B values only with the coefficients table.
+M. In a coefficients paragraph, write t(df) only if the residual df is shown in a table supplied in this batch. Otherwise write t = value with no brackets. Never write t(?) or any placeholder in place of a number.
 
 GUARDRAILS (do not skip):
 4. Do not treat significance alone as the full picture. Where significant but effect size is small, or p is borderline (0.045-0.050), note this nuance rather than an unqualified framing.
