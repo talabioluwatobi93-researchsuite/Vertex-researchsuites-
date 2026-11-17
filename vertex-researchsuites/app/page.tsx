@@ -68,6 +68,7 @@ export default function Home() {
           <p style={{ margin: "0 0 4px" }}>© 2026 Vertex Data Labs. All rights reserved.</p>
           <p style={{ margin: "0 0 4px 0" }}>Powered by Google, Amazon Web Services (AWS) and Paystack.</p>
           <p style={{ margin: 0 }}>Vertex ResearchSuite is a product of Vertex Data Labs, a Nigerian software business registered with the Corporate Affairs Commission (CAC). Registration No. 9986884.</p>
+        <p style={{ margin: "4px 0 0" }}>The statistical engine, formulas, note-taking tools and other features in Vertex ResearchSuite are designed specifically for Vertex ResearchSuite.</p>
         </div>
       </div>
     </div>

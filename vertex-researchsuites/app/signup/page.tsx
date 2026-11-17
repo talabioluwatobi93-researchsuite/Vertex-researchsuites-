@@ -98,6 +98,7 @@ export default function SignUp() {
         <button onClick={handleSignUp} disabled={busy} style={{ width: '100%', padding: '12px', background: '#D4AF37', color: '#333333', fontWeight: 'bold', border: 'none', borderRadius: '5px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
           {busy ? 'Creating account...' : 'Sign Up'}
         </button>
+          <p style={{ textAlign: "center", marginTop: "12px", color: "#333333", fontSize: "13px", lineHeight: 1.5 }}>After you fill in your details correctly, please wait for your verification email. Check your spam folder too. When you see the email, tap the link. It will take you back to our site. Tap <strong>Log in</strong> and enter your details.</p>
         <p style={{ textAlign: 'center', marginTop: '15px', color: '#333333' }}>
           Already have an account? <a href="/login" style={{ color: '#D4AF37', fontWeight: 'bold' }}>Login</a>
         </p>
