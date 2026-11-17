@@ -151,6 +151,11 @@ async function buildAllTableGroups(results: any, citationStyle?: CitationStyle, 
   if (results.regression) {
     safeBuild("regression", () => buildRegressionTables(results.regression, n, citationStyle));
   }
+    if (Array.isArray(results.regression_runs)) {
+      results.regression_runs.forEach((rr: any) => {
+        safeBuild("regression run " + rr.run, () => buildRegressionTables({ ...rr, dvName: rr.dvName + " (Run " + rr.run + ")" }, n, citationStyle));
+      });
+    }
   if (results.moderation) {
     safeBuild("moderation", () => buildModerationTables(results.moderation, n, citationStyle));
   }
