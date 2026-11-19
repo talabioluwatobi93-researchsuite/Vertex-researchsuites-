@@ -49,6 +49,7 @@ export default function AboutVertex() {
         <p style={{ color: "#e6ecf5", fontSize: 14, lineHeight: 1.7, marginTop: 20 }}>
           Vertex ResearchSuite is a flagship product of Vertex Data Labs, a Nigerian software business registered with the Corporate Affairs Commission (CAC). More products are coming soon.
         </p>
+        <p style={{ color: "#e6ecf5", fontSize: 14, lineHeight: 1.7, marginTop: 12 }}>Founded by Talabi Oluwatobi Samuel (UNILORIN Alumnus) • Operated by Vertex Data Labs (CAC Reg: 9986884). Need help? Email <a href="mailto:support@vertex-researchsuite.com" style={{ color: "inherit" }}>support@vertex-researchsuite.com</a></p>
         <p style={{ color: GOLD, fontSize: 14, fontWeight: 700, fontStyle: "italic", textAlign: "center", margin: "16px 0 24px 0" }}>
           Smarter Research. Better Decisions. Primed for Excellence.
         </p>
