@@ -24,6 +24,7 @@ export default function Home() {
       <div style={{ maxWidth: 560, textAlign: "center", lineHeight: 1.6 }}>
         <h1 style={{ fontSize: 34, margin: "0 0 10px" }}>Vertex ResearchSuite</h1>
         <p style={{ color: GOLD, fontSize: 19, fontWeight: 700, margin: "0 0 6px" }}>Smarter Research, Better Decisions, Primed for Excellence</p>
+        <p style={{ color: "#e6ecf5", fontSize: 13, margin: "0 0 8px" }}>Founded by Talabi Oluwatobi Samuel (UNILORIN Alumnus) • Operated by Vertex Data Labs (CAC Reg: 9986884)</p>
         <p style={{ color: "#cfd8e6", fontSize: 15, margin: "0 0 22px" }}>Built for Africa, to the world.</p>
         <p style={{ color: "#e6ecf5", fontSize: 15, margin: "0 0 22px" }}>Built for students and researchers who want clear results, fast.</p>
         <p style={{ color: "#e6ecf5", fontSize: 16, margin: "0 0 26px" }}>
