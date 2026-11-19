@@ -44,7 +44,7 @@ export default function Home() {
         <Link href="/about" style={{ display: "block", border: "2px solid white", color: "white", fontWeight: 700, padding: "12px", borderRadius: 10, textDecoration: "none", marginBottom: 18 }}>
           Read about
         </Link>
-          <Link href="/manuals" style={{ display: "block", border: "2px solid " + GOLD, color: GOLD, fontWeight: 700, padding: "14px", borderRadius: 10, textAlign: "center", textDecoration: "none", marginTop: 10, marginBottom: 10 }}>User Manuals &amp; Sample Outputs</Link>
+          <Link href="/manuals" style={{ display: "block", border: "2px solid " + GOLD, color: GOLD, fontWeight: 700, padding: "14px", borderRadius: 10, textAlign: "center", textDecoration: "none", marginTop: 10, marginBottom: 10 }}>Guides to All Features</Link>
         <Link href="/login" style={{ color: "#cfd8e6", fontSize: 14 }}>Already have an account? Login</Link>
         <div style={{ marginTop: 28, textAlign: "left" }}>
           <details style={{ background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "12px 14px" }}><summary style={{ color: GOLD, fontSize: 18, fontWeight: 700, cursor: "pointer", textAlign: "center" }}>Frequently Asked Questions</summary><div style={{ marginTop: 12 }}>
