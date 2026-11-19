@@ -22,6 +22,6 @@ export const MANUALS_LIST: ManualEntry[] = [
   { slug: "quantitative-analysis", label: "Quantitative Data Analysis", blurb: "Turn your survey data into APA-styled results", pdf: "Quantitative_Data_Analysis_User_Manual.pdf", hasPage: true },
   { slug: "data-cleaning", label: "Quantitative Data Cleaning", blurb: "Turn word answers into numbers for analysis", pdf: "Quantitative_Data_Cleaning_User_Manual.pdf", hasPage: true },
   { slug: "report-restyle", label: "Restyle Your Report", blurb: "Convert your tables and writing to any citation style", pdf: "Restyle_Your_Report_User_Manual.pdf", hasPage: false },
-  { slug: "qualitative-analysis", label: "Qualitative Data Analysis", blurb: "Turn interview transcripts into themed, quoted findings", pdf: "Qualitative_Data_Analysis_User_Manual.pdf", hasPage: false },
+  { slug: "qualitative-analysis", label: "Qualitative Data Analysis", blurb: "Turn interview transcripts into themed, quoted findings", pdf: "Qualitative_Data_Analysis_User_Manual.pdf", hasPage: true },
   { slug: "voice-transcription", label: "Voice Transcription & Analysis", blurb: "Upload interview audio, get transcript + notes", pdf: "Voice_Transcription_Analysis_User_Manual.pdf", hasPage: false },
 ];
