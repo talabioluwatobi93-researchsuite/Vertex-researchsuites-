@@ -104,7 +104,7 @@ export default function ResponseRatePage() {
           <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             <input
               type="text"
-              placeholder="e.g. Faculty of Arts, UNILORIN"
+              placeholder="e.g. Faculty of Arts, Your University"
               value={loc.area}
               onChange={e => updateLocation(idx, 'area', e.target.value)}
               style={{ flex: 2, padding: 8, borderRadius: 6, border: '1px solid #ccc' }}

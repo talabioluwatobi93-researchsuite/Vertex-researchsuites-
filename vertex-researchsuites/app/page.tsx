@@ -24,7 +24,6 @@ export default function Home() {
       <div style={{ maxWidth: 560, textAlign: "center", lineHeight: 1.6 }}>
         <h1 style={{ fontSize: 34, margin: "0 0 10px" }}>Vertex ResearchSuite</h1>
         <p style={{ color: GOLD, fontSize: 19, fontWeight: 700, margin: "0 0 6px" }}>Smarter Research, Better Decisions, Primed for Excellence</p>
-        <p style={{ color: "#e6ecf5", fontSize: 13, margin: "0 0 8px" }}>Founded by Talabi Oluwatobi Samuel (UNILORIN Alumnus) • Operated by Vertex Data Labs (CAC Reg: 9986884)</p>
         <p style={{ color: "#cfd8e6", fontSize: 15, margin: "0 0 22px" }}>Built for Africa, to the world.</p>
         <p style={{ color: "#e6ecf5", fontSize: 15, margin: "0 0 22px" }}>Built for students and researchers who want clear results, fast.</p>
         <p style={{ color: "#e6ecf5", fontSize: 16, margin: "0 0 26px" }}>
@@ -70,7 +69,7 @@ export default function Home() {
           <p style={{ margin: "0 0 4px" }}>© 2026 Vertex Data Labs. All rights reserved.</p>
           <p style={{ margin: "0 0 4px 0" }}>Powered by Google, Amazon Web Services (AWS) and Paystack.</p>
           <p style={{ margin: 0 }}>Vertex ResearchSuite is a product of Vertex Data Labs, a Nigerian software business registered with the Corporate Affairs Commission (CAC). Registration No. 9986884.</p>
-          <p style={{ margin: "4px 0 0" }}>Founded by Talabi Oluwatobi Samuel (UNILORIN Alumnus) • Operated by Vertex Data Labs (CAC Reg: 9986884)</p>
+          <p style={{ margin: "4px 0 0" }}>Founded by Talabi Oluwatobi Samuel • Operated by Vertex Data Labs (CAC Reg: 9986884)</p>
           <p style={{ margin: "4px 0 0" }}>Need help? Email <a href="mailto:support@vertex-researchsuite.com" style={{ color: "inherit" }}>support@vertex-researchsuite.com</a></p>
         <p style={{ margin: "4px 0 0" }}>The statistical engine, formulas, note-taking tools and other features in Vertex ResearchSuite are designed specifically for Vertex ResearchSuite.</p>
         </div>

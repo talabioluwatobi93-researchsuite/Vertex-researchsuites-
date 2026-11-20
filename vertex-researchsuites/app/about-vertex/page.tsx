@@ -25,7 +25,7 @@ export default function AboutVertex() {
           Most Nigerian students know the quiet panic of final-year project season or thesis writing. You have the passion to produce excellent academic work, yet there is always a wall. World-class research and data analysis tools exist online, but many are out of reach: they demand a dollar card, charge monthly subscriptions, or produce statistical output that is hard to interpret. For many students and researchers across Africa, brilliance is not the problem. Access is.
         </p>
         <p style={{ color: "#e6ecf5", fontSize: 14, lineHeight: 1.7 }}>
-          Vertex ResearchSuite was built to change that. It was founded by Talabi Oluwatobi Samuel, a Mass Communication graduate of the Faculty of Communication and Information Sciences, University of Ilorin (UNILORIN), with one clear mission: to remove the financial, technical and border barriers between African students and academic excellence.
+          Vertex ResearchSuite was built to change that. It was founded by Talabi Oluwatobi Samuel, a Mass Communication graduate of the University of Ilorin, with one clear mission: to remove the financial, technical and border barriers between African students and academic excellence.
         </p>
         <p style={{ color: "#e6ecf5", fontSize: 14, lineHeight: 1.7 }}>
           Having seen first-hand the sleepless nights, rejected proposals, messy datasets and financial strain students endure to get their research approved, Talabi set out to build an all-in-one research companion designed for our reality.
@@ -49,7 +49,7 @@ export default function AboutVertex() {
         <p style={{ color: "#e6ecf5", fontSize: 14, lineHeight: 1.7, marginTop: 20 }}>
           Vertex ResearchSuite is a flagship product of Vertex Data Labs, a Nigerian software business registered with the Corporate Affairs Commission (CAC). More products are coming soon.
         </p>
-        <p style={{ color: "#e6ecf5", fontSize: 14, lineHeight: 1.7, marginTop: 12 }}>Founded by Talabi Oluwatobi Samuel (UNILORIN Alumnus) • Operated by Vertex Data Labs (CAC Reg: 9986884). Need help? Email <a href="mailto:support@vertex-researchsuite.com" style={{ color: "inherit" }}>support@vertex-researchsuite.com</a></p>
+        <p style={{ color: "#e6ecf5", fontSize: 14, lineHeight: 1.7, marginTop: 12 }}>Founded by Talabi Oluwatobi Samuel • Operated by Vertex Data Labs (CAC Reg: 9986884). Need help? Email <a href="mailto:support@vertex-researchsuite.com" style={{ color: "inherit" }}>support@vertex-researchsuite.com</a></p>
         <p style={{ color: GOLD, fontSize: 14, fontWeight: 700, fontStyle: "italic", textAlign: "center", margin: "16px 0 24px 0" }}>
           Smarter Research. Better Decisions. Primed for Excellence.
         </p>
