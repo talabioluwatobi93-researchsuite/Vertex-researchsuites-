@@ -1,12 +1,13 @@
 type Result = { content: string; providerUsed: string }
 
-const TIMEOUT_MS = 45000
+const BUDGET_MS = 46000
+const FIRST_CAP_MS = 28000
 
-async function callModel(model: string, prompt: string): Promise<string> {
+async function callModel(model: string, prompt: string, timeoutMs: number): Promise<string> {
   const key = process.env.OPENROUTER_API_KEY
   if (!key) throw new Error('CONFIG_ERROR: missing OPENROUTER_API_KEY')
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -102,10 +103,10 @@ export async function callPilotInterpret(prompt: string): Promise<Result> {
     { id: process.env.PILOT_MODEL_PRIMARY || 'anthropic/claude-sonnet-5', label: 'sonnet5-openrouter' },
     { id: process.env.PILOT_MODEL_FALLBACK || 'deepseek/deepseek-v4-pro-0813', label: 'deepseek-fallback' },
   ]
-  let lastErr: any = null
+  let lastErr: any = null; const t0 = Date.now()
   for (const m of models) {
     try {
-      const text = await callModel(m.id, prompt)
+      const left = BUDGET_MS - (Date.now() - t0); if (left < 5000) break; const text = await callModel(m.id, prompt, Math.min(left, FIRST_CAP_MS))
       const problem = check(text, prompt)
       if (problem) {
         console.error('Pilot interpretation rejected (' + m.label + '): ' + problem)
